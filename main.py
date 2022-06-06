@@ -5,17 +5,16 @@ import json
 import asyncio
 from sqlite3 import connect
 import sys
+from tkinter.messagebox import NO
 import nats as broker
 from nats.errors import ConnectionClosedError, TimeoutError, NoServersError
 import http_request
-from time import time, sleep
+import time
 import uuid
 from pymitter import EventEmitter
 
 
 async def main():
-    ee = EventEmitter()
-
     class Memphis:
         def __init__(self):
             self.is_connection_active = False
@@ -87,8 +86,10 @@ async def main():
                                         headers={"Authorization": "Bearer " + self.access_token}, body_params={"name": name, "description": description})
                 return Factory(self, json.loads(response)['name'])
             except Exception as e:
-                print(e)  # ??
-                raise Exception(e)
+                if str(e).find('already exist') != -1:
+                    return Factory(self, name.lower())
+                else:
+                    raise Exception(e)
 
         async def station(self, name, factory_name, retention_type="message_age_sec", retention_value=604800, storage_type="file", replicas=1, dedup_enabled=False, dedup_window_ms=0):
             try:
@@ -99,8 +100,10 @@ async def main():
                     "name": name, "factory_name": factory_name, "retention_type": retention_type, "retention_value": retention_value, "storage_type": storage_type, "replicas": replicas, "dedup_enabled": dedup_enabled, "dedup_window_in_ms": dedup_window_ms})
                 return Station(self, json.loads(response)['name'])
             except Exception as e:
-                print(e)  # ??
-                raise Exception(e)
+                if str(e).find('already exist') != -1:
+                    return Station(self, name.lower())
+                else:
+                    raise Exception(e)
 
         async def producer(self, station_name, producer_name):
             try:
@@ -132,9 +135,51 @@ async def main():
             else:
                 return host
 
-        def __keep_acess_token_fresh(self, expires_in):
-            print(expires_in)
-            # TODO
+        # def __keep_acess_token_fresh(self, expires_in):
+        #     print(expires_in)
+        #     # TODO
+
+        # async def __close(self):
+        #     if self.reconnect is True and self.reconnect_attempts < self.max_reconnect:
+        #         self.reconnect_attempts += 1
+        #         starttime = time.time()
+        #         while True:
+        #             time.sleep(self.reconnect_interval_ms/1000 -
+        #                        ((time.time() - starttime) % self.reconnect_interval_ms/1000))
+        #             try:
+        #                 await self.connect(host=self.host, management_port=self.management_port, tcp_port=self.tcp_port, data_port=self.data_port, username=self.username, connection_token=self.connection_token, reconnect=self.reconnect, max_reconnect=self.max_reconnect, reconnect_interval_ms=self.reconnect_interval_ms, timeout_ms=self.timeout_ms)
+        #                 print("Reconnect to memphis has been succeeded")
+        #             except Exception as e:
+        #                 print("Failed reconnect to memphis")
+        #                 return
+        #     elif self.is_connection_active is True:
+        #         self.client.destroy()
+        #         self.access_token = None
+        #         self.connection_id = None
+        #         self.is_connection_active = False
+        #         self.access_token_timeout = None
+        #         self.ping_timeout = None
+        #         self.reconnect_attempts = 0
+        #         starttime = time.time()
+        #         while True:
+        #             time.sleep(0.5 - ((time.time() - starttime) % 0.5))
+        #             if self.broker_manager is True:
+        #                 self.broker_manager.close()
+
+        # async def close(self):
+        #     if self.is_connection_active is True:
+        #         self.client.destroy()
+        #         self.access_token = None
+        #         self.connection_id = None
+        #         self.is_connection_active = False
+        #         self.access_token_timeout = None
+        #         self.ping_timeout = None
+        #         self.reconnect_attempts = 0
+        #         starttime = time.time()
+        #         while True:
+        #             time.sleep(0.5 - ((time.time() - starttime) % 0.5))
+        #             if self.broker_manager is True:
+        #                 self.broker_manager.close()
 
     class Factory:
         def __init__(self, connection, name):
@@ -202,47 +247,58 @@ async def main():
             self.batch_size = batch_size
             self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms
             self.max_ack_time_ms = max_ack_time_ms
+            self.event = EventEmitter()
 
-        # async def subscribe(self):
-            # self.psub = self.connection.broker_connection.pull_subscribe(
-            #     self.station_name + ".final", "psub")
-            # while True:
-            #     # run every 1 second... you can change that
-            #     sleep((self.pull_interval_ms/1000) - time() %
-            #           (self.pull_interval_ms/1000))
-            #     msgs = self.psub.fetch(self.batch_size)
-            #     for msg in msgs:
-            #         # self.emitter.emit('data', msg.data.decode())
-            #         ee.emit("message", msg.data.decode())
-            #         print(msg.data.decode())
+        async def consume(self):
+            try:
+                self.psub = await self.connection.broker_connection.pull_subscribe(
+                    self.station_name + ".final", "psub")
+                starttime = time.time()
+                while True:
+                    time.sleep(self.pull_interval_ms/1000 -
+                               ((time.time() - starttime) % self.pull_interval_ms/1000))
+                    msgs = await self.psub.fetch(self.batch_size)
+                    for msg in msgs:
+                        self.event.emit('message', Message(msg))
+            except Exception as e:
+                self.event.emit('error', e)
+
+    class Message:
+        def __init__(self, message):
+            self.message = message
+
+        def ack(self):
+            self.message.ack()
+
+        def get_data(self):
+            return self.message.data.decode()
 
     memphis = Memphis()
-    connected = False
+    # connected = False
     await memphis.connect(
         "http://localhost", "sveta", "memphis", max_reconnect=12)
-    # fac = await memphis.factory("fact", "dddd")
+    # fac = await memphis.factory("fact", "description")
     # fac.destroy()
 
-    # sta = await memphis.station("myStation1", "fact")
+    # sta = await memphis.station("new_station", "fact")
     # sta.destroy()
 
     # prod = await memphis.producer("new_station", "myProd")
-    # for i in range(3000, 4000):
-    #     await prod.produce("this is a msg num "+str(i))
+    # for i in range(4000):
+    #     await prod.produce("This is a msg num "+str(i))
     # await prod.destroy()
 
-    # def msg_handler(arg):
-    #     print("message", arg)
-    # ee.on("message", msg_handler)
+    def msg_handler(msg):
+        print("message: ", msg.get_data())
+        msg.ack()
 
-    # await memphis.factory("fact", "description")
-    # await memphis.station("new_station", "fact")
-    await memphis.consumer("new_station", "check_cons")
+    def error_handler(error):
+        print("error: ", error)
 
-    # cons = await memphis.consumer("new_station", "check_cons")
-    # await cons.subscribe()
-
-    # ee.emit("message", "bar")
+    cons = await memphis.consumer("new_station", "check_cons")
+    cons.event.on("message", msg_handler)
+    cons.event.on("error", error_handler)
+    await cons.consume()
 
 if __name__ == '__main__':
     asyncio.run(main())
