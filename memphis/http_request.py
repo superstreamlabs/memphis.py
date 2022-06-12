@@ -1,7 +1,5 @@
-from urllib import response
 import requests
 import json
-import sys
 
 
 def http_request(method, url, headers={}, body_params={}, query_params={}, file=None, timeout=None):
@@ -32,6 +30,3 @@ def http_request(method, url, headers={}, body_params={}, query_params={}, file=
             return response.text
     except Exception as e:
         raise Exception(e)
-
-
-sys.modules[__name__] = http_request
