@@ -33,7 +33,7 @@ In the coming versions, Memphis will answer the challenges above,<br>and recude 
 ---
 
 **Purpose of this repo**<br>
-For Memphis node.js SDK
+For Memphis node.py SDK
 
 **Table of Contents**
 
