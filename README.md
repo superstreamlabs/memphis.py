@@ -216,7 +216,7 @@ producer.destroy()
 ### Creating a Consumer
 
 ```python
-const consumer = await memphis.consumer(
+  consumer = await memphis.consumer(
   stationName="<station-name>",
   consumerName="<consumer-name>",
   consumerGroup="<group-name>", # defaults to ""
@@ -237,9 +237,9 @@ def msg_handler(msg):
 def error_handler(error):
     print("error: ", error)
 
-cons.event.on("message", msg_handler)
-cons.event.on("error", error_handler)
-await cons.consume()
+consumer.event.on("message", msg_handler)
+consumer.event.on("error", error_handler)
+await consumer.consume()
 ```
 
 ### Acknowledge a message
