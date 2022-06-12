@@ -1,20 +1,11 @@
-from multiprocessing import connection
-from os import execv
-from re import S
 import socket
 import json
-import asyncio
-from sqlite3 import connect
-import sys
-from tkinter.messagebox import NO
 import nats as broker
-from nats.errors import ConnectionClosedError, TimeoutError, NoServersError
 import time
 import uuid
 from pymitter import EventEmitter
 from memphis.http_request import http_request
 from threading import Thread
-import threading
 
 
 class Memphis:
@@ -42,6 +33,19 @@ class Memphis:
         self.ping_interval_ms = None
 
     async def connect(self, host, username, connection_token, management_port=5555, tcp_port=6666, data_port=7766, reconnect=True, max_reconnect=3, reconnect_interval_ms=200, timeout_ms=15000):
+        """Creates connection with Memphis.
+        Args:
+            host (str): memphis host.
+            username (str): user of type root/application.
+            connection_token (str): broker token.
+            management_port (int, optional): management port. Defaults to 5555.
+            tcp_port (int, optional): tcp port. Defaults to 6666.
+            data_port (int, optional): data port. Defaults to 7766.
+            reconnect (bool, optional): whether to do reconnect while connection is lost. Defaults to True.
+            max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
+            reconnect_interval_ms (int, optional): Interval in miliseconds between reconnect attempts. Defaults to 200.
+            timeout_ms (int, optional): connection timeout in miliseconds. Defaults to 15000.
+        """
         self.host = self.__normalize_host(host)
         self.management_port = management_port
         self.tcp_port = tcp_port
@@ -95,7 +99,19 @@ class Memphis:
                 raise Exception(e)
 
     async def factory(self, name, description=""):
-        print("=======factory=========")
+        """Creates a factory.
+
+        Args:
+            name (str): factory name.
+            description (str, optional): factory description(optional).
+
+        Raises:
+            Exception: _description_
+            Exception: _description_
+
+        Returns:
+            object: factory
+        """
         try:
             if not self.connected:
                 raise Exception("Connection is dead")
@@ -110,6 +126,20 @@ class Memphis:
                 raise Exception(e)
 
     async def station(self, name, factory_name, retention_type="message_age_sec", retention_value=604800, storage_type="file", replicas=1, dedup_enabled=False, dedup_window_ms=0):
+        """Creates a station. 
+
+        Args:
+            name (str): station name.
+            factory_name (str): factory name to link the station with.
+            retention_type (str, optional): retention type: message_age_sec/messages/bytes . Defaults to "message_age_sec".
+            retention_value (int, optional): number which represents the retention based on the retention_type. Defaults to 604800.
+            storage_type (str, optional): persistance storage for messages of the station: file/memory. Defaults to "file".
+            replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
+            dedup_enabled (bool, optional): whether to allow dedup mecanism, dedup happens based on message ID. Defaults to False.
+            dedup_window_ms (int, optional): time frame in which dedup track messages. Defaults to 0.
+        Returns:
+            object: station
+        """
         try:
             if not self.is_connection_active:
                 raise Exception("Connection is dead")
@@ -124,6 +154,8 @@ class Memphis:
                 raise Exception(e)
 
     async def close(self):
+        """Close Memphis connection. 
+        """
         if self.is_connection_active:
             self.client.close()
             self.access_token_timeout = None
@@ -193,6 +225,19 @@ class Memphis:
                     self.broker_manager.close()
 
     async def producer(self, station_name, producer_name):
+        """Creates a producer. 
+
+        Args:
+            station_name (str): station name to produce messages into.
+            producer_name (str): name for the producer.
+
+        Raises:
+            Exception: _description_
+            Exception: _description_
+
+        Returns:
+            _type_: _description_
+        """
         try:
             if not self.is_connection_active:
                 raise Exception("Connection is dead")
@@ -204,6 +249,20 @@ class Memphis:
             raise Exception(e)
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000):
+        """Creates a consumer. 
+
+        Args:
+            station_name (str): station name to consume messages from.
+            consumer_name (str): name for the consumer.
+            consumer_group (str, optional): consumer group name. Defaults to "".
+            pull_interval_ms (int, optional): interval in miliseconds between pulls. Defaults to 1000.
+            batch_size (int, optional): pull batch size. Defaults to 10.
+            batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
+            max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
+
+        Returns:
+            object: consumer
+        """
         try:
             if not self.connected:
                 raise Exception("Connection is dead")
@@ -221,6 +280,8 @@ class Factory:
         self.name = name.lower()
 
     def destroy(self):
+        """Destroy the factory. 
+        """
         try:
             http_request("DELETE", 'http://'+self.connection.host+':'+str(self.connection.management_port)+'/api/factories/removeFactory', headers={
                 "Authorization": "Bearer " + self.connection.access_token}, body_params={"factory_name": self.name})
@@ -234,6 +295,8 @@ class Station:
         self.name = name.lower()
 
     def destroy(self):
+        """Destroy the station.
+        """
         try:
             http_request("DELETE", 'http://'+self.connection.host+':'+str(self.connection.management_port)+'/api/stations/removeStation', headers={
                 "Authorization": "Bearer " + self.connection.access_token}, body_params={"station_name": self.name})
@@ -248,6 +311,16 @@ class Producer:
         self.station_name = station_name
 
     async def produce(self, message, ack_wait_sec=15):
+        """Produces a message into a station. 
+
+        Args:
+            message (Uint8Array): message to send into the station.
+            ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
+
+        Raises:
+            Exception: _description_
+            Exception: _description_
+        """
         try:
             await self.connection.broker_connection.publish(self.station_name + ".final", message.encode('ascii'), headers={
                 "Nats-Msg-Id": str(uuid.uuid4())
@@ -260,6 +333,8 @@ class Producer:
                 raise Exception(e)
 
     async def destroy(self):
+        """Destroy the producer. 
+        """
         try:
             http_request("DELETE", 'http://'+self.connection.host+':'+str(self.connection.management_port)+'/api/consumers/destroyProducer', headers={
                          "Authorization": "Bearer " + self.connection.access_token}, body_params={"name": self.producer_name, "station_name": self.station_name})
@@ -280,6 +355,8 @@ class Consumer:
         self.event = EventEmitter()
 
     async def consume(self):
+        """Consume events.
+        """
         try:
             self.psub = await self.connection.broker_connection.pull_subscribe(
                 self.station_name + ".final", "psub")
@@ -293,12 +370,25 @@ class Consumer:
         except Exception as e:
             self.event.emit('error', e)
 
+    async def destroy(self):
+        """Destroy the consumer. 
+        """
+        self.event = None
+        self.pull_interval_ms = None
+        try:
+            http_request("DELETE", 'http://'+self.connection.host+':'+str(self.connection.management_port)+'/api/consumers/destroyConsumer', headers={
+                "Authorization": "Bearer " + self.connection.access_token}, body_params={"name": self.consumer_name, "station_name": self.station_name})
+        except Exception as e:
+            return
+
 
 class Message:
     def __init__(self, message):
         self.message = message
 
     def ack(self):
+        """Ack a message is done processing. 
+        """
         self.message.ack()
 
     def get_data(self):
