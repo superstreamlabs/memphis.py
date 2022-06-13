@@ -109,7 +109,7 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-
+````
 Once connected, the entire functionalities offered by Memphis are available.
 
 ### Disconnecting from Memphis
