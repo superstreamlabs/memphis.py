@@ -218,8 +218,8 @@ producer.destroy()
 ```python
   consumer = await memphis.consumer(
   stationName="<station-name>",
-  consumerName="<consumer-name>",
-  consumerGroup="<group-name>", # defaults to ""
+  consumer_name="<consumer-name>",
+  consumer_group="<group-name>", # defaults to ""
   pull_interval_ms=1000, # defaults to 1000
   batch_size=10, # defaults to 10
   batch_max_time_to_wait_ms=5000, # defaults to 5000
