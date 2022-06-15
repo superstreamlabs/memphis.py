@@ -217,7 +217,7 @@ producer.destroy()
 
 ```python
   consumer = await memphis.consumer(
-  stationName="<station-name>",
+  station_name="<station-name>",
   consumer_name="<consumer-name>",
   consumer_group="<group-name>", # defaults to ""
   pull_interval_ms=1000, # defaults to 1000
