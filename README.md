@@ -203,7 +203,7 @@ await producer.produce({
 });
 
 await producer.produce(message="<bytes array>", # Uint8Arrays
-                       ack_WaitSec=15, # defaults to 15
+                       ack_wait_sec=15, # defaults to 15
                        )
 ```
 
