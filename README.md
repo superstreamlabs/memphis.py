@@ -199,7 +199,7 @@ producer = await memphis.producer(station_name="<station-name>", producer_name="
 ```python
 await producer.produce({
   message: "<bytes array>", # Uint8Arrays
-  ackWaitSec: 15, # defaults to 15
+  ack_wait_sec: 15, # defaults to 15
 });
 
 await producer.produce(message="<bytes array>", # Uint8Arrays
