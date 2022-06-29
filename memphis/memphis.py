@@ -94,7 +94,7 @@ class Memphis:
             t_ping_interval_ms.start()
         if not self.connected:
             try:
-                self.broker_manager = await broker.connect(servers=self.host+":"+str(self.data_port), allow_reconnect=True, reconnect_time_wait=2, connect_timeout=2, max_reconnect_attempts=60, token="memphis")
+                self.broker_manager = await broker.connect(servers=self.host+":"+str(self.data_port), allow_reconnect=True, reconnect_time_wait=2, connect_timeout=2, max_reconnect_attempts=60, token=self.connection_token)
                 self.broker_connection = self.broker_manager.jetstream()
                 self.connected = True
                 print(self.broker_connection)
