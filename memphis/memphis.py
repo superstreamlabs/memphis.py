@@ -5,32 +5,52 @@ import time
 import uuid
 from pymitter import EventEmitter
 from memphis.http_request import http_request
-from threading import Thread
+from threading import Thread, Timer
+import asyncio
+
+import memphis.retention_types
+import memphis.storage_types
+
+
+class set_interval():
+    def __init__(self, func, sec):
+        def func_wrapper():
+            self.t = Timer(sec, func_wrapper)
+            self.t.start()
+            func()
+        self.t = Timer(sec, func_wrapper)
+        self.t.start()
+
+    def cancel(self):
+        self.t.cancel()
 
 
 class Memphis:
+
     def __init__(self):
-        self.is_connection_active = False
-        self.connection_id = None
-        self.access_token = None
-        self.host = None
-        self.management_port = 5555
-        self.tcp_port = 6666
-        self.data_port = 7766
-        self.username = None
-        self.connection_token = None
-        self.access_token_timeout = None
         self.client = socket.socket()
-        self.reconnect_attempts = 0
-        self.reconnect = True
-        self.max_reconnect = 3
-        self.reconnect_interval_ms = 200
-        self.timeout_ms = 15000
-        self.broker_connection = None
-        self.broker_manager = None
         self.connected = False
-        self.access_token_exp = None
-        self.ping_interval_ms = None
+    #     self.is_connection_active = False
+    # self.connection_id = None
+    # self.access_token = None
+    # self.host = None
+    # self.management_port = 5555
+    # self.tcp_port = 6666
+    # self.data_port = 7766
+    # self.username = None
+    # self.connection_token = None
+    # self.access_token_timeout = None
+
+    # self.reconnect_attempts = 0
+    # self.reconnect = True
+    # self.max_reconnect = 3
+    # self.reconnect_interval_ms = 200
+    # self.timeout_ms = 15000
+    # self.broker_connection = None
+    # self.broker_manager = None
+    # self.access_token_exp = None
+    # self.ping_interval_ms = None
+    # self.close_thread = False
 
     async def connect(self, host, username, connection_token, management_port=5555, tcp_port=6666, data_port=7766, reconnect=True, max_reconnect=3, reconnect_interval_ms=200, timeout_ms=15000):
         """Creates connection with Memphis.
@@ -47,24 +67,25 @@ class Memphis:
             timeout_ms (int, optional): connection timeout in miliseconds. Defaults to 15000.
         """
         self.host = self.__normalize_host(host)
+        self.username = username
+        self.connection_token = connection_token
         self.management_port = management_port
         self.tcp_port = tcp_port
         self.data_port = data_port
-        self.username = username
-        self.connection_token = connection_token
         self.reconnect = reconnect
         self.max_reconnect = 9 if max_reconnect > 9 else max_reconnect
         self.reconnect_interval_ms = reconnect_interval_ms
         self.timeout_ms = timeout_ms
+
         try:
             self.client.connect((self.host, self.tcp_port))
 
+        # CHECK
         except OSError as msg:
             self.client = None
             self.__close()
+            raise Exception(msg)
 
-        if self.client is None:
-            raise Exception("could not open socket")
         connection_details = {"username": self.username,
                               "broker_creds": self.connection_token, "connection_id": None}
         self.client.send(json.dumps(connection_details).encode())
@@ -81,20 +102,17 @@ class Memphis:
 
         if data['access_token']:
             self.access_token = data['access_token']
-            t_keep_acess_token_fresh = Thread(
-                target=self.__keep_acess_token_fresh)
-            t_keep_acess_token_fresh.daemon = True
-            t_keep_acess_token_fresh.start()
+            self.t_keep_acess_token_fresh = set_interval(
+                self.__keep_acess_token_fresh, self.access_token_exp/1000)
 
         if data['ping_interval_ms']:
             self.ping_interval_ms = data['ping_interval_ms']
-            t_ping_interval_ms = Thread(
-                target=self.__ping_server)
-            t_ping_interval_ms.daemon = True
-            t_ping_interval_ms.start()
+            self.t_ping_server = set_interval(
+                self.__ping_server, self.ping_interval_ms/1000)
+
         if not self.connected:
             try:
-                self.broker_manager = await broker.connect(servers=self.host+":"+str(self.data_port), allow_reconnect=True, reconnect_time_wait=2, connect_timeout=2, max_reconnect_attempts=60, token=self.connection_token)
+                self.broker_manager = await broker.connect(servers=self.host+":"+str(self.data_port), allow_reconnect=self.reconnect, reconnect_time_wait=self.reconnect_interval_ms/1000, connect_timeout=self.timeout_ms/1000, max_reconnect_attempts=self.max_reconnect, token=self.connection_token)
                 self.broker_connection = self.broker_manager.jetstream()
                 self.connected = True
             except Exception as e:
@@ -115,7 +133,7 @@ class Memphis:
             object: factory
         """
         try:
-            if not self.connected:
+            if not self.is_connection_active:
                 raise Exception("Connection is dead")
 
             response = http_request("POST", 'http://'+self.host+':' + str(self.management_port)+'/api/factories/createFactory',
@@ -127,7 +145,7 @@ class Memphis:
             else:
                 raise Exception(e)
 
-    async def station(self, name, factory_name, retention_type="message_age_sec", retention_value=604800, storage_type="file", replicas=1, dedup_enabled=False, dedup_window_ms=0):
+    async def station(self, name, factory_name, retention_type=memphis.retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=memphis.storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
 
         Args:
@@ -145,7 +163,6 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise Exception("Connection is dead")
-
             response = http_request("POST", 'http://'+self.host+':' + str(self.management_port)+'/api/stations/createStation', headers={"Authorization": "Bearer " + self.access_token}, body_params={
                 "name": name, "factory_name": factory_name, "retention_type": retention_type, "retention_value": retention_value, "storage_type": storage_type, "replicas": replicas, "dedup_enabled": dedup_enabled, "dedup_window_in_ms": dedup_window_ms})
             return Station(self, json.loads(response)['name'])
@@ -164,6 +181,8 @@ class Memphis:
                 self.broker_manager = None
                 self.client.close()
                 self.client = None
+                self.t_keep_acess_token_fresh.cancel()
+                self.t_ping_server.cancel()
                 self.access_token_timeout = None
                 self.ping_interval_ms = None
                 self.access_token_exp = None
@@ -183,26 +202,28 @@ class Memphis:
             return host
 
     def __keep_acess_token_fresh(self):
-        starttime = time.time()
-        while True:
-            time.sleep(self.access_token_exp/1000 -
-                       ((time.time() - starttime) % self.access_token_exp/1000))
-            if not self.access_token_exp or not self.client:
-                break
-            if self.is_connection_active:
-                self.client.send(json.dumps(
-                    {"resend_access_token": True}).encode())
+        if self.is_connection_active:
+            self.client.send(json.dumps(
+                {"resend_access_token": True}).encode())
+            data = self.client.recv(1024)
+            try:
+                data = json.loads(data)
+                if data['access_token']:
+                    self.access_token = data['access_token']
+            except:
+                raise Exception(data)
 
     def __ping_server(self):
-        starttime = time.time()
-        while True:
-            time.sleep(self.ping_interval_ms/1000 -
-                       ((time.time() - starttime) % self.ping_interval_ms/1000))
-            if not self.ping_interval_ms or self.client:
-                break
-            if self.is_connection_active:
-                self.client.send(json.dumps(
-                    {"ping": True}).encode())
+        if self.is_connection_active:
+            self.client.send(json.dumps(
+                {"ping": True}).encode())
+            data = self.client.recv(1024)
+            try:
+                data = json.loads(data)
+                if data['ping_interval_ms']:
+                    self.ping_interval_ms = data['ping_interval_ms']
+            except:
+                raise Exception(data)
 
     async def __close(self):
         if self.reconnect is True and self.reconnect_attempts < self.max_reconnect:
@@ -220,11 +241,27 @@ class Memphis:
                     return
         elif self.is_connection_active is True:
             self.client.destroy()
-            self.access_token = None
-            self.connection_id = None
-            self.is_connection_active = False
-            self.access_token_timeout = None
-            self.reconnect_attempts = 0
+            self.connected = False
+
+            # self.access_token = None
+            # self.connection_id = None
+            # self.is_connection_active = False
+            # self.access_token_timeout = None
+            # self.reconnect_attempts = 0
+            self.t_keep_acess_token_fresh.cancel()
+            self.t_ping_server.cancel()
+
+        #     self.host = self.__normalize_host(host)
+        # self.username = username
+        # self.connection_token = connection_token
+        # self.management_port = management_port
+        # self.tcp_port = tcp_port
+        # self.data_port = data_port
+        # self.reconnect = reconnect
+        # self.max_reconnect = 9 if max_reconnect > 9 else max_reconnect
+        # self.reconnect_interval_ms = reconnect_interval_ms
+        # self.timeout_ms = timeout_ms
+
             starttime = time.time()
             while True:
                 time.sleep(0.5 - ((time.time() - starttime) % 0.5))
@@ -234,7 +271,7 @@ class Memphis:
                     break
 
     async def producer(self, station_name, producer_name):
-        """Creates a producer. 
+        """Creates a producer.
 
         Args:
             station_name (str): station name to produce messages into.
@@ -257,8 +294,8 @@ class Memphis:
         except Exception as e:
             raise Exception(e)
 
-    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000):
-        """Creates a consumer. 
+    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10):
+        """Creates a consumer.
 
         Args:
             station_name (str): station name to consume messages from.
@@ -268,17 +305,18 @@ class Memphis:
             batch_size (int, optional): pull batch size. Defaults to 10.
             batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
+            max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
 
         Returns:
             object: consumer
         """
         try:
-            if not self.connected:
+            if not self.is_connection_active:
                 raise Exception("Connection is dead")
 
             http_request("POST", 'http://'+self.host+':' + str(self.management_port)+'/api/consumers/createConsumer', headers={"Authorization": "Bearer " + self.access_token}, body_params={
-                "name": consumer_name, "station_name": station_name, "connection_id": self.connection_id, "consumer_type": "application", "consumers_group": consumer_group, "max_ack_time_ms": max_ack_time_ms})
-            return Consumer(self, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms)
+                "name": consumer_name, "station_name": station_name, "connection_id": self.connection_id, "consumer_type": "application", "consumers_group": consumer_group, "max_ack_time_ms": max_ack_time_ms, "max_msg_deliveries": max_msg_deliveries})
+            return Consumer(self, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries)
         except Exception as e:
             raise Exception(e)
 
@@ -289,7 +327,7 @@ class Factory:
         self.name = name.lower()
 
     def destroy(self):
-        """Destroy the factory. 
+        """Destroy the factory.
         """
         try:
             http_request("DELETE", 'http://'+self.connection.host+':'+str(self.connection.management_port)+'/api/factories/removeFactory', headers={
@@ -320,7 +358,7 @@ class Producer:
         self.station_name = station_name
 
     async def produce(self, message, ack_wait_sec=15):
-        """Produces a message into a station. 
+        """Produces a message into a station.
 
         Args:
             message (Uint8Array): message to send into the station.
@@ -332,17 +370,16 @@ class Producer:
         """
         try:
             await self.connection.broker_connection.publish(self.station_name + ".final", message, headers={
-                "Nats-Msg-Id": str(uuid.uuid4())
-            })
+                "Nats-Msg-Id": str(uuid.uuid4()), "ackWait": str(ack_wait_sec), "producedBy": self.producer_name})
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(
-                    "Produce operation has failed, please check wheether Station/Producer are still exist")
+                    "Produce operation has failed, please check whether Station/Producer are still exist")
             else:
                 raise Exception(e)
 
     async def destroy(self):
-        """Destroy the producer. 
+        """Destroy the producer.
         """
         try:
             http_request("DELETE", 'http://'+self.connection.host+':'+str(self.connection.management_port)+'/api/consumers/destroyProducer', headers={
@@ -352,7 +389,7 @@ class Producer:
 
 
 class Consumer:
-    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms):
+    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries):
         self.connection = connection
         self.station_name = station_name.lower()
         self.consumer_name = consumer_name.lower()
@@ -361,27 +398,44 @@ class Consumer:
         self.batch_size = batch_size
         self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms
         self.max_ack_time_ms = max_ack_time_ms
+        self.max_msg_deliveries = max_msg_deliveries
+        self.ping_consumer_invterval_ms = 30000
         self.event = EventEmitter()
 
     async def consume(self):
         """Consume events.
         """
+
         try:
             durable_name = self.consumer_group if self.consumer_group else self.consumer_name
             self.psub = await self.connection.broker_connection.pull_subscribe(
                 self.station_name + ".final", durable=durable_name)
-            starttime = time.time()
-            while True:
-                try:
-                    time.sleep(self.pull_interval_ms/1000 -
-                               ((time.time() - starttime) % self.pull_interval_ms/1000))
-                    msgs = await self.psub.fetch(self.batch_size)
-                    for msg in msgs:
-                        self.event.emit('message', Message(msg))
-                except Exception as e:
-                    self.event.emit('error', e)
+
+            try:
+                msgs = await self.psub.fetch(self.batch_size)
+                for msg in msgs:
+                    self.event.emit('message', Message(msg))
+            except Exception as e:
+                self.event.emit('error', e)
+
+            # await self.connection.broker_connection._jsm.consumer_info(self.station_name + ".final", durable_name)
+
+            # await self.__consumer()
+
+            # while True:
+            #     await self.__consumer()
+            #     asyncio.sleep(self.pull_interval_ms/1000)
+
         except Exception as e:
             raise Exception(e)
+
+    async def __consumer(self):
+        try:
+            msgs = await self.psub.fetch(self.batch_size)
+            for msg in msgs:
+                self.event.emit('message', Message(msg))
+        except Exception as e:
+            self.event.emit('error', e)
 
     async def destroy(self):
         """Destroy the consumer. 

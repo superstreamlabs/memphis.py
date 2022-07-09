@@ -1,4 +1,3 @@
-
 import asyncio
 from memphis import Memphis
 
@@ -14,11 +13,11 @@ async def main():
         memphis = Memphis()
         await memphis.connect(host="<memphis-host>", username="<application type username>", connection_token="<broker-token>")
 
-        consumer = await memphis.consumer(name="<station-name>", consumer_name="<consumer-name>", consumer_group="")
+        consumer = await memphis.consumer(station_name="<station-name>", consumer_name="<consumer-name>", consumer_group="")
         consumer.event.on("message", msg_handler)
         consumer.event.on("error", error_handler)
         await consumer.consume()
-        
+
         await memphis.close()
     except Exception as e:
         print(e)
