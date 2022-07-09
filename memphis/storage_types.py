@@ -1,0 +1,2 @@
+FILE = "file"
+MEMORY = "memory"
