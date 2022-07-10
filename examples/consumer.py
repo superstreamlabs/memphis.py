@@ -18,6 +18,7 @@ async def main():
         consumer.event.on("error", error_handler)
         await consumer.consume()
 
+        await asyncio.sleep(10)
         await memphis.close()
     except Exception as e:
         print(e)
