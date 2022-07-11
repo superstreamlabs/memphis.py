@@ -257,7 +257,7 @@ memphis.retention_types.MESSAGES
 Means that after max amount of saved messages (set in retention value), the oldest messages will be deleted
 
 ```python
-memphis.retention_types.BYTES;
+memphis.retention_types.BYTES
 ```
 
 Means that after max amount of saved bytes (set in retention value), the oldest messages will be deleted
@@ -273,7 +273,7 @@ memphis.storage_types.FILE
 Means that messages persist on the file system
 
 ```js
-memphis.storage_types.MEMORY;
+memphis.storage_types.MEMORY
 ```
 
 Means that messages persist on the main memory
