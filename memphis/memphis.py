@@ -30,7 +30,7 @@ class Memphis:
         self.client = socket.socket()
         self.connected = False
 
-    async def connect(self, host, username, connection_token, management_port=5555, tcp_port=6666, data_port=7766, reconnect=True, max_reconnect=3, reconnect_interval_ms=200, timeout_ms=15000):
+    async def connect(self, host, username, connection_token, management_port=5555, tcp_port=6666, data_port=7766, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=1500):
         """Creates connection with Memphis.
         Args:
             host (str): memphis host.
@@ -92,6 +92,13 @@ class Memphis:
                 self.connected = True
             except Exception as e:
                 raise Exception(e)
+
+        self.t_timeout = set_interval(
+            self.__handel_reconnect_timeout, self.timeout_ms/1000)
+
+    def __handel_reconnect_timeout(self):
+        if(not self.reconnect or self.reconnect_attempts == self.max_reconnect or not self.is_connection_active):
+            raise Exception("Connection timeout has reached")
 
     async def factory(self, name, description=""):
         """Creates a factory.
@@ -158,6 +165,7 @@ class Memphis:
                 self.client = None
                 self.t_keep_acess_token_fresh.cancel()
                 self.t_ping_server.cancel()
+                self.t_timeout.cancel()
                 self.access_token_timeout = None
                 self.ping_interval_ms = None
                 self.access_token_exp = None
@@ -217,6 +225,7 @@ class Memphis:
                 self.connected = False
                 self.t_keep_acess_token_fresh.cancel()
                 self.t_ping_server.cancel()
+                self.t_timeout.cancel()
                 self.is_connection_active = False
                 while True:
                     if self.broker_manager:
@@ -255,7 +264,7 @@ class Memphis:
         Args:
             station_name (str): station name to consume messages from.
             consumer_name (str): name for the consumer.
-            consumer_group (str, optional): consumer group name. Defaults to "".
+            consumer_group (str, optional): consumer group name. Defaults to the consumer name.
             pull_interval_ms (int, optional): interval in miliseconds between pulls. Defaults to 1000.
             batch_size (int, optional): pull batch size. Defaults to 10.
             batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
@@ -324,8 +333,8 @@ class Producer:
             Exception: _description_
         """
         try:
-            await self.connection.broker_connection.publish(self.station_name + ".final", message, headers={
-                "Nats-Msg-Id": str(uuid.uuid4()), "ackWait": str(ack_wait_sec), "producedBy": self.producer_name})
+            await self.connection.broker_connection.publish(self.station_name + ".final", message, timeout=ack_wait_sec, headers={
+                "Nats-Msg-Id": str(uuid.uuid4()), "producedBy": self.producer_name})
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(
@@ -344,7 +353,7 @@ class Producer:
 
 
 class Consumer:
-    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries):
+    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10):
         self.connection = connection
         self.station_name = station_name.lower()
         self.consumer_name = consumer_name.lower()
@@ -362,6 +371,7 @@ class Consumer:
         """
         # self.t_ping_consumer = asyncio.create_task(self.__ping_consumer())
         # asyncio.gather(self.t_ping_consumer, )
+
         self.t_consume = asyncio.create_task(self.__consume())
         asyncio.gather(self.t_consume,)
 

@@ -6,6 +6,7 @@ from threading import Thread
 
 
 async def main():
+    storage_types.FILE
     # global counter
     # # counter = 0
 
@@ -30,14 +31,14 @@ async def main():
 
         factory = await memphis.factory(name="faccc")
         station = await memphis.station(name="stationnnnnn", factory_name=factory.name)
-        # prod = await memphis.producer(station_name=station.name, producer_name="sveta")
-        # for i in range(40):
-        #     # await prod.produce(bytearray(i))
-        #     await prod.produce(bytearray("This is a msg num "+str(i), 'utf-8'))
+        prod = await memphis.producer(station_name=station.name, producer_name="sveta")
+        for i in range(40):
+            # await prod.produce(bytearray(i))
+            await prod.produce(bytearray("This is a msg num "+str(i), 'utf-8'))
         cons22 = await memphis.consumer(
             station_name=station.name,
-            consumer_name="orr",
-            consumer_group="",  # defaults to ""
+            consumer_name="osr",
+            consumer_group="ss",  # defaults to ""
             pull_interval_ms=500,  # defaults to 1000
             batch_size=10,  # defaults to 10
         )
@@ -54,7 +55,7 @@ async def main():
         cons11.event.on("message", msg_handler_1)
         cons11.event.on("error", error_handler)
 
-        cons22.consume()
+        # cons22.consume()
         # cons11.consume()
 
         # # task1.cancel()
