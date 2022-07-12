@@ -3,13 +3,13 @@ from distutils.core import setup
 setup(
     name='memphis-py',
     packages=['memphis-py'],
-    version='0.1',
+    version='0.1.0',
     license='GPL',
     description='A powerful message broker for developers',
     author='Memphis.dev',
     author_email='team.memphis.dev',
     url='https://github.com/memphisdev/memphis.py',
-    download_url='https://github.com/memphisdev/memphis.py/archive/refs/tags/v_0.1.tar.gz',
+    download_url='https://github.com/memphisdev/memphis.py/archive/refs/tags/v_0.1.0.tar.gz',
     keywords=['message broke', 'devtool', 'streaming', 'data'],
     install_requires=[
         'nats-py',
