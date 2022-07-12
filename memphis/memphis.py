@@ -30,7 +30,7 @@ class Memphis:
         self.client = socket.socket()
         self.connected = False
 
-    async def connect(self, host, username, connection_token, management_port=5555, tcp_port=6666, data_port=7766, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=1500):
+    async def connect(self, host, username, connection_token, management_port=5555, tcp_port=6666, data_port=7766, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
         Args:
             host (str): memphis host.
@@ -334,7 +334,7 @@ class Producer:
         """
         try:
             await self.connection.broker_connection.publish(self.station_name + ".final", message, timeout=ack_wait_sec, headers={
-                "Nats-Msg-Id": str(uuid.uuid4()), "producedBy": self.producer_name})
+                "Nats-Msg-Id": str(uuid.uuid4()), "producedBy": self.producer_name, "connectionId": self.connection.connection_id})
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(
