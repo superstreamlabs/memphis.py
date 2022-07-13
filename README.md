@@ -153,14 +153,14 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 ## Installation
 
 ```sh
-$ pip install memphis-py
+$ pip install memphis
 ```
 
 ## Importing
 
 ```python
-from memphis-py import Memphis
-from memphis-py import retention_types, storage_types
+from memphis import Memphis
+from memphis import retention_types, storage_types
 ```
 
 ### Connecting to Memphis

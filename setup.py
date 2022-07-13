@@ -2,7 +2,7 @@
 from distutils.core import setup
 setup(
     name='memphis-py',
-    packages=['memphis-py'],
+    packages=['memphis'],
     version='0.1.0',
     license='GPL',
     description='A powerful message broker for developers',
