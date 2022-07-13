@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name='memphis-py',
     packages=['memphis'],
-    version='0.1.0',
+    version='0.1.1',
     license='GPL',
     description='A powerful message broker for developers',
     author='Memphis.dev',
