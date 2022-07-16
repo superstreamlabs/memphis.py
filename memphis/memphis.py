@@ -1,7 +1,7 @@
 import socket
 import json
 import nats as broker
-from nats.errors import ConnectionClosedError, TimeoutError, NoServersError
+from nats.errors import TimeoutError
 import uuid
 from pymitter import EventEmitter
 from memphis.http_request import http_request
