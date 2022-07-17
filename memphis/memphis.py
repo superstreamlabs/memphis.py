@@ -1,6 +1,7 @@
 import socket
 import json
 import nats as broker
+from nats.errors import TimeoutError
 import uuid
 from pymitter import EventEmitter
 from memphis.http_request import http_request
@@ -102,15 +103,12 @@ class Memphis:
 
     async def factory(self, name, description=""):
         """Creates a factory.
-
         Args:
             name (str): factory name.
             description (str, optional): factory description(optional).
-
         Raises:
             Exception: _description_
             Exception: _description_
-
         Returns:
             object: factory
         """
@@ -129,7 +127,6 @@ class Memphis:
 
     async def station(self, name, factory_name, retention_type=memphis.retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=memphis.storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
-
         Args:
             name (str): station name.
             factory_name (str): factory name to link the station with.
@@ -236,15 +233,12 @@ class Memphis:
 
     async def producer(self, station_name, producer_name):
         """Creates a producer.
-
         Args:
             station_name (str): station name to produce messages into.
             producer_name (str): name for the producer.
-
         Raises:
             Exception: _description_
             Exception: _description_
-
         Returns:
             _type_: _description_
         """
@@ -260,7 +254,6 @@ class Memphis:
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10):
         """Creates a consumer.
-
         Args:
             station_name (str): station name to consume messages from.
             consumer_name (str): name for the consumer.
@@ -270,7 +263,6 @@ class Memphis:
             batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
-
         Returns:
             object: consumer
         """
@@ -290,7 +282,7 @@ class Factory:
         self.connection = connection
         self.name = name.lower()
 
-    def destroy(self):
+    async def destroy(self):
         """Destroy the factory.
         """
         try:
@@ -305,7 +297,7 @@ class Station:
         self.connection = connection
         self.name = name.lower()
 
-    def destroy(self):
+    async def destroy(self):
         """Destroy the station.
         """
         try:
@@ -323,11 +315,9 @@ class Producer:
 
     async def produce(self, message, ack_wait_sec=15):
         """Produces a message into a station.
-
         Args:
             message (Uint8Array): message to send into the station.
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
-
         Raises:
             Exception: _description_
             Exception: _description_
@@ -366,36 +356,38 @@ class Consumer:
         self.ping_consumer_invterval_ms = 30000
         self.event = EventEmitter()
 
-    def consume(self):
+    def consume(self, callback):
         """Consume events.
         """
-        # self.t_ping_consumer = asyncio.create_task(self.__ping_consumer())
-        # asyncio.gather(self.t_ping_consumer, )
+        self.t_consume = asyncio.create_task(self.__consume(callback))
+        self.t_dlq = asyncio.create_task(self.__consume_dlq(callback))
 
-        self.t_consume = asyncio.create_task(self.__consume())
-        asyncio.gather(self.t_consume,)
-
-    async def __consume(self):
+    async def __consume(self, callback):
         try:
             self.psub = await self.connection.broker_connection.pull_subscribe(
                 self.station_name + ".final", durable=self.consumer_group)
             while True:
-                try:
-                    msgs = await self.psub.fetch(self.batch_size)
-                    for msg in msgs:
-                        self.event.emit('message', Message(msg))
-                except Exception as e:
-                    self.event.emit('error', e)
-                    if str(e).find('close') != -1:
-                        return
+                memphis_messages = []
+                msgs = await self.psub.fetch(self.batch_size)
+                for msg in msgs:
+                    memphis_messages.append(Message(msg))
+                await callback(memphis_messages)
                 await asyncio.sleep(self.pull_interval_ms/1000)
+        except TimeoutError:
+            return
+        except Exception as e:
+            raise Exception(e)
 
+    async def __consume_dlq(self, callback):
+        try:
+            self.consumer_dlq = await self.connection.broker_manager.subscribe("$memphis_dlq_"+self.station_name+"_"+self.consumer_group, "$memphis_dlq_"+self.station_name+"_"+self.consumer_group)
+            async for msg in self.consumer_dlq.messages:
+                await callback([Message(msg)])
         except Exception as e:
             raise Exception(e)
 
     async def __ping_consumer(self):
         x = await self.connection.broker_connection.consumer_info(self.station_name, durable=self.consumer_group)
-        print(x)
 
     async def destroy(self):
         """Destroy the consumer.
@@ -413,10 +405,16 @@ class Message:
     def __init__(self, message):
         self.message = message
 
-    def ack(self):
+    async def ack(self):
         """Ack a message is done processing.
         """
-        self.message.ack()
+        try:
+            await self.message.ack()
+        except Exception as e:
+            if str(e).find('not a JetStream message') != -1:
+                return
+            else:
+                raise Exception(e)
 
     def get_data(self):
         return self.message.data
