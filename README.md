@@ -226,7 +226,7 @@ factory = await memphis.factory(name="<factory-name>", description="")
 Destroying a factory will remove all its resources (stations/producers/consumers)
 
 ```python
-factory.destroy()
+await factory.destroy()
 ```
 
 ### Creating a Station
