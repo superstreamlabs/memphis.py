@@ -380,7 +380,7 @@ class Consumer:
 
     async def __consume_dlq(self, callback):
         try:
-            self.consumer_dlq = await self.connection.broker_manager.subscribe("$memphis_dlq_"+self.station_name+"_"+self.consumer_group)
+            self.consumer_dlq = await self.connection.broker_manager.subscribe("$memphis_dlq_"+self.station_name+"_"+self.consumer_group, "$memphis_dlq_"+self.station_name+"_"+self.consumer_group)
             async for msg in self.consumer_dlq.messages:
                 await callback([Message(msg)])
         except Exception as e:
