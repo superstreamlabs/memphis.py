@@ -356,32 +356,38 @@ class Consumer:
         self.ping_consumer_invterval_ms = 30000
         self.event = EventEmitter()
 
-    def consume(self):
+    def consume(self, callback):
         """Consume events.
         """
-        # self.t_ping_consumer = asyncio.create_task(self.__ping_consumer())
-        # asyncio.gather(self.t_ping_consumer, )
+        self.t_consume = asyncio.create_task(self.__consume(callback))
+        self.t_dlq = asyncio.create_task(self.__consume_dlq(callback))
 
-        self.t_consume = asyncio.create_task(self.__consume())
-        asyncio.gather(self.t_consume,)
-
-    async def __consume(self):
+    async def __consume(self, callback):
         try:
             self.psub = await self.connection.broker_connection.pull_subscribe(
                 self.station_name + ".final", durable=self.consumer_group)
             while True:
+                memphis_messages = []
                 msgs = await self.psub.fetch(self.batch_size)
                 for msg in msgs:
-                    self.event.emit('message', Message(msg))
+                    memphis_messages.append(Message(msg))
+                await callback(memphis_messages)
                 await asyncio.sleep(self.pull_interval_ms/1000)
         except TimeoutError:
             return
         except Exception as e:
             raise Exception(e)
 
+    async def __consume_dlq(self, callback):
+        try:
+            self.consumer_dlq = await self.connection.broker_manager.subscribe("$memphis_dlq_"+self.station_name+"_"+self.consumer_group)
+            async for msg in self.consumer_dlq.messages:
+                await callback([Message(msg)])
+        except Exception as e:
+            raise Exception(e)
+
     async def __ping_consumer(self):
         x = await self.connection.broker_connection.consumer_info(self.station_name, durable=self.consumer_group)
-        print(x)
 
     async def destroy(self):
         """Destroy the consumer.
@@ -399,13 +405,16 @@ class Message:
     def __init__(self, message):
         self.message = message
 
-    def ack(self):
+    async def ack(self):
         """Ack a message is done processing.
         """
-        asyncio.create_task(self.__ack())
+        try:
+            await self.message.ack()
+        except Exception as e:
+            if str(e).find('not a JetStream message') != -1:
+                return
+            else:
+                raise Exception(e)
 
     def get_data(self):
         return self.message.data
-
-    async def __ack(self):
-        await self.message.ack()
