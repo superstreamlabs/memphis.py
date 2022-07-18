@@ -335,7 +335,7 @@ class Producer:
         """Destroy the producer.
         """
         try:
-            http_request("DELETE", 'http://'+self.connection.host+':'+str(self.connection.management_port)+'/api/consumers/destroyProducer', headers={
+            http_request("DELETE", 'http://'+self.connection.host+':'+str(self.connection.management_port)+'/api/producers/destroyProducer', headers={
                          "Authorization": "Bearer " + self.connection.access_token}, body_params={"name": self.producer_name, "station_name": self.station_name})
         except:
             return
