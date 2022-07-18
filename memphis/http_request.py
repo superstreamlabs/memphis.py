@@ -11,19 +11,17 @@ def http_request(method, url, headers={}, body_params={}, query_params={}, file=
 
     headers['content-type'] = 'application/json'
     try:
-        match method:
-            case 'GET':
-                response = requests.get(url, headers=headers, timeout=timeout,
-                                        data=json.dumps(body_params), params=json.dumps(query_params))
-            case 'POST':
-                response = requests.post(url, headers=headers, timeout=timeout,
-                                         data=json.dumps(body_params), params=json.dumps(query_params))
-            case 'PUT':
-                response = requests.put(url, headers=headers, timeout=timeout,
-                                        data=json.dumps(body_params), params=json.dumps(query_params))
-            case 'DELETE':
-                response = requests.delete(url, headers=headers, timeout=timeout,
-                                           data=json.dumps(body_params), params=json.dumps(query_params))
+        typeOfMethod = {
+            "GET": requests.get(url, headers=headers, timeout=timeout,
+                                        data=json.dumps(body_params), params=json.dumps(query_params)),
+            "POST":requests.post(url, headers=headers, timeout=timeout,
+                                         data=json.dumps(body_params), params=json.dumps(query_params)),
+            'PUT': requests.put(url, headers=headers, timeout=timeout,
+                                      data=json.dumps(body_params), params=json.dumps(query_params)),
+            'DELETE':requests.delete(url, headers=headers, timeout=timeout,
+                                            data=json.dumps(body_params), params=json.dumps(query_params))
+        }
+        response = typeOfMethod.get(method)
         if response.status_code != 200:
             raise Exception(response.text)
         else:
