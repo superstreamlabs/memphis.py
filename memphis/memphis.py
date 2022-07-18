@@ -3,7 +3,6 @@ import json
 import nats as broker
 from nats.errors import TimeoutError
 import uuid
-from pymitter import EventEmitter
 from memphis.http_request import http_request
 from threading import Timer
 import asyncio
@@ -354,7 +353,6 @@ class Consumer:
         self.max_ack_time_ms = max_ack_time_ms
         self.max_msg_deliveries = max_msg_deliveries
         self.ping_consumer_invterval_ms = 30000
-        self.event = EventEmitter()
 
     def consume(self, callback):
         """Consume events.
@@ -392,7 +390,6 @@ class Consumer:
     async def destroy(self):
         """Destroy the consumer.
         """
-        self.event = None
         self.pull_interval_ms = None
         try:
             http_request("DELETE", 'http://'+self.connection.host+':'+str(self.connection.management_port)+'/api/consumers/destroyConsumer', headers={
