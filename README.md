@@ -341,10 +341,10 @@ consumer = await memphis.consumer(
 ### Processing messages
 
 ```python
-async def msg_handler(msg):
-  print("message: ", msg.get_data())
-  await msg.ack()
-
+async def msg_handler(msgs):
+    for msg in msgs:
+        print("message: ", msg.get_data())
+        await msg.ack()
 consumer.consume(msg_handler)
 ```
 
