@@ -100,7 +100,7 @@ class Memphis:
         if(not self.reconnect or self.reconnect_attempts == self.max_reconnect or not self.is_connection_active):
             raise Exception("Connection timeout has reached")
 
-    async def factory(self, name, description=""):
+    def factory(self, name, description=""):
         """Creates a factory.
         Args:
             name (str): factory name.
@@ -124,7 +124,7 @@ class Memphis:
             else:
                 raise Exception(e)
 
-    async def station(self, name, factory_name, retention_type=memphis.retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=memphis.storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
+    def station(self, name, factory_name, retention_type=memphis.retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=memphis.storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
         Args:
             name (str): station name.
@@ -230,7 +230,7 @@ class Memphis:
                     else:
                         break
 
-    async def producer(self, station_name, producer_name):
+    def producer(self, station_name, producer_name):
         """Creates a producer.
         Args:
             station_name (str): station name to produce messages into.
@@ -251,7 +251,7 @@ class Memphis:
         except Exception as e:
             raise Exception(e)
 
-    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10):
+    def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10):
         """Creates a consumer.
         Args:
             station_name (str): station name to consume messages from.
@@ -281,7 +281,7 @@ class Factory:
         self.connection = connection
         self.name = name.lower()
 
-    async def destroy(self):
+    def destroy(self):
         """Destroy the factory.
         """
         try:
@@ -296,7 +296,7 @@ class Station:
         self.connection = connection
         self.name = name.lower()
 
-    async def destroy(self):
+    def destroy(self):
         """Destroy the station.
         """
         try:
@@ -331,7 +331,7 @@ class Producer:
             else:
                 raise Exception(e)
 
-    async def destroy(self):
+    def destroy(self):
         """Destroy the producer.
         """
         try:
@@ -361,33 +361,42 @@ class Consumer:
         self.t_dlq = asyncio.create_task(self.__consume_dlq(callback))
 
     async def __consume(self, callback):
-        try:
-            self.psub = await self.connection.broker_connection.pull_subscribe(
-                self.station_name + ".final", durable=self.consumer_group)
-            while True:
-                memphis_messages = []
-                msgs = await self.psub.fetch(self.batch_size)
-                for msg in msgs:
-                    memphis_messages.append(Message(msg))
-                await callback(memphis_messages)
-                await asyncio.sleep(self.pull_interval_ms/1000)
-        except TimeoutError:
-            return
-        except Exception as e:
-            raise Exception(e)
+        self.psub = await self.connection.broker_connection.pull_subscribe(
+            self.station_name + ".final", durable=self.consumer_group)
+        while True:
+            if self.connection.is_connection_active and self.pull_interval_ms:
+                try:
+                    memphis_messages = []
+                    msgs = await self.psub.fetch(self.batch_size)
+                    for msg in msgs:
+                        memphis_messages.append(Message(msg))
+                    await callback(memphis_messages, None)
+                    await asyncio.sleep(self.pull_interval_ms/1000)
+                except TimeoutError:
+                    await callback([], Exception("Memphis: TimeoutError"))
+                    continue
+                except Exception as e:
+                    if self.connection.is_connection_active:
+                        raise Exception(e)
+                    else:
+                        return
+            else:
+                break
 
     async def __consume_dlq(self, callback):
         try:
             self.consumer_dlq = await self.connection.broker_manager.subscribe("$memphis_dlq_"+self.station_name+"_"+self.consumer_group, "$memphis_dlq_"+self.station_name+"_"+self.consumer_group)
             async for msg in self.consumer_dlq.messages:
-                await callback([Message(msg)])
+                await callback([Message(msg)], None)
         except Exception as e:
-            raise Exception(e)
+            print("dls", e)
+            await callback([], Exception(e))
+            return
 
     async def __ping_consumer(self):
         x = await self.connection.broker_connection.consumer_info(self.station_name, durable=self.consumer_group)
 
-    async def destroy(self):
+    def destroy(self):
         """Destroy the consumer.
         """
         self.pull_interval_ms = None
@@ -408,10 +417,12 @@ class Message:
         try:
             await self.message.ack()
         except Exception as e:
-            if str(e).find('not a JetStream message') != -1:
-                return
-            else:
-                raise Exception(e)
+            return
 
     def get_data(self):
-        return self.message.data
+        """Receive the message.
+        """
+        try:
+            return self.message.data
+        except:
+            return

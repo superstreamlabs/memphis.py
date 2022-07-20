@@ -218,7 +218,7 @@ await memphis.close()
 ### Creating a Factory
 
 ```python
-factory = await memphis.factory(name="<factory-name>", description="")
+factory = memphis.factory(name="<factory-name>", description="")
 ```
 
 ### Destroying a Factory
@@ -226,13 +226,13 @@ factory = await memphis.factory(name="<factory-name>", description="")
 Destroying a factory will remove all its resources (stations/producers/consumers)
 
 ```python
-await factory.destroy()
+factory.destroy()
 ```
 
 ### Creating a Station
 
 ```python
-station = await memphis.station(
+station = memphis.station(
   name="<station-name>",
   factory_name="<factory-name>",
   retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
@@ -287,7 +287,7 @@ Means that messages persist on the main memory
 Destroying a station will remove all its resources (producers/consumers)
 
 ```python
-await station.destroy()
+station.destroy()
 ```
 
 ### Produce and Consume messages
@@ -306,7 +306,7 @@ of whether there are messages in flight for the client.
 ### Creating a Producer
 
 ```python
-producer = await memphis.producer(station_name="<station-name>", producer_name="<producer-name>")
+producer = memphis.producer(station_name="<station-name>", producer_name="<producer-name>")
 ```
 
 ### Producing a message
@@ -320,13 +320,13 @@ await prod.produce(
 ### Destroying a Producer
 
 ```python
-await producer.destroy()
+producer.destroy()
 ```
 
 ### Creating a Consumer
 
 ```python
-consumer = await memphis.consumer(
+consumer = memphis.consumer(
   station_name="<station-name>",
   consumer_name="<consumer-name>",
   consumer_group="<group-name>", # defaults to the consumer name
@@ -340,11 +340,15 @@ consumer = await memphis.consumer(
 
 ### Processing messages
 
-```python
-async def msg_handler(msg):
-  print("message: ", msg.get_data())
-  await msg.ack()
+Once all the messages in the station were consumed the msg_handler will receive error: `Memphis: TimeoutError`.
 
+```python
+async def msg_handler(msgs, error):
+  for msg in msgs:
+    print("message: ", msg.get_data())
+    await msg.ack()
+  if error:
+    print(error)
 consumer.consume(msg_handler)
 ```
 
@@ -359,5 +363,5 @@ await message.ack()
 ### Destroying a Consumer
 
 ```python
-await consumer.destroy()
+consumer.destroy()
 ```
