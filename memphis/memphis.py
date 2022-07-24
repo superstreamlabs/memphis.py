@@ -29,6 +29,7 @@ class Memphis:
     def __init__(self):
         self.client = socket.socket()
         self.connected = False
+        self.is_connection_active = False
 
     async def connect(self, host, username, connection_token, management_port=5555, tcp_port=6666, data_port=7766, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
