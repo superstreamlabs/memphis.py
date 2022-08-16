@@ -29,7 +29,7 @@ Utilizing NATS core.
 ## Installation
 
 ```sh
-$ pip install memphis
+$ pip3 install memphis-py
 ```
 
 ## Importing
