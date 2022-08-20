@@ -2,7 +2,7 @@ import asyncio
 
 from memphis import Memphis
 
-
+#TODO need to move this example to examples directory - need to fix the problems with imports
 async def main():
     try:
         memphis = Memphis()
@@ -16,8 +16,8 @@ async def main():
     except Exception as e:
         print("error" ,e)
 
-    finally:
-        await memphis.close()
+    # finally:
+    #     await memphis.close()
 
 
 if __name__ == '__main__':
