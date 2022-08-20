@@ -13,7 +13,6 @@ setup(
     download_url='https://github.com/memphisdev/memphis.py/archive/refs/tags/v0.1.7.tar.gz',
     keywords=['message broker', 'devtool', 'streaming', 'data'],
     install_requires=[
-        'nats-py',
         'asyncio',
         'requests'
     ],
@@ -30,3 +29,4 @@ setup(
         'Programming Language :: Python :: 3.12',
     ],
 )
+        # 'nats-py',

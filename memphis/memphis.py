@@ -13,15 +13,23 @@
 
 import socket
 import json
+import time
+
+# import nats as broker
+
+import sys
+sys.path.insert(0, "../memphis-nats.py/")
 import nats as broker
 from nats.errors import TimeoutError
-import uuid
-from memphis.http_request import http_request
-from threading import Timer
-import asyncio
 
-import memphis.retention_types
-import memphis.storage_types
+import uuid
+from http_request import http_request
+from threading import Thread, Timer
+import asyncio
+# from memphis.http_request import http_request
+
+import retention_types
+import storage_types
 
 
 class set_interval():
@@ -44,7 +52,7 @@ class Memphis:
         self.connected = False
         self.is_connection_active = False
 
-    async def connect(self, host, username, connection_token, management_port=5555, tcp_port=6666, data_port=7766, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
+    async def connect(self, host, username, connection_token, management_port=5555, tcp_port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
         Args:
             host (str): memphis host.
@@ -52,7 +60,6 @@ class Memphis:
             connection_token (str): broker token.
             management_port (int, optional): management port. Defaults to 5555.
             tcp_port (int, optional): tcp port. Defaults to 6666.
-            data_port (int, optional): data port. Defaults to 7766.
             reconnect (bool, optional): whether to do reconnect while connection is lost. Defaults to True.
             max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
             reconnect_interval_ms (int, optional): Interval in miliseconds between reconnect attempts. Defaults to 200.
@@ -63,52 +70,24 @@ class Memphis:
         self.connection_token = connection_token
         self.management_port = management_port
         self.tcp_port = tcp_port
-        self.data_port = data_port
         self.reconnect = reconnect
         self.max_reconnect = 9 if max_reconnect > 9 else max_reconnect
         self.reconnect_interval_ms = reconnect_interval_ms
         self.timeout_ms = timeout_ms
         try:
-            self.client.connect((self.host, self.tcp_port))
-        except OSError as msg:
-            self.client = None
-            self.__close()
-            raise Exception(msg)
-
-        connection_details = {"username": self.username,
-                              "broker_creds": self.connection_token, "connection_id": None}
-        self.client.send(json.dumps(connection_details).encode())
-        data = self.client.recv(1024)
-        try:
-            data = json.loads(data)
+            self.broker_manager = await broker.connect(servers=self.host+":"+str(self.tcp_port), 
+                                                    allow_reconnect=self.reconnect, 
+                                                    reconnect_time_wait=self.reconnect_interval_ms/1000, 
+                                                    connect_timeout=self.timeout_ms/1000, 
+                                                    max_reconnect_attempts=self.max_reconnect, user=self.username,
+                                                    token=self.connection_token)
+            
+            self.broker_connection = self.broker_manager.jetstream()
+            timeout = 3
+            self.broker_manager.getConnectionId(timeout)
         except Exception as e:
-            raise Exception(data)
-        self.connection_id = data['connection_id']
-        self.access_token_exp = data['access_token_exp']
+            raise Exception(e)
 
-        self.is_connection_active = True
-        self.reconnect_attempts = 0
-
-        if data['access_token']:
-            self.access_token = data['access_token']
-            self.t_keep_acess_token_fresh = set_interval(
-                self.__keep_acess_token_fresh, self.access_token_exp/1000)
-
-        if data['ping_interval_ms']:
-            self.ping_interval_ms = data['ping_interval_ms']
-            self.t_ping_server = set_interval(
-                self.__ping_server, self.ping_interval_ms/1000)
-
-        if not self.connected:
-            try:
-                self.broker_manager = await broker.connect(servers=self.host+":"+str(self.data_port), allow_reconnect=self.reconnect, reconnect_time_wait=self.reconnect_interval_ms/1000, connect_timeout=self.timeout_ms/1000, max_reconnect_attempts=self.max_reconnect, token=self.connection_token)
-                self.broker_connection = self.broker_manager.jetstream()
-                self.connected = True
-            except Exception as e:
-                raise Exception(e)
-
-        self.t_timeout = set_interval(
-            self.__handel_reconnect_timeout, self.timeout_ms/1000)
 
     def __handel_reconnect_timeout(self):
         if(not self.reconnect or self.reconnect_attempts == self.max_reconnect or not self.is_connection_active):
@@ -138,7 +117,7 @@ class Memphis:
             else:
                 raise Exception(e)
 
-    def station(self, name, factory_name, retention_type=memphis.retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=memphis.storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
+    def station(self, name, factory_name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
         Args:
             name (str): station name.
@@ -223,7 +202,7 @@ class Memphis:
             while self.reconnect_attempts < self.max_reconnect:
                 self.reconnect_attempts += 1
                 try:
-                    await self.connect(host=self.host, management_port=self.management_port, tcp_port=self.tcp_port, data_port=self.data_port, username=self.username, connection_token=self.connection_token, reconnect=self.reconnect, max_reconnect=self.max_reconnect, reconnect_interval_ms=self.reconnect_interval_ms, timeout_ms=self.timeout_ms)
+                    await self.connect(host=self.host, management_port=self.management_port, tcp_port=self.tcp_port, username=self.username, connection_token=self.connection_token, reconnect=self.reconnect, max_reconnect=self.max_reconnect, reconnect_interval_ms=self.reconnect_interval_ms, timeout_ms=self.timeout_ms)
                     print("Reconnect to memphis has been succeeded")
                     return
                 except Exception as e:
