@@ -14,7 +14,8 @@ setup(
     keywords=['message broker', 'devtool', 'streaming', 'data'],
     install_requires=[
         'asyncio',
-        'requests'
+        'requests',
+        'nats-py'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -29,4 +30,3 @@ setup(
         'Programming Language :: Python :: 3.12',
     ],
 )
-        # 'nats-py',
