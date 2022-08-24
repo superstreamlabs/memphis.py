@@ -51,9 +51,7 @@ async def main():
       host="<memphis-host>",
       username="<application-type username>",
       connection_token="<broker-token>",
-      management_port="<management-port>", # defaults to 5555
-      tcp_port="<tcp-port>", # defaults to 6666
-      data_port="<data-port>", # defaults to 7766
+      port="<port>", # defaults to 6666
       reconnect=True, # defaults to False
       max_reconnect=10, # defaults to 10
       reconnect_interval_ms=1500, # defaults to 1500
