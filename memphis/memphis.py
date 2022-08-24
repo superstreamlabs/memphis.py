@@ -161,7 +161,6 @@ class Memphis:
                 self.broker_manager = None
                 self.connection_id = None
                 self.is_connection_active = False
-                self.reconnect_attempts = 0
         except:
             return
 
@@ -268,7 +267,8 @@ class Factory:
             await self.connection.broker_connection.publish('$memphis_factory_destructions', factory_name)
 
         except Exception as e:
-            return 
+            raise Exception(e)
+ 
 
 
 class Station:
@@ -287,7 +287,7 @@ class Station:
             await self.connection.broker_connection.publish('$memphis_station_destructions', station_name)
 
         except Exception as e:
-            return
+            raise Exception(e)
 
 
 class Producer:
@@ -327,7 +327,7 @@ class Producer:
             await self.connection.broker_connection.publish('$memphis_producer_destructions', producer_name)
 
         except Exception as e:
-            return
+            raise Exception(e)
 
 
 class Consumer:
@@ -398,7 +398,7 @@ class Consumer:
             await self.connection.broker_connection.publish('$memphis_consumer_destructions', consumer_name)
 
         except Exception as e:
-            return
+            raise Exception(e)
 
 
 class Message:
