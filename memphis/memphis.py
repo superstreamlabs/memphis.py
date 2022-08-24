@@ -41,17 +41,14 @@ class set_interval():
 class Memphis:
 
     def __init__(self):
-        self.client = socket.socket()
-        self.connected = False
         self.is_connection_active = False
     
-    async def connect(self, host, username, connection_token, management_port=5555, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
+    async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
         Args:
             host (str): memphis host.
             username (str): user of type root/application.
             connection_token (str): broker token.
-            management_port (int, optional): management port. Defaults to 5555.
             port (int, optional): port. Defaults to 6666.
             reconnect (bool, optional): whether to do reconnect while connection is lost. Defaults to True.
             max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
@@ -61,7 +58,6 @@ class Memphis:
         self.host = self.__normalize_host(host)
         self.username = username
         self.connection_token = connection_token
-        self.management_port = management_port
         self.port = port
         self.reconnect = reconnect
         self.max_reconnect = 9 if max_reconnect > 9 else max_reconnect
@@ -163,15 +159,6 @@ class Memphis:
             if self.is_connection_active:
                 await self.broker_manager.close()
                 self.broker_manager = None
-                self.client.close()
-                self.client = None
-                self.t_keep_acess_token_fresh.cancel()
-                self.t_ping_server.cancel()
-                self.t_timeout.cancel()
-                self.access_token_timeout = None
-                self.ping_interval_ms = None
-                self.access_token_exp = None
-                self.access_token = None
                 self.connection_id = None
                 self.is_connection_active = False
                 self.reconnect_attempts = 0
@@ -190,56 +177,6 @@ class Memphis:
             return host.split("https://")[1]
         else:
             return host
-
-    def __keep_acess_token_fresh(self):
-        if self.is_connection_active:
-            self.client.send(json.dumps(
-                {"resend_access_token": True}).encode())
-            data = self.client.recv(1024)
-            try:
-                data = json.loads(data)
-                if data['access_token']:
-                    self.access_token = data['access_token']
-            except:
-                raise Exception(data)
-
-    def __ping_server(self):
-        if self.is_connection_active:
-            self.client.send(json.dumps(
-                {"ping": True}).encode())
-            data = self.client.recv(1024)
-            try:
-                data = json.loads(data)
-                if data['ping_interval_ms']:
-                    self.ping_interval_ms = data['ping_interval_ms']
-            except:
-                raise Exception(data)
-
-    async def __close(self):
-        if self.reconnect is True:
-            while self.reconnect_attempts < self.max_reconnect:
-                self.reconnect_attempts += 1
-                try:
-                    await self.connect(host=self.host, management_port=self.management_port, tcp_port=self.tcp_port, username=self.username, connection_token=self.connection_token, reconnect=self.reconnect, max_reconnect=self.max_reconnect, reconnect_interval_ms=self.reconnect_interval_ms, timeout_ms=self.timeout_ms)
-                    print("Reconnect to memphis has been succeeded")
-                    return
-                except Exception as e:
-                    print("Failed reconnect to memphis")
-                    await asyncio.sleep(self.reconnect_interval_ms/1000)
-        if self.reconnect is False or self.reconnect_attempts >= self.max_reconnect:
-            if self.is_connection_active is True:
-                self.client.destroy()
-                self.connected = False
-                self.t_keep_acess_token_fresh.cancel()
-                self.t_ping_server.cancel()
-                self.t_timeout.cancel()
-                self.is_connection_active = False
-                while True:
-                    if self.broker_manager:
-                        self.broker_manager.close()
-                        await asyncio.sleep(0.5)
-                    else:
-                        break
 
     async def producer(self, station_name, producer_name):
         """Creates a producer.
@@ -271,10 +208,7 @@ class Memphis:
             return Producer(self, producer_name, station_name)
 
         except Exception as e:
-            if str(e).find('already exist') != -1:
-                return Producer(self, producer_name.lower(), station_name.lower())
-            else:
-                raise Exception(e)
+            raise Exception(e)
 
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10):
@@ -315,10 +249,7 @@ class Memphis:
             return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries)
         
         except Exception as e:
-            if str(e).find('already exist') != -1:
-                return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries)
-            else:
-                raise Exception(e)
+            raise Exception(e)
 
 
 class Factory:
