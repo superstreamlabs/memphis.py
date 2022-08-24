@@ -1,6 +1,6 @@
 import asyncio
 
-from memphis.memphis import Memphis
+from memphis import Memphis
 
 
 async def main():
