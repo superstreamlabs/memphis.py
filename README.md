@@ -168,7 +168,7 @@ of whether there are messages in flight for the client.
 ### Creating a Producer
 
 ```python
-producer = memphis.producer(station_name="<station-name>", producer_name="<producer-name>")
+producer = await memphis.producer(station_name="<station-name>", producer_name="<producer-name>")
 ```
 
 ### Producing a message
@@ -188,7 +188,7 @@ producer.destroy()
 ### Creating a Consumer
 
 ```python
-consumer = memphis.consumer(
+consumer = await memphis.consumer(
   station_name="<station-name>",
   consumer_name="<consumer-name>",
   consumer_group="<group-name>", # defaults to the consumer name
