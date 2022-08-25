@@ -52,8 +52,8 @@ async def main():
       username="<application-type username>",
       connection_token="<broker-token>",
       port="<port>", # defaults to 6666
-      reconnect=True, # defaults to False
-      max_reconnect=10, # defaults to 10
+      reconnect=True, # defaults to True
+      max_reconnect=3, # defaults to 3
       reconnect_interval_ms=1500, # defaults to 1500
       timeout_ms=1500 # defaults to 1500
       )

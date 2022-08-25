@@ -20,7 +20,6 @@
 # SOFTWARE.
 
 import random
-import socket
 import json
 
 import nats as broker
