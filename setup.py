@@ -6,6 +6,8 @@ setup(
     version='0.1.7',
     license='GPL',
     description='A powerful message broker for developers',
+    long_description = file: README.md
+    long_description_content_type = text/markdown; charset=UTF-8; variant=GF
     readme="README.md",
     author='Memphis.dev',
     author_email='team@memphis.dev',
@@ -29,4 +31,3 @@ setup(
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
     ],
-)
