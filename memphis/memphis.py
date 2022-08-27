@@ -21,8 +21,8 @@ import uuid
 from threading import Timer
 import asyncio
 
-import retention_types
-import storage_types
+import memphis.retention_types as retention_types
+import memphis.storage_types as storage_types
 
 
 class set_interval():
@@ -264,8 +264,12 @@ class Factory:
                 "factory_name":self.name
             }
             factory_name = json.dumps(nameReq, indent=2).encode('utf-8')
-            await self.connection.broker_connection.publish('$memphis_factory_destructions', factory_name)
-
+            res = await self.connection.broker_manager.request('$memphis_factory_destructions', factory_name)
+            error = res.data.decode('utf-8')
+            if "mongo: no documents in result" in error:
+                print('Producer already destroyed')
+            elif error != "":
+                raise Exception(error)
         except Exception as e:
             raise Exception(e)
  
@@ -284,7 +288,12 @@ class Station:
                 "station_name":self.name
             }
             station_name = json.dumps(nameReq, indent=2).encode('utf-8')
-            await self.connection.broker_connection.publish('$memphis_station_destructions', station_name)
+            res = await self.connection.broker_manager.request('$memphis_station_destructions', station_name)
+            error = res.data.decode('utf-8')
+            if "mongo: no documents in result" in error:
+                print('Producer already destroyed')
+            elif error != "":
+                raise Exception(error)
 
         except Exception as e:
             raise Exception(e)
@@ -321,11 +330,16 @@ class Producer:
         try:
             destroyProducerReq = {
                 "name": self.producer_name,
-                "station_name":self.station_name
+                "station_name": self.station_name
             }
-            producer_name = json.dumps(destroyProducerReq, indent=2).encode('utf-8')
-            await self.connection.broker_connection.publish('$memphis_producer_destructions', producer_name)
-
+            
+            producer_name = json.dumps(destroyProducerReq).encode('utf-8')
+            res = await self.connection.broker_manager.request('$memphis_producer_destructions', producer_name)
+            error = res.data.decode('utf-8')
+            if "mongo: no documents in result" in error:
+                print('Producer already destroyed')
+            elif error != "":
+                raise Exception(error)
         except Exception as e:
             raise Exception(e)
 
@@ -395,7 +409,12 @@ class Consumer:
                 "station_name":self.station_name
             }
             consumer_name = json.dumps(destroyConsumerReq, indent=2).encode('utf-8')
-            await self.connection.broker_connection.publish('$memphis_consumer_destructions', consumer_name)
+            res = await self.connection.broker_manager.request('$memphis_consumer_destructions', consumer_name)
+            error = res.data.decode('utf-8')
+            if "mongo: no documents in result" in error:
+                print('Producer already destroyed')
+            elif error != "":
+                raise Exception(error)
 
         except Exception as e:
             raise Exception(e)
