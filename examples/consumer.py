@@ -18,7 +18,7 @@ async def main():
         memphis = Memphis()
         await memphis.connect(host="<memphis-host>", username="<application type username>", connection_token="<broker-token>")
 
-        consumer = memphis.consumer(
+        consumer = await memphis.consumer(
             station_name="<station-name>", consumer_name="<consumer-name>", consumer_group="")
         consumer.consume(msg_handler)
         # Keep your main thread alive so the consumer will keep receiving data

@@ -29,7 +29,7 @@ Utilizing NATS core.
 ## Installation
 
 ```sh
-$ pip install memphis
+$ pip3 install memphis-py
 ```
 
 ## Importing
@@ -51,11 +51,9 @@ async def main():
       host="<memphis-host>",
       username="<application-type username>",
       connection_token="<broker-token>",
-      management_port="<management-port>", # defaults to 5555
-      tcp_port="<tcp-port>", # defaults to 6666
-      data_port="<data-port>", # defaults to 7766
-      reconnect=True, # defaults to False
-      max_reconnect=10, # defaults to 10
+      port="<port>", # defaults to 6666
+      reconnect=True, # defaults to True
+      max_reconnect=3, # defaults to 3
       reconnect_interval_ms=1500, # defaults to 1500
       timeout_ms=1500 # defaults to 1500
       )
@@ -170,7 +168,7 @@ of whether there are messages in flight for the client.
 ### Creating a Producer
 
 ```python
-producer = memphis.producer(station_name="<station-name>", producer_name="<producer-name>")
+producer = await memphis.producer(station_name="<station-name>", producer_name="<producer-name>")
 ```
 
 ### Producing a message
@@ -190,7 +188,7 @@ producer.destroy()
 ### Creating a Consumer
 
 ```python
-consumer = memphis.consumer(
+consumer = await memphis.consumer(
   station_name="<station-name>",
   consumer_name="<consumer-name>",
   consumer_group="<group-name>", # defaults to the consumer name
