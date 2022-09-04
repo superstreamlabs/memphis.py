@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name='memphis-py',
     packages=['memphis'],
-    version='0.1.7',
+    version='0.1.8',
     license='GPL',
     description='A powerful message broker for developers',
     long_description = file: README.md
@@ -12,7 +12,7 @@ setup(
     author='Memphis.dev',
     author_email='team@memphis.dev',
     url='https://github.com/memphisdev/memphis.py',
-    download_url='https://github.com/memphisdev/memphis.py/archive/refs/tags/v0.1.7.tar.gz',
+    download_url='https://github.com/memphisdev/memphis.py/archive/refs/tags/v0.1.8.tar.gz',
     keywords=['message broker', 'devtool', 'streaming', 'data'],
     install_requires=[
         'asyncio',
