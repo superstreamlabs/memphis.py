@@ -77,26 +77,11 @@ To disconnect from Memphis, call `close()` on the memphis object.
 await memphis.close()
 ```
 
-### Creating a Factory
-
-```python
-factory = memphis.factory(name="<factory-name>", description="")
-```
-
-### Destroying a Factory
-
-Destroying a factory will remove all its resources (stations/producers/consumers)
-
-```python
-factory.destroy()
-```
-
 ### Creating a Station
 
 ```python
 station = memphis.station(
   name="<station-name>",
-  factory_name="<factory-name>",
   retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
   storage_type=storage_types.FILE, # torage_types.FILE/torage_types.MEMORY. Defaults to MEMORY

@@ -85,43 +85,11 @@ class Memphis:
         except Exception as e:
             raise Exception(e)
 
-    async def factory(self, name, description=""):
-        """Creates a factory.
-        Args:
-            name (str): factory name.
-            description (str, optional): factory description(optional).
-        Raises:
-            Exception: _description_
-            Exception: _description_
-        Returns:
-            object: factory
-        """
-        try:
-            if not self.is_connection_active:
-                raise Exception("Connection is dead")
-            createFactoryReq = {
-                    "factory_name": name,
-                    "factory_description": description
-                }
-            create_factory_req_bytes = json.dumps(createFactoryReq, indent=2).encode('utf-8')
-            err_msg =  await self.broker_manager.request("$memphis_factory_creations", create_factory_req_bytes)
-            err_msg = err_msg.data.decode("utf-8") 
 
-            if err_msg != "":
-                raise Exception(err_msg)       
-            return Factory(self, name)
-
-        except Exception as e:
-            if str(e).find('already exist') != -1:
-                return Factory(self, name.lower())
-            else:
-                raise Exception(e)
-
-    async def station(self, name, factory_name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
+    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
         Args:
             name (str): station name.
-            factory_name (str): factory name to link the station with.
             retention_type (str, optional): retention type: message_age_sec/messages/bytes . Defaults to "message_age_sec".
             retention_value (int, optional): number which represents the retention based on the retention_type. Defaults to 604800.
             storage_type (str, optional): persistance storage for messages of the station: file/memory. Defaults to "file".
@@ -137,7 +105,6 @@ class Memphis:
              
             createStationReq = {
                 "name": name,
-                "factory_name": factory_name,
                 "retention_type": retention_type,
                 "retention_value": retention_value,
                 "storage_type": storage_type,
@@ -255,29 +222,7 @@ class Memphis:
             return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries)
         
         except Exception as e:
-            raise Exception(e)
-
-
-class Factory:
-    def __init__(self, connection, name):
-        self.connection = connection
-        self.name = name.lower()
-
-    async def destroy(self):
-        """Destroy the factory.
-        """
-        try:
-            nameReq = {
-                "factory_name":self.name
-            }
-            factory_name = json.dumps(nameReq, indent=2).encode('utf-8')
-            res = await self.connection.broker_manager.request('$memphis_factory_destructions', factory_name)
-            error = res.data.decode('utf-8')
-            if error != "" and not "not exist" in error:
-                raise Exception(error)
-        except Exception as e:
-            raise Exception(e)
- 
+            raise Exception(e) 
 
 
 class Station:
