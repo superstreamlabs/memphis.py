@@ -6,8 +6,8 @@ setup(
     version='0.1.9',
     license='GPL',
     description='A powerful messaging platform for modern developers',
-    # long_description = file: README.md
-    # long_description_content_type = text/markdown; charset=UTF-8; variant=GF
+    long_description = 'file: README.md',
+    long_description_content_type = 'text/markdown; charset=UTF-8; variant=GF',
     readme="README.md",
     author='Memphis.dev',
     author_email='team@memphis.dev',
