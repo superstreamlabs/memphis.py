@@ -11,7 +11,7 @@
 </div>
 
 <div align="center">
-<h1>A Powerful Messaging Platform For Devs</h1>
+<h1>Real-Time Data Processing Platform</h1>
 <a target="_blank" href="https://twitter.com/intent/tweet?text=Probably+The+Easiest+Message+Broker+In+The+World%21+%0D%0Ahttps%3A%2F%2Fgithub.com%2Fmemphisdev%2Fmemphis-broker+%0D%0A%0D%0A%23MemphisDev"><img src="https://user-images.githubusercontent.com/70286779/174467733-e7656c1e-cfeb-4877-a5f3-1bd4fccc8cf1.png" width="60"></a> 
 </div>
  
@@ -77,26 +77,11 @@ To disconnect from Memphis, call `close()` on the memphis object.
 await memphis.close()
 ```
 
-### Creating a Factory
-
-```python
-factory = memphis.factory(name="<factory-name>", description="")
-```
-
-### Destroying a Factory
-
-Destroying a factory will remove all its resources (stations/producers/consumers)
-
-```python
-factory.destroy()
-```
-
 ### Creating a Station
 
 ```python
 station = memphis.station(
   name="<station-name>",
-  factory_name="<factory-name>",
   retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
   storage_type=storage_types.FILE, # torage_types.FILE/torage_types.MEMORY. Defaults to MEMORY
