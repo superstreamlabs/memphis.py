@@ -85,6 +85,17 @@ class Memphis:
         except Exception as e:
             raise Exception(e)
 
+    async def produce(self, station_name, producer_name, message, ack_wait_sec=15):
+        try:
+            await self.broker_connection.publish(station_name + ".final", message, timeout=ack_wait_sec, headers={
+                "Nats-Msg-Id": str(uuid.uuid4()), "producedBy": producer_name, "stationName": station_name, "connectionId": self.connection_id})
+        except Exception as e:
+            if hasattr(e, 'status_code') and e.status_code == '503':
+                raise Exception(
+                    "Produce operation has failed, please check whether Station/Producer are still exist")
+            else:
+                raise Exception(e)
+
     async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
         Args:
