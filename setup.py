@@ -1,13 +1,17 @@
 
-from distutils.core import setup
+from setuptools import setup
+from pathlib import Path
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
+
 setup(
     name='memphis-py',
     packages=['memphis'],
     version='0.2.0',
     license='GPL',
     description='A powerful messaging platform for modern developers',
-    long_description='file: README.md',
-    long_description_content_type='text/markdown; charset=UTF-8; variant=GFM',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     readme="README.md",
     author='Memphis.dev',
     author_email='team@memphis.dev',
