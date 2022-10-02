@@ -246,6 +246,8 @@ class Station:
         except Exception as e:
             raise Exception(e)
 
+def get_internal_name(name: str) -> str:
+    return name.replace(".", "#")
 
 class Producer:
     def __init__(self, connection, producer_name, station_name):
@@ -263,7 +265,8 @@ class Producer:
             Exception: _description_
         """
         try:
-            await self.connection.broker_connection.publish(self.station_name + ".final", message, timeout=ack_wait_sec, headers={
+            subject = get_internal_name(self.station_name)
+            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers={
                 "Nats-Msg-Id": str(uuid.uuid4()), "producedBy": self.producer_name, "connectionId": self.connection.connection_id})
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
@@ -310,8 +313,10 @@ class Consumer:
         self.t_dlq = asyncio.create_task(self.__consume_dlq(callback))
 
     async def __consume(self, callback):
+        subject = get_internal_name(self.station_name)
+        consumer_group = get_internal_name(self.consumer_group)
         self.psub = await self.connection.broker_connection.pull_subscribe(
-            self.station_name + ".final", durable=self.consumer_group)
+            subject + ".final", durable=consumer_group)
         while True:
             if self.connection.is_connection_active and self.pull_interval_ms:
                 try:
@@ -333,8 +338,11 @@ class Consumer:
                 break
 
     async def __consume_dlq(self, callback):
+        subject = get_internal_name(self.station_name)
+        consumer_group = get_internal_name(self.consumer_group)
         try:
-            self.consumer_dlq = await self.connection.broker_manager.subscribe("$memphis_dlq_"+self.station_name+"_"+self.consumer_group, "$memphis_dlq_"+self.station_name+"_"+self.consumer_group)
+            subscription_name = "$memphis_dlq_"+subject+"_"+consumer_group
+            self.consumer_dlq = await self.connection.broker_manager.subscribe(subscription_name, subscription_name)
             async for msg in self.consumer_dlq.messages:
                 await callback([Message(msg)], None)
         except Exception as e:
