@@ -267,7 +267,7 @@ class Producer:
         try:
             subject = get_internal_name(self.station_name)
             await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers={
-                "Nats-Msg-Id": str(uuid.uuid4()), "producedBy": self.producer_name, "connectionId": self.connection.connection_id})
+                "Nats-Msg-Id": str(uuid.uuid4()), "$memphisproducedBy": self.producer_name, "$memphisconnectionId": self.connection.connection_id})
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(
