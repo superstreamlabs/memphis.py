@@ -17,6 +17,7 @@ node ("small-ec2-fleet") {
      withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
        //sh 'twine upload -u $USR -p $PSW dist/* '
     }
+   }
     
     stage('Checkout to version branch'){
       sh(script:"""cat setup.py | grep version | cut -d\' -f 2 > version.conf""", returnStdout: true)
