@@ -16,7 +16,7 @@ node ("small-ec2-fleet") {
    }
     
     stage('Checkout to version branch'){
-      sh(script:"""cat setup.py | grep version | cut -d\' -f 2 > version.conf""", returnStdout: true)
+      sh(script:"""cat setup.py | grep version | cut -d\\\' -f 2 > version.conf""", returnStdout: true)
       withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
         sh "git reset --hard origin/latest"
         sh "GIT_SSH_COMMAND='ssh -i $check' git checkout -b \$(cat version.conf)"
