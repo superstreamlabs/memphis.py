@@ -6,17 +6,21 @@ node ("small-ec2-fleet") {
   git credentialsId: 'main-github', url: gitURL, branch: gitBranch
   
   try{
-    
-   stage('Deploy to pypi') {
-     sh 'python setup.py sdist'
-     sh 'pip install twine'
-     withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
-       sh 'twine upload -u $USR -p $PSW dist/* '
+    stage('Install pip') {
+      sh 'sudo yum install pip -y'
     }
     
+    
+    stage('Deploy to pypi') {
+      sh 'python setup.py sdist'
+      sh 'pip install twine'
+      withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
+        sh 'twine upload -u $USR -p $PSW dist/* '
+     }
+    
 
 
-    notifySuccessful()
+     notifySuccessful()
 
   } catch (e) {
       currentBuild.result = "FAILED"
