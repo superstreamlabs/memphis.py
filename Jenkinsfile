@@ -8,12 +8,21 @@ node ("small-ec2-fleet") {
   try{
     
    stage('Deploy to pypi') {
-     sh 'python setup.py sdist'
-     sh 'pip install twine'
+     sh 'python3 setup.py sdist'
+     sh 'pip3 install twine'
      withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
-       sh 'twine upload -u $USR -p $PSW dist/* '
+       //sh 'twine upload -u $USR -p $PSW dist/* '
     }
+   }
     
+    stage('Checkout to version branch'){
+      sh(script:"""cat setup.py | grep version | cut -d\\\' -f 2 > version.conf""", returnStdout: true)
+      withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
+        sh "git reset --hard origin/latest"
+        sh "GIT_SSH_COMMAND='ssh -i $check' git checkout -b \$(cat version.conf)"
+        sh "GIT_SSH_COMMAND='ssh -i $check' git push --set-upstream origin \$(cat version.conf)"
+      }
+    }
 
 
     notifySuccessful()
