@@ -7,7 +7,7 @@ node ("small-ec2-fleet") {
   
   try{
     
-   stage('Push to NPM') {
+   stage('Deploy to pypi') {
      sh 'python setup.py sdist'
      sh 'pip install twine'
      withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
