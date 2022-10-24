@@ -254,20 +254,37 @@ class Producer:
         self.connection = connection
         self.producer_name = producer_name
         self.station_name = station_name
+        self.headers = []
+    
+    async def add(self, key, value):
+        try:
+            if not key.startswith("$memphis"):
+                self.headers.append({"key": key, "value": value})
+            else:
+                raise Exception("Keys in headers should not start with $memphis")
+        except Exception as e:
+            raise Exception(e)
 
-    async def produce(self, message, ack_wait_sec=15):
+    async def produce(self, message, ack_wait_sec=15, headers=[]):
         """Produces a message into a station.
         Args:
             message (Uint8Array): message to send into the station.
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
+            headers ([], optional): headers that the user send with the mwssage. Defaults to [].
         Raises:
             Exception: _description_
             Exception: _description_
         """
         try:
+            headers={"Nats-Msg-Id": str(uuid.uuid4()), 
+            "$memphis_producedBy": self.producer_name, 
+            "$memphis_connectionId": self.connection.connection_id}
+
+            for header in self.headers:
+                headers[header['key']] = header['value']
+
             subject = get_internal_name(self.station_name)
-            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers={
-                "Nats-Msg-Id": str(uuid.uuid4()), "$memphisproducedBy": self.producer_name, "$memphisconnectionId": self.connection.connection_id})
+            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(

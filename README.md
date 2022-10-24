@@ -170,6 +170,14 @@ await prod.produce(
   ack_wait_sec=15, # defaults to 15
 ```
 
+### Add header 
+```python
+await producer.add("<key>", "<value>")
+await producer.produce(
+  message=bytearray('Message #'+str(i)+': Hello world', 'utf-8'), # Uint8Arrays
+  headers=producer.headers) # defaulte to empty array
+```
+
 ### Destroying a Producer
 
 ```python

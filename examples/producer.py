@@ -9,8 +9,10 @@ async def main():
 
         producer = await memphis.producer(
             station_name="<station-name>", producer_name="<producer-name>")
-        for i in range(100):
-            await producer.produce(bytearray('Message #'+str(i)+': Hello world', 'utf-8'))
+        
+        await producer.add("<key>", "<value>")        
+        for i in range(5):
+            await producer.produce(bytearray('Message #'+str(i)+': Hello world', 'utf-8'), headers=producer.headers)
 
     except Exception as e:
         print(e)
