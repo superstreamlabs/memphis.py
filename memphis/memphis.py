@@ -226,6 +226,27 @@ class Memphis:
             raise Exception(e)
 
 
+class MsgsHeaders:
+    def __init__(self):
+        self.headers = []
+
+    async def add(self, key, value):
+        """Add a headers.
+        Args:
+            key (string): key of a header.
+            value (string): value of a header.
+        Raises:
+            Exception: _description_
+            Exception: _description_
+        """
+        try:
+            if not key.startswith("$memphis"):
+                self.headers.append({key: value})
+            else:
+                raise Exception("Keys in headers should not start with $memphis")
+        except Exception as e:
+            raise Exception(e)
+
 class Station:
     def __init__(self, connection, name):
         self.connection = connection
@@ -255,33 +276,27 @@ class Producer:
         self.producer_name = producer_name
         self.station_name = station_name
         self.headers = []
-    
-    async def add(self, key, value):
-        try:
-            if not key.startswith("$memphis"):
-                self.headers.append({"key": key, "value": value})
-            else:
-                raise Exception("Keys in headers should not start with $memphis")
-        except Exception as e:
-            raise Exception(e)
 
     async def produce(self, message, ack_wait_sec=15, headers=[]):
         """Produces a message into a station.
         Args:
             message (Uint8Array): message to send into the station.
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
-            headers ([], optional): headers that the user send with the mwssage. Defaults to [].
+            headers ([], optional): headers that the user send with the mwssage. Defaults to []
         Raises:
             Exception: _description_
             Exception: _description_
         """
         try:
+            self.headers = headers
             headers={"Nats-Msg-Id": str(uuid.uuid4()), 
             "$memphis_producedBy": self.producer_name, 
             "$memphis_connectionId": self.connection.connection_id}
 
             for header in self.headers:
-                headers[header['key']] = header['value']
+                key = list(header.keys())[0]
+                value = list(header.values())[0]
+                headers[key] = value
 
             subject = get_internal_name(self.station_name)
             await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
