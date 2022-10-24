@@ -138,10 +138,11 @@ class Memphis:
         except:
             return
 
+    def __generateRandomSuffix(self, name: str) -> str:
+        return name + "_" + random_bytes(8)
+
     def __generateConnectionID(self):
-        lst = [random.choice('0123456789abcdef') for n in range(24)]
-        s = "".join(lst)
-        return s
+        return random_bytes(24)
 
     def __normalize_host(self, host):
         if (host.startswith("http://")):
@@ -151,11 +152,12 @@ class Memphis:
         else:
             return host
 
-    async def producer(self, station_name, producer_name):
+    async def producer(self, station_name, producer_name, generate_random_suffix=False):
         """Creates a producer.
         Args:
             station_name (str): station name to produce messages into.
             producer_name (str): name for the producer.
+            generate_random_suffix (bool): false by default, if true concatenate a random suffix to producer's name
         Raises:
             Exception: _description_
             Exception: _description_
@@ -166,6 +168,8 @@ class Memphis:
             if not self.is_connection_active:
                 raise Exception("Connection is dead")
 
+            if generate_random_suffix:
+                producer_name = self.__generateRandomSuffix(producer_name)
             createProducerReq = {
                 "name": producer_name,
                 "station_name": station_name,
@@ -184,7 +188,7 @@ class Memphis:
         except Exception as e:
             raise Exception(e)
 
-    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10):
+    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
         """Creates a consumer.
         Args:.
             station_name (str): station name to consume messages from.
@@ -195,12 +199,16 @@ class Memphis:
             batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
+            generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
+
         Returns:
             object: consumer
         """
         try:
             if not self.is_connection_active:
                 raise Exception("Connection is dead")
+            if generate_random_suffix:
+                consumer_name = self.__generateRandomSuffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
 
             createConsumerReq = {
@@ -393,3 +401,8 @@ class Message:
             return self.message.data
         except:
             return
+
+def random_bytes(amount: int) -> str:
+    lst = [random.choice('0123456789abcdef') for n in range(amount)]
+    s = "".join(lst)
+    return s
