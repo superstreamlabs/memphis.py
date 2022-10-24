@@ -159,7 +159,7 @@ of whether there are messages in flight for the client.
 ### Creating a Producer
 
 ```python
-producer = await memphis.producer(station_name="<station-name>", producer_name="<producer-name>")
+producer = await memphis.producer(station_name="<station-name>", producer_name="<producer-name>", generate_random_suffix=False)
 ```
 
 ### Producing a message
@@ -188,6 +188,7 @@ consumer = await memphis.consumer(
   batch_max_time_to_wait_ms=5000, # defaults to 5000
   max_ack_time_ms=30000, # defaults to 30000
   max_msg_deliveries=10, # defaults to 10
+  generate_random_suffix=False
 )
 ```
 
