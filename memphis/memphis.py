@@ -226,7 +226,7 @@ class Memphis:
             raise Exception(e)
 
 
-class MsgsHeaders:
+class Headers:
     def __init__(self):
         self.headers = []
 
@@ -275,7 +275,6 @@ class Producer:
         self.connection = connection
         self.producer_name = producer_name
         self.station_name = station_name
-        self.headers = []
 
     async def produce(self, message, ack_wait_sec=15, headers=[]):
         """Produces a message into a station.
@@ -288,18 +287,17 @@ class Producer:
             Exception: _description_
         """
         try:
-            self.headers = headers
-            headers={"Nats-Msg-Id": str(uuid.uuid4()), 
+            memphis_headers={"Nats-Msg-Id": str(uuid.uuid4()), 
             "$memphis_producedBy": self.producer_name, 
             "$memphis_connectionId": self.connection.connection_id}
 
-            for header in self.headers:
+            for header in headers:
                 key = list(header.keys())[0]
                 value = list(header.values())[0]
-                headers[key] = value
+                memphis_headers[key] = value
 
             subject = get_internal_name(self.station_name)
-            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
+            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=memphis_headers)
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(

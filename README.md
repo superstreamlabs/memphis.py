@@ -172,10 +172,11 @@ await prod.produce(
 
 ### Add header 
 ```python
-await producer.add("<key>", "<value>")
+headers= Headers()
+await headers.add("<key>", "<value>")
 await producer.produce(
   message=bytearray('Message #'+str(i)+': Hello world', 'utf-8'), # Uint8Arrays
-  headers=producer.headers) # defaulte to empty array
+  headers=headers.headers) # defaulte to empty array
 ```
 
 ### Destroying a Producer
