@@ -234,6 +234,23 @@ class Memphis:
             raise Exception(e)
 
 
+class Headers:
+    def __init__(self):
+        self.headers = {}
+
+    def add(self, key, value):
+        """Add a header.
+        Args:
+            key (string): header key.
+            value (string): header value.
+        Raises:
+            Exception: _description_
+        """
+        if not key.startswith("$memphis"):
+            self.headers[key] = value
+        else:
+            raise Exception("Keys in headers should not start with $memphis")
+
 class Station:
     def __init__(self, connection, name):
         self.connection = connection
@@ -263,19 +280,25 @@ class Producer:
         self.producer_name = producer_name
         self.station_name = station_name
 
-    async def produce(self, message, ack_wait_sec=15):
+    async def produce(self, message, ack_wait_sec=15, headers={}):
         """Produces a message into a station.
         Args:
             message (Uint8Array): message to send into the station.
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
+            headers ({}, optional): Message headers, defaults to {}.
         Raises:
             Exception: _description_
             Exception: _description_
         """
         try:
+            memphis_headers={ 
+            "$memphis_producedBy": self.producer_name, 
+            "$memphis_connectionId": self.connection.connection_id}
+            headers = headers.headers
+            headers.update(memphis_headers)
+
             subject = get_internal_name(self.station_name)
-            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers={
-                "Nats-Msg-Id": str(uuid.uuid4()), "producedBy": self.producer_name, "connectionId": self.connection.connection_id})
+            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(
