@@ -1,6 +1,5 @@
 import asyncio
-from memphis import Memphis
-from memphis.memphis import Headers
+from memphis import Memphis, Headers
 
 
 async def main():
@@ -10,11 +9,10 @@ async def main():
 
         producer = await memphis.producer(
             station_name="<station-name>", producer_name="<producer-name>")
-
-        headers= Headers()
-        await headers.add("<key>", "<value>")        
+        headers = Headers()
+        hdrs = headers.add("<key>", "<value>") 
         for i in range(5):
-            await producer.produce(bytearray('Message #'+str(i)+': Hello world', 'utf-8'), headers=headers.headers)
+            await producer.produce(bytearray('Message #'+str(i)+': Hello world', 'utf-8'), headers=hdrs)
 
     except Exception as e:
         print(e)

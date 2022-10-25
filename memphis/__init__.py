@@ -19,6 +19,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from memphis.memphis import Memphis
+from memphis.memphis import Memphis, Headers
 import memphis.retention_types
 import memphis.storage_types

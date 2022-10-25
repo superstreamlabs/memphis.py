@@ -228,20 +228,24 @@ class Memphis:
 
 class Headers:
     def __init__(self):
-        self.headers = []
+        self.headers = {}
 
-    async def add(self, key, value):
-        """Add a headers.
+    def add(self, key, value):
+        """Add a header.
         Args:
-            key (string): key of a header.
-            value (string): value of a header.
+            key (string): header key.
+            value (string): header value.
         Raises:
             Exception: _description_
             Exception: _description_
         """
         try:
+            header = {key : value}
+            key = list(dict.keys(header))[0]
+            value = list(dict.values(header))[0]
             if not key.startswith("$memphis"):
-                self.headers.append({key: value})
+                self.headers[key] = value
+                return self.headers
             else:
                 raise Exception("Keys in headers should not start with $memphis")
         except Exception as e:
@@ -276,25 +280,21 @@ class Producer:
         self.producer_name = producer_name
         self.station_name = station_name
 
-    async def produce(self, message, ack_wait_sec=15, headers=[]):
+    async def produce(self, message, ack_wait_sec=15, headers={}):
         """Produces a message into a station.
         Args:
             message (Uint8Array): message to send into the station.
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
-            headers ([], optional): headers that the user send with the mwssage. Defaults to []
+            headers ({}, optional): Message headers, defaults to {}.
         Raises:
             Exception: _description_
             Exception: _description_
         """
         try:
-            memphis_headers={"Nats-Msg-Id": str(uuid.uuid4()), 
+            memphis_headers={ 
             "$memphis_producedBy": self.producer_name, 
             "$memphis_connectionId": self.connection.connection_id}
-
-            for header in headers:
-                key = list(header.keys())[0]
-                value = list(header.values())[0]
-                memphis_headers[key] = value
+            memphis_headers.update(headers)
 
             subject = get_internal_name(self.station_name)
             await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=memphis_headers)

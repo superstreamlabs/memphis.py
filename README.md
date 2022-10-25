@@ -41,7 +41,7 @@ $ pip3 install memphis-py
 ## Importing
 
 ```python
-from memphis import Memphis
+from memphis import Memphis, Headers
 from memphis import retention_types, storage_types
 ```
 
@@ -171,12 +171,13 @@ await prod.produce(
 ```
 
 ### Add header 
+
 ```python
 headers= Headers()
-await headers.add("<key>", "<value>")
+hdrs = headers.add("<key>", "<value>")
 await producer.produce(
   message=bytearray('Message #'+str(i)+': Hello world', 'utf-8'), # Uint8Arrays
-  headers=headers.headers) # defaulte to empty array
+  headers=hdrs) # default to {}
 ```
 
 ### Destroying a Producer
