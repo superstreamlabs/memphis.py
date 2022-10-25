@@ -237,19 +237,11 @@ class Headers:
             value (string): header value.
         Raises:
             Exception: _description_
-            Exception: _description_
         """
-        try:
-            header = {key : value}
-            key = list(dict.keys(header))[0]
-            value = list(dict.values(header))[0]
-            if not key.startswith("$memphis"):
-                self.headers[key] = value
-                return self.headers
-            else:
-                raise Exception("Keys in headers should not start with $memphis")
-        except Exception as e:
-            raise Exception(e)
+        if not key.startswith("$memphis"):
+            self.headers[key] = value
+        else:
+            raise Exception("Keys in headers should not start with $memphis")
 
 class Station:
     def __init__(self, connection, name):
@@ -294,10 +286,11 @@ class Producer:
             memphis_headers={ 
             "$memphis_producedBy": self.producer_name, 
             "$memphis_connectionId": self.connection.connection_id}
-            memphis_headers.update(headers)
+            headers = headers.headers
+            headers.update(memphis_headers)
 
             subject = get_internal_name(self.station_name)
-            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=memphis_headers)
+            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(
