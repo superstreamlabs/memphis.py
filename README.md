@@ -170,14 +170,23 @@ await prod.produce(
   ack_wait_sec=15, # defaults to 15
 ```
 
-### Add header 
+### Add headers
 
 ```python
 headers= Headers()
 headers.add("<key>", "<value>")
 await producer.produce(
-  message=bytearray('Message #'+str(i)+': Hello world', 'utf-8'), # Uint8Arrays
+  message=bytearray('Message #'+str(i)+': Hello world', 'utf-8'),
   headers=headers) # default to {}
+```
+
+### Async produce
+Meaning your application won't wait for broker acknowledgement - use only in case you are tolerant for data loss
+
+```python
+await producer.produce(
+  message=bytearray('Message #'+str(i)+': Hello world', 'utf-8'),
+  headers={}, async_produce=True)
 ```
 
 ### Destroying a Producer

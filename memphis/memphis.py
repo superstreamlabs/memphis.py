@@ -251,6 +251,7 @@ class Headers:
         else:
             raise Exception("Keys in headers should not start with $memphis")
 
+
 class Station:
     def __init__(self, connection, name):
         self.connection = connection
@@ -271,8 +272,10 @@ class Station:
         except Exception as e:
             raise Exception(e)
 
+
 def get_internal_name(name: str) -> str:
     return name.replace(".", "#")
+
 
 class Producer:
     def __init__(self, connection, producer_name, station_name):
@@ -280,25 +283,30 @@ class Producer:
         self.producer_name = producer_name
         self.station_name = station_name
 
-    async def produce(self, message, ack_wait_sec=15, headers={}):
+    async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
         Args:
             message (Uint8Array): message to send into the station.
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
-            headers ({}, optional): Message headers, defaults to {}.
+            headers (dict, optional): Message headers, defaults to {}.
+            async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
         Raises:
             Exception: _description_
             Exception: _description_
         """
         try:
-            memphis_headers={ 
-            "$memphis_producedBy": self.producer_name, 
-            "$memphis_connectionId": self.connection.connection_id}
+            memphis_headers = {
+                "$memphis_producedBy": self.producer_name,
+                "$memphis_connectionId": self.connection.connection_id}
             headers = headers.headers
             headers.update(memphis_headers)
 
             subject = get_internal_name(self.station_name)
-            await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
+
+            if async_produce:
+                self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
+            else:
+                await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(
@@ -424,6 +432,7 @@ class Message:
             return self.message.data
         except:
             return
+
 
 def random_bytes(amount: int) -> str:
     lst = [random.choice('0123456789abcdef') for n in range(amount)]
