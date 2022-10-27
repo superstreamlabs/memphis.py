@@ -233,6 +233,13 @@ Acknowledge a message indicates the Memphis server to not re-send the same messa
 await message.ack()
 ```
 
+### Get headers 
+Get headers per message
+
+``python
+headers = message.get_headers()
+```
+
 ### Destroying a Consumer
 
 ```python
