@@ -433,6 +433,13 @@ class Message:
         except:
             return
 
+    def get_headers(self):
+        """Receive the headers.
+        """
+        try:
+            return self.message.headers
+        except:
+            return
 
 def random_bytes(amount: int) -> str:
     lst = [random.choice('0123456789abcdef') for n in range(amount)]
