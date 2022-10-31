@@ -46,9 +46,12 @@ class set_interval():
 
 
 class Memphis:
-
     def __init__(self):
         self.is_connection_active = False
+        self.t_schema_updates = None
+        self.producers_count = 0
+        self.schema_updates_data = {}
+        self.sub = None
 
     async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
@@ -135,6 +138,7 @@ class Memphis:
                 self.broker_manager = None
                 self.connection_id = None
                 self.is_connection_active = False
+                self.t_schema_updates.cancel()
         except:
             return
 
@@ -167,7 +171,6 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise Exception("Connection is dead")
-
             if generate_random_suffix:
                 producer_name = self.__generateRandomSuffix(producer_name)
             createProducerReq = {
@@ -180,13 +183,46 @@ class Memphis:
                 createProducerReq, indent=2).encode('utf-8')
             err_msg = await self.broker_manager.request("$memphis_producer_creations", create_producer_req_bytes)
             err_msg = err_msg.data.decode("utf-8")
-
-            if err_msg != "":
+            err_msg = json.loads(err_msg)
+            if err_msg['error'] != "":
                 raise Exception(err_msg)
+            
+            self.t_schema_updates = await self.start_listen_for_schema_updates(station_name)
             return Producer(self, producer_name, station_name)
 
         except Exception as e:
             raise Exception(e)
+
+    async def get_msg_schema_updates(self, station_name_internal, iterable):
+        async for msg in iterable:
+            message = msg.data.decode("utf-8")
+            message = json.loads(message)
+            if message['UpdateType'] == 2:
+                data = {}
+            else:
+                data = message['init']
+            self.schema_updates_data[station_name_internal] =  data
+            self.schema_updates_data[station_name_internal]["producers_count"] = self.producers_count
+
+    async def start_listen_for_schema_updates(self, station_name):
+        station_name_internal = get_internal_name(station_name)
+        schema_updates_subject = "$memphis_schema_updates_"+station_name_internal
+
+        keys = self.schema_updates_data.keys()
+        if len(keys) > 0 and station_name in self.schema_updates_data.keys():
+            self.producers_count += 1
+            self.schema_updates_data[station_name] = {"producers_count": self.producers_count}
+        else:
+            self.producers_count = 1
+            self.schema_updates_data[station_name] = {"producers_count": self.producers_count}
+
+       
+        if self.schema_updates_data[station_name]['producers_count'] == 1:
+            self.sub = await self.broker_manager.subscribe(schema_updates_subject)
+        
+        loop = asyncio.get_event_loop()
+        task = loop.create_task(self.get_msg_schema_updates(station_name_internal, self.sub.messages))
+        return task
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
         """Creates a consumer.
@@ -269,6 +305,9 @@ class Station:
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise Exception(error)
+            
+            self.connection.schema_updates_data[self.name] =  {}
+            self.connection.t_schema_updates.cancel()
         except Exception as e:
             raise Exception(e)
 
@@ -328,6 +367,12 @@ class Producer:
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise Exception(error)
+           
+            self.connection.schema_updates_data[self.station_name]['producers_count'] -= 1
+            if self.connection.schema_updates_data[self.station_name]['producers_count'] == 0:
+                self.connection.schema_updates_data[self.station_name] =  {}
+                self.connection.t_schema_updates.cancel()
+
         except Exception as e:
             raise Exception(e)
 
