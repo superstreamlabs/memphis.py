@@ -305,9 +305,12 @@ class Station:
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise Exception(error)
+
+            self.connection.schema_updates_data[self.name]['producers_count'] -= 1
+            if self.connection.schema_updates_data[self.name]['producers_count'] == 0:
+                self.connection.schema_updates_data[self.name] =  {}
+                self.connection.t_schema_updates.cancel()
             
-            self.connection.schema_updates_data[self.name] =  {}
-            self.connection.t_schema_updates.cancel()
         except Exception as e:
             raise Exception(e)
 
