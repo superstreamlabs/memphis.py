@@ -47,7 +47,6 @@ class set_interval():
 class Memphis:
     def __init__(self):
         self.is_connection_active = False
-        self.t_schema_updates = None
         self.schema_updates_data = {}
         self.schema_updates_subs = {}
         self.producers_per_station = {}
@@ -192,7 +191,7 @@ class Memphis:
             if err_msg['error'] != "":
                 raise Exception(err_msg)
             
-            self.t_schema_updates = await self.start_listen_for_schema_updates(station_name)
+            await self.start_listen_for_schema_updates(station_name)
             return Producer(self, producer_name, station_name)
 
         except Exception as e:
@@ -222,8 +221,7 @@ class Memphis:
             self.producers_per_station[station_name] = 1
             self.schema_updates_subs[station_name] =  sub
         loop = asyncio.get_event_loop()
-        task = loop.create_task(self.get_msg_schema_updates(station_name_internal, self.schema_updates_subs[station_name].messages))
-        return task
+        loop.create_task(self.get_msg_schema_updates(station_name_internal, self.schema_updates_subs[station_name].messages))
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
         """Creates a consumer.
