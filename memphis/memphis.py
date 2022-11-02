@@ -185,43 +185,48 @@ class Memphis:
             }
             create_producer_req_bytes = json.dumps(
                 createProducerReq, indent=2).encode('utf-8')
-            err_msg = await self.broker_manager.request("$memphis_producer_creations", create_producer_req_bytes)
-            err_msg = err_msg.data.decode("utf-8")
-            err_msg = json.loads(err_msg)
-            if err_msg['error'] != "":
-                raise Exception(err_msg)
+            create_res = await self.broker_manager.request("$memphis_producer_creations", create_producer_req_bytes)
+            create_res = create_res.data.decode("utf-8")
+            create_res = json.loads(create_res)
+            if create_res['error'] != "":
+                raise Exception(create_res)
             
-            await self.start_listen_for_schema_updates(station_name)
+            await self.start_listen_for_schema_updates(station_name, create_res['schema_update'])
             return Producer(self, producer_name, station_name)
 
         except Exception as e:
             raise Exception(e)
 
     async def get_msg_schema_updates(self, station_name_internal, iterable):
-        self.schema_updates_data[station_name_internal] =  {}
         async for msg in iterable:
             message = msg.data.decode("utf-8")
             message = json.loads(message)
-            empty = message['UpdateType'] == 2
-            if empty == 2:
+            if message['init']['schema_name'] == "":
                 data = {}
             else:
                 data = message['init']
             self.schema_updates_data[station_name_internal] =  data
 
-    async def start_listen_for_schema_updates(self, station_name):
+    async def start_listen_for_schema_updates(self, station_name, schema_update_data):
         station_name_internal = get_internal_name(station_name)
-        schema_updates_subject = "$memphis_schema_updates_"+station_name_internal
+        schema_updates_subject = "$memphis_schema_updates_" + station_name_internal
 
-        schema_exists = self.schema_updates_subs.get(station_name)
+        empty = schema_update_data['schema_name'] == ''
+        if empty:
+            self.schema_updates_data[station_name_internal] =  {}
+        else:
+            self.schema_updates_data[station_name_internal] = schema_update_data
+
+
+        schema_exists = self.schema_updates_subs.get(station_name_internal)
         if schema_exists:
-            self.producers_per_station[station_name] += 1
+            self.producers_per_station[station_name_internal] += 1
         else:
             sub = await self.broker_manager.subscribe(schema_updates_subject)
-            self.producers_per_station[station_name] = 1
-            self.schema_updates_subs[station_name] =  sub
+            self.producers_per_station[station_name_internal] = 1
+            self.schema_updates_subs[station_name_internal] =  sub
         loop = asyncio.get_event_loop()
-        loop.create_task(self.get_msg_schema_updates(station_name_internal, self.schema_updates_subs[station_name].messages))
+        loop.create_task(self.get_msg_schema_updates(station_name_internal, self.schema_updates_subs[station_name_internal].messages))
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
         """Creates a consumer.
@@ -304,10 +309,11 @@ class Station:
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise Exception(error)
-            sub = self.connection.schema_updates_subs.get(self.name)
-            del self.connection.schema_updates_data[self.name]
-            del self.connection.schema_updates_subs[self.name]
-            del self.connection.producers_per_station[self.name]
+            station_name_internal = get_internal_name(self.name)
+            sub = self.connection.schema_updates_subs.get(station_name_internal)
+            del self.connection.schema_updates_data[station_name_internal]
+            del self.connection.schema_updates_subs[station_name_internal]
+            del self.connection.producers_per_station[station_name_internal]
             await sub.unsubscribe()
 
         except Exception as e:
@@ -369,13 +375,15 @@ class Producer:
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise Exception(error)
+                        
+            station_name_internal = get_internal_name(self.station_name)
+            producer_number = self.connection.producers_per_station.get(station_name_internal) - 1
+            self.connection.producers_per_station[station_name_internal] = producer_number
 
-            producer_number = self.connection.producers_per_station.get(self.station_name) - 1
-            self.connection.producers_per_station[self.station_name] = producer_number
             if producer_number == 0:
-                sub = self.connection.schema_updates_subs.get(self.station_name)
-                del self.connection.schema_updates_data[self.station_name]
-                del self.connection.schema_updates_subs[self.station_name]
+                sub = self.connection.schema_updates_subs.get(station_name_internal)
+                del self.connection.schema_updates_data[station_name_internal]
+                del self.connection.schema_updates_subs[station_name_internal]
                 await sub.unsubscribe()
 
         except Exception as e:
