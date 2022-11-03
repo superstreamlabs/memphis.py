@@ -27,6 +27,10 @@ import nats as broker
 from threading import Timer
 import asyncio
 
+from google.protobuf import descriptor_pb2, descriptor_pool, text_format
+from google.protobuf.message_factory import MessageFactory
+from google.protobuf.message import Message
+
 import memphis.retention_types as retention_types
 import memphis.storage_types as storage_types
 
@@ -50,6 +54,33 @@ class Memphis:
         self.schema_updates_data = {}
         self.schema_updates_subs = {}
         self.producers_per_station = {}
+        self.schema_tasks = {}
+        self.proto_msgs = {}
+
+    def parse_descriptor(self, station_name):
+        try:
+            descriptor = self.schema_updates_data[station_name]['active_version']['descriptor']
+            msg_struct_name = self.schema_updates_data[station_name]['active_version']['message_struct_name']
+                
+            desc_set = descriptor_pb2.FileDescriptorSet()
+            descriptor_bytes = str.encode(descriptor)
+            desc_set.ParseFromString(descriptor_bytes)
+
+            pool = descriptor_pool.DescriptorPool()
+            desc = descriptor_pb2.FileDescriptorProto()
+            descriptor_bytes = str.encode(descriptor)
+            desc.ParseFromString(descriptor_bytes)
+
+            for fd in desc_set.file:
+                pool.Add(fd)
+
+            proto_msg = MessageFactory(pool).GetPrototype(                    
+                    pool.FindMessageTypeByName(fd.package + "." + msg_struct_name)
+                )
+
+            self.proto_msgs[station_name] =  proto_msg
+        except Exception as e:
+            return e
 
     async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
@@ -181,7 +212,8 @@ class Memphis:
                 "name": producer_name,
                 "station_name": station_name,
                 "connection_id": self.connection_id,
-                "producer_type": "application"
+                "producer_type": "application",
+                "request_version": 1
             }
             create_producer_req_bytes = json.dumps(
                 createProducerReq, indent=2).encode('utf-8')
@@ -191,7 +223,9 @@ class Memphis:
             if create_res['error'] != "":
                 raise Exception(create_res)
             
-            await self.start_listen_for_schema_updates(station_name, create_res['schema_update'])
+            station_name_internal = get_internal_name(station_name)
+            await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
+            self.parser_descriptor(station_name_internal)
             return Producer(self, producer_name, station_name)
 
         except Exception as e:
@@ -206,9 +240,9 @@ class Memphis:
             else:
                 data = message['init']
             self.schema_updates_data[station_name_internal] =  data
+            self.parse_descriptor(station_name_internal)
 
-    async def start_listen_for_schema_updates(self, station_name, schema_update_data):
-        station_name_internal = get_internal_name(station_name)
+    async def start_listen_for_schema_updates(self, station_name_internal, schema_update_data):
         schema_updates_subject = "$memphis_schema_updates_" + station_name_internal
 
         empty = schema_update_data['schema_name'] == ''
@@ -330,6 +364,22 @@ class Producer:
         self.producer_name = producer_name
         self.station_name = station_name
 
+    def validate(self, message, station_name_internal):
+        proto_msg = self.connection.proto_msgs[station_name_internal]
+
+        try:
+            msg = message
+            if isinstance(message,bytearray):
+                msg = message
+
+            elif isinstance(message, Message):
+                msg = text_format.MessageToString(message)
+
+            proto_msg.FromString(bytes(msg))
+
+        except Exception as e:
+            raise Exception("Schema validation has failed:",e)
+    
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
         Args:
@@ -342,13 +392,15 @@ class Producer:
             Exception: _description_
         """
         try:
+            subject = get_internal_name(self.station_name)
+            self.validate(message, subject)
+
             memphis_headers = {
                 "$memphis_producedBy": self.producer_name,
                 "$memphis_connectionId": self.connection.connection_id}
             headers = headers.headers
             headers.update(memphis_headers)
 
-            subject = get_internal_name(self.station_name)
 
             if async_produce:
                 self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
