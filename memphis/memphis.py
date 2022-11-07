@@ -409,8 +409,11 @@ class Producer:
             memphis_headers = {
                 "$memphis_producedBy": self.producer_name,
                 "$memphis_connectionId": self.connection.connection_id}
-            headers = headers.headers
-            headers.update(memphis_headers)
+            if headers != {}:
+                headers = headers.headers
+                headers.update(memphis_headers)
+            else:
+                headers = memphis_headers
 
 
             if async_produce:
