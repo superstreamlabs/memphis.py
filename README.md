@@ -166,8 +166,8 @@ producer = await memphis.producer(station_name="<station-name>", producer_name="
 
 ```python
 await prod.produce(
-  message=bytearray(msg, 'utf-8')), # Uint8Arrays
-  ack_wait_sec=15, # defaults to 15
+  message='<bytes array>/object', # Uint8Arrays / object in case your station is schema validated
+  ack_wait_sec=15) # defaults to 15
 ```
 
 ### Add headers
@@ -176,7 +176,7 @@ await prod.produce(
 headers= Headers()
 headers.add("<key>", "<value>")
 await producer.produce(
-  message=bytearray('Message #'+str(i)+': Hello world', 'utf-8'),
+  message='<bytes array>/object', # Uint8Arrays / object in case your station is schema validated
   headers=headers) # default to {}
 ```
 
@@ -185,7 +185,7 @@ Meaning your application won't wait for broker acknowledgement - use only in cas
 
 ```python
 await producer.produce(
-  message=bytearray('Message #'+str(i)+': Hello world', 'utf-8'),
+  message='<bytes array>/object', # Uint8Arrays / object in case your station is schema validated
   headers={}, async_produce=True)
 ```
 

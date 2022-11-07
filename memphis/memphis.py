@@ -27,7 +27,7 @@ import nats as broker
 from threading import Timer
 import asyncio
 
-from google.protobuf import descriptor_pb2, descriptor_pool, text_format
+from google.protobuf import descriptor_pb2, descriptor_pool, reflection
 from google.protobuf.message_factory import MessageFactory
 from google.protobuf.message import Message
 
@@ -61,24 +61,17 @@ class Memphis:
         try:
             descriptor = self.schema_updates_data[station_name]['active_version']['descriptor']
             msg_struct_name = self.schema_updates_data[station_name]['active_version']['message_struct_name']
-                
             desc_set = descriptor_pb2.FileDescriptorSet()
             descriptor_bytes = str.encode(descriptor)
             desc_set.ParseFromString(descriptor_bytes)
-
             pool = descriptor_pool.DescriptorPool()
-            desc = descriptor_pb2.FileDescriptorProto()
-            descriptor_bytes = str.encode(descriptor)
-            desc.ParseFromString(descriptor_bytes)
+            pool.Add(desc_set.file[0])
 
-            for fd in desc_set.file:
-                pool.Add(fd)
+            proto_msg = MessageFactory(pool).GetPrototype( 
+                    pool.FindMessageTypeByName(desc_set.file[0].package + "." + msg_struct_name))
+            proto = proto_msg()
+            self.proto_msgs[station_name] =  proto
 
-            proto_msg = MessageFactory(pool).GetPrototype(                    
-                    pool.FindMessageTypeByName(fd.package + "." + msg_struct_name)
-                )
-
-            self.proto_msgs[station_name] =  proto_msg
         except Exception as e:
             return e
 
@@ -170,9 +163,12 @@ class Memphis:
                 keys_schema_updates_subs = self.schema_updates_subs.keys()
                 for key in keys_schema_updates_subs:
                     sub = self.schema_updates_subs.get(key)
+                    task = self.schema_tasks.get(key)
                     del self.schema_updates_data[key]
                     del self.schema_updates_subs[key]
                     del self.producers_per_station[key]
+                    del self.schema_tasks[key]
+                    task.cancel()
                     await sub.unsubscribe()
         except:
             return
@@ -213,7 +209,7 @@ class Memphis:
                 "station_name": station_name,
                 "connection_id": self.connection_id,
                 "producer_type": "application",
-                "request_version": 1
+                "req_version": 1
             }
             create_producer_req_bytes = json.dumps(
                 createProducerReq, indent=2).encode('utf-8')
@@ -225,7 +221,9 @@ class Memphis:
             
             station_name_internal = get_internal_name(station_name)
             await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
-            self.parser_descriptor(station_name_internal)
+
+            if self.schema_updates_data[station_name_internal] != {}:
+                self.parse_descriptor(station_name_internal)
             return Producer(self, producer_name, station_name)
 
         except Exception as e:
@@ -259,8 +257,11 @@ class Memphis:
             sub = await self.broker_manager.subscribe(schema_updates_subject)
             self.producers_per_station[station_name_internal] = 1
             self.schema_updates_subs[station_name_internal] =  sub
-        loop = asyncio.get_event_loop()
-        loop.create_task(self.get_msg_schema_updates(station_name_internal, self.schema_updates_subs[station_name_internal].messages))
+        task_exists = self.schema_tasks.get(station_name_internal)
+        if not task_exists:
+            loop = asyncio.get_event_loop()
+            task = loop.create_task(self.get_msg_schema_updates(station_name_internal, self.schema_updates_subs[station_name_internal].messages))
+            self.schema_tasks[station_name_internal] =  task
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
         """Creates a consumer.
@@ -345,9 +346,12 @@ class Station:
                 raise Exception(error)
             station_name_internal = get_internal_name(self.name)
             sub = self.connection.schema_updates_subs.get(station_name_internal)
+            task = self.connection.schema_tasks.get(station_name_internal)
             del self.connection.schema_updates_data[station_name_internal]
             del self.connection.schema_updates_subs[station_name_internal]
             del self.connection.producers_per_station[station_name_internal]
+            del self.connection.schema_tasks[station_name_internal]
+            task.cancel()
             await sub.unsubscribe()
 
         except Exception as e:
@@ -368,14 +372,18 @@ class Producer:
         proto_msg = self.connection.proto_msgs[station_name_internal]
 
         try:
-            msg = message
             if isinstance(message,bytearray):
-                msg = message
+                proto_msg.ParseFromString(bytes(message))
+                proto_msg.SerializeToString()
+                return message
+            
+            elif hasattr(message, "SerializeToString"):
+                string_msg = message.SerializeToString()
+                proto_msg.ParseFromString(string_msg)
+                return string_msg
 
-            elif isinstance(message, Message):
-                msg = text_format.MessageToString(message)
-
-            proto_msg.FromString(bytes(msg))
+            else:
+                raise Exception("Unsupported message type")
 
         except Exception as e:
             raise Exception("Schema validation has failed:",e)
@@ -383,7 +391,7 @@ class Producer:
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
         Args:
-            message (Uint8Array): message to send into the station.
+            message (Uint8Array): message to send into the station (Uint8Array / object-in case your station is schema validated).
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
@@ -393,7 +401,10 @@ class Producer:
         """
         try:
             subject = get_internal_name(self.station_name)
-            self.validate(message, subject)
+            if self.connection.schema_updates_data[subject] != {}:
+                message = self.validate(message, subject)
+            elif not isinstance(message, bytearray):
+                raise Exception("Unsupported message type")
 
             memphis_headers = {
                 "$memphis_producedBy": self.producer_name,
@@ -434,16 +445,21 @@ class Producer:
 
             if producer_number == 0:
                 sub = self.connection.schema_updates_subs.get(station_name_internal)
+                task = self.connection.schema_tasks.get(station_name_internal)
                 del self.connection.schema_updates_data[station_name_internal]
                 del self.connection.schema_updates_subs[station_name_internal]
+                del self.connection.schema_tasks[station_name_internal]
+                task.cancel()
                 await sub.unsubscribe()
 
         except Exception as e:
             raise Exception(e)
 
+async def default_error_handler(e):
+        await print("ping exception raised", e)
 
 class Consumer:
-    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10):
+    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None):
         self.connection = connection
         self.station_name = station_name.lower()
         self.consumer_name = consumer_name.lower()
@@ -454,6 +470,9 @@ class Consumer:
         self.max_ack_time_ms = max_ack_time_ms
         self.max_msg_deliveries = max_msg_deliveries
         self.ping_consumer_invterval_ms = 30000
+        if error_callback is None:
+            error_callback = default_error_handler
+        self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
 
     def consume(self, callback):
         """Consume events.
@@ -499,14 +518,21 @@ class Consumer:
             await callback([], Exception(e))
             return
 
-    async def __ping_consumer(self):
-        x = await self.connection.broker_connection.consumer_info(self.station_name, durable=self.consumer_group)
-
+    async def __ping_consumer(self, callback):
+        while True:
+            try:
+                await asyncio.sleep(self.ping_consumer_invterval_ms/1000)
+                await self.connection.broker_connection.consumer_info(self.station_name, self.consumer_name)
+                  
+            except Exception as e:
+                    await callback(e)
+            
     async def destroy(self):
         """Destroy the consumer.
         """
         self.t_consume.cancel()
         self.t_dlq.cancel()
+        self.t_ping.cancel()
         self.pull_interval_ms = None
         try:
             destroyConsumerReq = {
