@@ -367,6 +367,7 @@ class Producer:
         self.connection = connection
         self.producer_name = producer_name
         self.station_name = station_name
+        self.internal_station_name = get_internal_name(self.station_name)
 
     def validate(self, message, station_name_internal):
         proto_msg = self.connection.proto_msgs[station_name_internal]
@@ -400,9 +401,8 @@ class Producer:
             Exception: _description_
         """
         try:
-            subject = get_internal_name(self.station_name)
-            if self.connection.schema_updates_data[subject] != {}:
-                message = self.validate(message, subject)
+            if self.connection.schema_updates_data[self.internal_station_name] !={}:
+                message = self.validate(message, self.internal_station_name)
             elif not isinstance(message, bytearray):
                 raise Exception("Unsupported message type")
 
@@ -417,9 +417,9 @@ class Producer:
 
 
             if async_produce:
-                self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
+                self.connection.broker_connection.publish(self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
             else:
-                await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
+                await self.connection.broker_connection.publish(self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(
