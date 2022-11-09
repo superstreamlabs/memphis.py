@@ -57,24 +57,6 @@ class Memphis:
         self.schema_tasks = {}
         self.proto_msgs = {}
 
-    def parse_descriptor(self, station_name):
-        try:
-            descriptor = self.schema_updates_data[station_name]['active_version']['descriptor']
-            msg_struct_name = self.schema_updates_data[station_name]['active_version']['message_struct_name']
-            desc_set = descriptor_pb2.FileDescriptorSet()
-            descriptor_bytes = str.encode(descriptor)
-            desc_set.ParseFromString(descriptor_bytes)
-            pool = descriptor_pool.DescriptorPool()
-            pool.Add(desc_set.file[0])
-
-            proto_msg = MessageFactory(pool).GetPrototype( 
-                    pool.FindMessageTypeByName(desc_set.file[0].package + "." + msg_struct_name))
-            proto = proto_msg()
-            self.proto_msgs[station_name] =  proto
-
-        except Exception as e:
-            return e
-
     async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
         Args:
@@ -240,28 +222,46 @@ class Memphis:
             self.schema_updates_data[station_name_internal] =  data
             self.parse_descriptor(station_name_internal)
 
-    async def start_listen_for_schema_updates(self, station_name_internal, schema_update_data):
-        schema_updates_subject = "$memphis_schema_updates_" + station_name_internal
+    def parse_descriptor(self, station_name):
+        try:
+            descriptor = self.schema_updates_data[station_name]['active_version']['descriptor']
+            msg_struct_name = self.schema_updates_data[station_name]['active_version']['message_struct_name']
+            desc_set = descriptor_pb2.FileDescriptorSet()
+            descriptor_bytes = str.encode(descriptor)
+            desc_set.ParseFromString(descriptor_bytes)
+            pool = descriptor_pool.DescriptorPool()
+            pool.Add(desc_set.file[0])
+
+            proto_msg = MessageFactory(pool).GetPrototype( 
+                    pool.FindMessageTypeByName(desc_set.file[0].package + "." + msg_struct_name))
+            proto = proto_msg()
+            self.proto_msgs[station_name] =  proto
+
+        except Exception as e:
+            return e
+
+    async def start_listen_for_schema_updates(self, station_name, schema_update_data):
+        schema_updates_subject = "$memphis_schema_updates_" + station_name
 
         empty = schema_update_data['schema_name'] == ''
         if empty:
-            self.schema_updates_data[station_name_internal] =  {}
+            self.schema_updates_data[station_name] =  {}
         else:
-            self.schema_updates_data[station_name_internal] = schema_update_data
+            self.schema_updates_data[station_name] = schema_update_data
 
 
-        schema_exists = self.schema_updates_subs.get(station_name_internal)
+        schema_exists = self.schema_updates_subs.get(station_name)
         if schema_exists:
-            self.producers_per_station[station_name_internal] += 1
+            self.producers_per_station[station_name] += 1
         else:
             sub = await self.broker_manager.subscribe(schema_updates_subject)
-            self.producers_per_station[station_name_internal] = 1
-            self.schema_updates_subs[station_name_internal] =  sub
-        task_exists = self.schema_tasks.get(station_name_internal)
+            self.producers_per_station[station_name] = 1
+            self.schema_updates_subs[station_name] =  sub
+        task_exists = self.schema_tasks.get(station_name)
         if not task_exists:
             loop = asyncio.get_event_loop()
-            task = loop.create_task(self.get_msg_schema_updates(station_name_internal, self.schema_updates_subs[station_name_internal].messages))
-            self.schema_tasks[station_name_internal] =  task
+            task = loop.create_task(self.get_msg_schema_updates(station_name, self.schema_updates_subs[station_name].messages))
+            self.schema_tasks[station_name] =  task
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
         """Creates a consumer.
@@ -368,8 +368,8 @@ class Producer:
         self.producer_name = producer_name
         self.station_name = station_name
 
-    def validate(self, message, station_name_internal):
-        proto_msg = self.connection.proto_msgs[station_name_internal]
+    def validate(self, message, station_name):
+        proto_msg = self.connection.proto_msgs[station_name]
 
         try:
             if isinstance(message,bytearray):
@@ -391,7 +391,7 @@ class Producer:
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
         Args:
-            message (Uint8Array): message to send into the station (Uint8Array / object-in case your station is schema validated).
+            message (bytes): message to send into the station (bytes array / dict-in case your station is schema validated).
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
