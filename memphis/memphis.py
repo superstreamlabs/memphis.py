@@ -369,8 +369,8 @@ class Producer:
         self.station_name = station_name
         self.internal_station_name = get_internal_name(self.station_name)
 
-    def validate(self, message, station_name):
-        proto_msg = self.connection.proto_msgs[station_name]
+    def validate(self, message):
+        proto_msg = self.connection.proto_msgs[self.internal_station_name]
 
         try:
             if isinstance(message,bytearray):
@@ -402,7 +402,7 @@ class Producer:
         """
         try:
             if self.connection.schema_updates_data[self.internal_station_name] !={}:
-                message = self.validate(message, self.internal_station_name)
+                message = self.validate(message)
             elif not isinstance(message, bytearray):
                 raise Exception("Unsupported message type")
 
