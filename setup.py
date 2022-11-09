@@ -20,7 +20,8 @@ setup(
     keywords=['message broker', 'devtool', 'streaming', 'data'],
     install_requires=[
         'asyncio',
-        'nats-py'
+        'nats-py',
+        'protobuf'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
