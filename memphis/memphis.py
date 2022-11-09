@@ -17,9 +17,12 @@ import json
 
 import nats as broker
 
-import uuid
 from threading import Timer
 import asyncio
+
+from google.protobuf import descriptor_pb2, descriptor_pool, reflection
+from google.protobuf.message_factory import MessageFactory
+from google.protobuf.message import Message
 
 import memphis.retention_types as retention_types
 import memphis.storage_types as storage_types
@@ -39,9 +42,13 @@ class set_interval():
 
 
 class Memphis:
-
     def __init__(self):
         self.is_connection_active = False
+        self.schema_updates_data = {}
+        self.schema_updates_subs = {}
+        self.producers_per_station = {}
+        self.schema_tasks = {}
+        self.proto_msgs = {}
 
     async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
@@ -128,6 +135,16 @@ class Memphis:
                 self.broker_manager = None
                 self.connection_id = None
                 self.is_connection_active = False
+                keys_schema_updates_subs = self.schema_updates_subs.keys()
+                for key in keys_schema_updates_subs:
+                    sub = self.schema_updates_subs.get(key)
+                    task = self.schema_tasks.get(key)
+                    del self.schema_updates_data[key]
+                    del self.schema_updates_subs[key]
+                    del self.producers_per_station[key]
+                    del self.schema_tasks[key]
+                    task.cancel()
+                    await sub.unsubscribe()
         except:
             return
 
@@ -160,26 +177,84 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise Exception("Connection is dead")
-
             if generate_random_suffix:
                 producer_name = self.__generateRandomSuffix(producer_name)
             createProducerReq = {
                 "name": producer_name,
                 "station_name": station_name,
                 "connection_id": self.connection_id,
-                "producer_type": "application"
+                "producer_type": "application",
+                "req_version": 1
             }
             create_producer_req_bytes = json.dumps(
                 createProducerReq, indent=2).encode('utf-8')
-            err_msg = await self.broker_manager.request("$memphis_producer_creations", create_producer_req_bytes)
-            err_msg = err_msg.data.decode("utf-8")
+            create_res = await self.broker_manager.request("$memphis_producer_creations", create_producer_req_bytes)
+            create_res = create_res.data.decode("utf-8")
+            create_res = json.loads(create_res)
+            if create_res['error'] != "":
+                raise Exception(create_res)
+            
+            station_name_internal = get_internal_name(station_name)
+            await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
 
-            if err_msg != "":
-                raise Exception(err_msg)
+            if self.schema_updates_data[station_name_internal] != {}:
+                self.parse_descriptor(station_name_internal)
             return Producer(self, producer_name, station_name)
 
         except Exception as e:
             raise Exception(e)
+
+    async def get_msg_schema_updates(self, station_name_internal, iterable):
+        async for msg in iterable:
+            message = msg.data.decode("utf-8")
+            message = json.loads(message)
+            if message['init']['schema_name'] == "":
+                data = {}
+            else:
+                data = message['init']
+            self.schema_updates_data[station_name_internal] =  data
+            self.parse_descriptor(station_name_internal)
+
+    def parse_descriptor(self, station_name):
+        try:
+            descriptor = self.schema_updates_data[station_name]['active_version']['descriptor']
+            msg_struct_name = self.schema_updates_data[station_name]['active_version']['message_struct_name']
+            desc_set = descriptor_pb2.FileDescriptorSet()
+            descriptor_bytes = str.encode(descriptor)
+            desc_set.ParseFromString(descriptor_bytes)
+            pool = descriptor_pool.DescriptorPool()
+            pool.Add(desc_set.file[0])
+
+            proto_msg = MessageFactory(pool).GetPrototype( 
+                    pool.FindMessageTypeByName(desc_set.file[0].package + "." + msg_struct_name))
+            proto = proto_msg()
+            self.proto_msgs[station_name] =  proto
+
+        except Exception as e:
+            return e
+
+    async def start_listen_for_schema_updates(self, station_name, schema_update_data):
+        schema_updates_subject = "$memphis_schema_updates_" + station_name
+
+        empty = schema_update_data['schema_name'] == ''
+        if empty:
+            self.schema_updates_data[station_name] =  {}
+        else:
+            self.schema_updates_data[station_name] = schema_update_data
+
+
+        schema_exists = self.schema_updates_subs.get(station_name)
+        if schema_exists:
+            self.producers_per_station[station_name] += 1
+        else:
+            sub = await self.broker_manager.subscribe(schema_updates_subject)
+            self.producers_per_station[station_name] = 1
+            self.schema_updates_subs[station_name] =  sub
+        task_exists = self.schema_tasks.get(station_name)
+        if not task_exists:
+            loop = asyncio.get_event_loop()
+            task = loop.create_task(self.get_msg_schema_updates(station_name, self.schema_updates_subs[station_name].messages))
+            self.schema_tasks[station_name] =  task
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
         """Creates a consumer.
@@ -262,6 +337,16 @@ class Station:
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise Exception(error)
+            station_name_internal = get_internal_name(self.name)
+            sub = self.connection.schema_updates_subs.get(station_name_internal)
+            task = self.connection.schema_tasks.get(station_name_internal)
+            del self.connection.schema_updates_data[station_name_internal]
+            del self.connection.schema_updates_subs[station_name_internal]
+            del self.connection.producers_per_station[station_name_internal]
+            del self.connection.schema_tasks[station_name_internal]
+            task.cancel()
+            await sub.unsubscribe()
+
         except Exception as e:
             raise Exception(e)
 
@@ -275,11 +360,32 @@ class Producer:
         self.connection = connection
         self.producer_name = producer_name
         self.station_name = station_name
+        self.internal_station_name = get_internal_name(self.station_name)
 
+    def validate(self, message):
+        proto_msg = self.connection.proto_msgs[self.internal_station_name]
+
+        try:
+            if isinstance(message,bytearray):
+                proto_msg.ParseFromString(bytes(message))
+                proto_msg.SerializeToString()
+                return message
+            
+            elif hasattr(message, "SerializeToString"):
+                string_msg = message.SerializeToString()
+                proto_msg.ParseFromString(string_msg)
+                return string_msg
+
+            else:
+                raise Exception("Unsupported message type")
+
+        except Exception as e:
+            raise Exception("Schema validation has failed:",e)
+    
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
         Args:
-            message (Uint8Array): message to send into the station.
+            message (bytes): message to send into the station (bytes array / dict-in case your station is schema validated).
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
@@ -288,18 +394,25 @@ class Producer:
             Exception: _description_
         """
         try:
+            if self.connection.schema_updates_data[self.internal_station_name] !={}:
+                message = self.validate(message)
+            elif not isinstance(message, bytearray):
+                raise Exception("Unsupported message type")
+
             memphis_headers = {
                 "$memphis_producedBy": self.producer_name,
                 "$memphis_connectionId": self.connection.connection_id}
-            headers = headers.headers
-            headers.update(memphis_headers)
+            if headers != {}:
+                headers = headers.headers
+                headers.update(memphis_headers)
+            else:
+                headers = memphis_headers
 
-            subject = get_internal_name(self.station_name)
 
             if async_produce:
-                self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
+                self.connection.broker_connection.publish(self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
             else:
-                await self.connection.broker_connection.publish(subject + ".final", message, timeout=ack_wait_sec, headers=headers)
+                await self.connection.broker_connection.publish(self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
                 raise Exception(
@@ -321,12 +434,28 @@ class Producer:
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise Exception(error)
+                        
+            station_name_internal = get_internal_name(self.station_name)
+            producer_number = self.connection.producers_per_station.get(station_name_internal) - 1
+            self.connection.producers_per_station[station_name_internal] = producer_number
+
+            if producer_number == 0:
+                sub = self.connection.schema_updates_subs.get(station_name_internal)
+                task = self.connection.schema_tasks.get(station_name_internal)
+                del self.connection.schema_updates_data[station_name_internal]
+                del self.connection.schema_updates_subs[station_name_internal]
+                del self.connection.schema_tasks[station_name_internal]
+                task.cancel()
+                await sub.unsubscribe()
+
         except Exception as e:
             raise Exception(e)
 
+async def default_error_handler(e):
+        await print("ping exception raised", e)
 
 class Consumer:
-    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10):
+    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None):
         self.connection = connection
         self.station_name = station_name.lower()
         self.consumer_name = consumer_name.lower()
@@ -337,6 +466,9 @@ class Consumer:
         self.max_ack_time_ms = max_ack_time_ms
         self.max_msg_deliveries = max_msg_deliveries
         self.ping_consumer_invterval_ms = 30000
+        if error_callback is None:
+            error_callback = default_error_handler
+        self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
 
     def consume(self, callback):
         """Consume events.
@@ -382,14 +514,21 @@ class Consumer:
             await callback([], Exception(e))
             return
 
-    async def __ping_consumer(self):
-        x = await self.connection.broker_connection.consumer_info(self.station_name, durable=self.consumer_group)
-
+    async def __ping_consumer(self, callback):
+        while True:
+            try:
+                await asyncio.sleep(self.ping_consumer_invterval_ms/1000)
+                await self.connection.broker_connection.consumer_info(self.station_name, self.consumer_name)
+                  
+            except Exception as e:
+                    await callback(e)
+            
     async def destroy(self):
         """Destroy the consumer.
         """
         self.t_consume.cancel()
         self.t_dlq.cancel()
+        self.t_ping.cancel()
         self.pull_interval_ms = None
         try:
             destroyConsumerReq = {
