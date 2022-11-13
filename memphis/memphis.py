@@ -193,7 +193,7 @@ class Memphis:
             create_res = json.loads(create_res)
             if create_res['error'] != "":
                 raise Exception(create_res)
-            
+
             station_name_internal = get_internal_name(station_name)
             await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
 
@@ -212,7 +212,7 @@ class Memphis:
                 data = {}
             else:
                 data = message['init']
-            self.schema_updates_data[station_name_internal] =  data
+            self.schema_updates_data[station_name_internal] = data
             self.parse_descriptor(station_name_internal)
 
     def parse_descriptor(self, station_name):
@@ -224,11 +224,14 @@ class Memphis:
             desc_set.ParseFromString(descriptor_bytes)
             pool = descriptor_pool.DescriptorPool()
             pool.Add(desc_set.file[0])
-
-            proto_msg = MessageFactory(pool).GetPrototype( 
-                    pool.FindMessageTypeByName(desc_set.file[0].package + "." + msg_struct_name))
+            pkg_name = desc_set.file[0].package
+            msg_name = msg_struct_name
+            if pkg_name != "":
+                msg_name = desc_set.file[0].package + "." + msg_struct_name
+            proto_msg = MessageFactory(pool).GetPrototype(
+                    pool.FindMessageTypeByName(msg_name))
             proto = proto_msg()
-            self.proto_msgs[station_name] =  proto
+            self.proto_msgs[station_name] = proto
 
         except Exception as e:
             return e
@@ -238,10 +241,9 @@ class Memphis:
 
         empty = schema_update_data['schema_name'] == ''
         if empty:
-            self.schema_updates_data[station_name] =  {}
+            self.schema_updates_data[station_name] = {}
         else:
             self.schema_updates_data[station_name] = schema_update_data
-
 
         schema_exists = self.schema_updates_subs.get(station_name)
         if schema_exists:
@@ -249,12 +251,13 @@ class Memphis:
         else:
             sub = await self.broker_manager.subscribe(schema_updates_subject)
             self.producers_per_station[station_name] = 1
-            self.schema_updates_subs[station_name] =  sub
+            self.schema_updates_subs[station_name] = sub
         task_exists = self.schema_tasks.get(station_name)
         if not task_exists:
             loop = asyncio.get_event_loop()
-            task = loop.create_task(self.get_msg_schema_updates(station_name, self.schema_updates_subs[station_name].messages))
-            self.schema_tasks[station_name] =  task
+            task = loop.create_task(self.get_msg_schema_updates(
+                station_name, self.schema_updates_subs[station_name].messages))
+            self.schema_tasks[station_name] = task
 
     async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
         """Creates a consumer.
@@ -338,7 +341,8 @@ class Station:
             if error != "" and not "not exist" in error:
                 raise Exception(error)
             station_name_internal = get_internal_name(self.name)
-            sub = self.connection.schema_updates_subs.get(station_name_internal)
+            sub = self.connection.schema_updates_subs.get(
+                station_name_internal)
             task = self.connection.schema_tasks.get(station_name_internal)
             del self.connection.schema_updates_data[station_name_internal]
             del self.connection.schema_updates_subs[station_name_internal]
@@ -364,28 +368,27 @@ class Producer:
 
     def validate(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
-
         try:
-            if isinstance(message,bytearray):
+            if isinstance(message, bytearray):
                 proto_msg.ParseFromString(bytes(message))
                 proto_msg.SerializeToString()
                 return message
-            
             elif hasattr(message, "SerializeToString"):
                 string_msg = message.SerializeToString()
                 proto_msg.ParseFromString(string_msg)
+                proto_msg.SerializeToString()
                 return string_msg
 
             else:
                 raise Exception("Unsupported message type")
 
         except Exception as e:
-            raise Exception("Schema validation has failed:",e)
-    
+            raise Exception("Schema validation has failed:", e)
+
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
         Args:
-            message (bytes): message to send into the station (bytes array / dict-in case your station is schema validated).
+            message (bytes): message to send into the station (bytes array / protobuf class -in case your station is schema validated).
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
@@ -407,7 +410,6 @@ class Producer:
                 headers.update(memphis_headers)
             else:
                 headers = memphis_headers
-
 
             if async_produce:
                 self.connection.broker_connection.publish(self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)

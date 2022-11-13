@@ -151,7 +151,7 @@ receive messages.
 Messages are published to a station and consumed from it by creating a consumer.
 Consumers are pull based and consume all the messages in a station unless you are using a consumers group, in this case messages are spread across all members in this group.
 
-Memphis messages are payload agnostic. Payloads are `bytes`.
+Memphis messages are payload agnostic. Payloads are `bytearray`.
 
 In order to stop getting messages, you have to call `consumer.destroy()`. Destroy will terminate regardless
 of whether there are messages in flight for the client.
@@ -166,7 +166,7 @@ producer = await memphis.producer(station_name="<station-name>", producer_name="
 
 ```python
 await prod.produce(
-  message='bytes/dict', # bytes / dict in case your station is schema validated
+  message='bytearray/protobuf class', # bytes / protobuf class in case your station is schema validated
   ack_wait_sec=15) # defaults to 15
 ```
 
@@ -174,9 +174,9 @@ await prod.produce(
 
 ```python
 headers= Headers()
-headers.add("<key>", "<value>")
+headers.add("key", "value")
 await producer.produce(
-  message='bytes/dict', # bytes / dict in case your station is schema validated
+  message='bytearray/protobuf class', # bytes / protobuf class in case your station is schema validated
   headers=headers) # default to {}
 ```
 
@@ -185,7 +185,7 @@ Meaning your application won't wait for broker acknowledgement - use only in cas
 
 ```python
 await producer.produce(
-  message='bytes/dict', # bytes / dict in case your station is schema validated
+  message='bytearray/protobuf class', # bytes / protobuf class in case your station is schema validated
   headers={}, async_produce=True)
 ```
 
