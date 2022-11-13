@@ -1,13 +1,17 @@
 
-from distutils.core import setup
+from setuptools import setup
+from pathlib import Path
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
+
 setup(
     name='memphis-py',
     packages=['memphis'],
-    version='0.2.0',
-    license='GPL',
+    version='0.2.1',
+    license='Apache-2.0',
     description='A powerful messaging platform for modern developers',
-    long_description='file: README.md',
-    long_description_content_type='text/markdown; charset=UTF-8; variant=GF',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     readme="README.md",
     author='Memphis.dev',
     author_email='team@memphis.dev',
@@ -16,7 +20,8 @@ setup(
     keywords=['message broker', 'devtool', 'streaming', 'data'],
     install_requires=[
         'asyncio',
-        'nats-py'
+        'nats-py',
+        'protobuf'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
