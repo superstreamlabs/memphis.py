@@ -11,7 +11,7 @@ node ("small-ec2-fleet") {
      sh 'python3 setup.py sdist'
      sh 'pip3 install twine'
      withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
-       //sh 'twine upload -u $USR -p $PSW dist/* '
+     sh 'twine upload -u $USR -p $PSW dist/*'
     }
    }
     
