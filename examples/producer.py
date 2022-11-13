@@ -10,7 +10,7 @@ async def main():
         producer = await memphis.producer(
             station_name="<station-name>", producer_name="<producer-name>")
         headers = Headers()
-        headers.add("<key>", "<value>") 
+        headers.add("key", "value") 
         for i in range(5):
             await producer.produce(bytearray('Message #'+str(i)+': Hello world', 'utf-8'), headers=headers)
 
