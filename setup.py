@@ -16,7 +16,7 @@ setup(
     author='Memphis.dev',
     author_email='team@memphis.dev',
     url='https://github.com/memphisdev/memphis.py',
-    download_url='https://github.com/memphisdev/memphis.py/archive/refs/tags/v0.2.0.tar.gz',
+    download_url='https://github.com/memphisdev/memphis.py/archive/refs/tags/v0.2.1.tar.gz',
     keywords=['message broker', 'devtool', 'streaming', 'data'],
     install_requires=[
         'asyncio',
