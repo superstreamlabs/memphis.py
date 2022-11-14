@@ -85,13 +85,13 @@ class Memphis:
         except Exception as e:
             raise Exception(e)
 
-    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.FILE, replicas=1, dedup_enabled=False, dedup_window_ms=0):
+    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
         Args:
             name (str): station name.
             retention_type (str, optional): retention type: message_age_sec/messages/bytes . Defaults to "message_age_sec".
             retention_value (int, optional): number which represents the retention based on the retention_type. Defaults to 604800.
-            storage_type (str, optional): persistance storage for messages of the station: file/memory. Defaults to "file".
+            storage_type (str, optional): persistance storage for messages of the station: disk/memory. Defaults to "disk".
             replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
             dedup_enabled (bool, optional): whether to allow dedup mecanism, dedup happens based on message ID. Defaults to False.
             dedup_window_ms (int, optional): time frame in which dedup track messages. Defaults to 0.

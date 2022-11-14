@@ -90,7 +90,7 @@ station = memphis.station(
   name="<station-name>",
   retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
-  storage_type=storage_types.FILE, # torage_types.FILE/torage_types.MEMORY. Defaults to MEMORY
+  storage_type=storage_types.DISK, # storage_types.DISK/storage_types.MEMORY. Defaults to DISK
   replicas=1, # defaults to 1
   dedup_enabled=False, # defaults to false
   dedup_window_ms: 0, # defaults to 0
@@ -124,10 +124,10 @@ Means that after max amount of saved bytes (set in retention value), the oldest 
 Memphis currently supports the following types of messages storage:
 
 ```python
-memphis.storage_types.FILE
+memphis.storage_types.DISK
 ```
 
-Means that messages persist on the file system
+Means that messages persist on disk
 
 ```python
 memphis.storage_types.MEMORY
