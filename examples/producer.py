@@ -1,5 +1,5 @@
 import asyncio
-from memphis import Memphis, Headers
+from memphis import Memphis, Headers, MemphisError, MemphisConnectError, MemphisHeaderError, MemphisSchemaError
 
 
 async def main():
@@ -14,7 +14,7 @@ async def main():
         for i in range(5):
             await producer.produce(bytearray('Message #'+str(i)+': Hello world', 'utf-8'), headers=headers)
 
-    except Exception as e:
+    except (MemphisError, MemphisConnectError, MemphisHeaderError, MemphisSchemaError) as e:
         print(e)
 
     finally:

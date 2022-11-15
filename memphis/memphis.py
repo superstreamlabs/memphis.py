@@ -83,7 +83,7 @@ class Memphis:
             self.broker_connection = self.broker_manager.jetstream()
             self.is_connection_active = True
         except Exception as e:
-            raise Exception(e)
+            raise MemphisConnectError(str(e)) from e
 
     async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
@@ -100,7 +100,7 @@ class Memphis:
         """
         try:
             if not self.is_connection_active:
-                raise Exception("Connection is dead")
+                raise MemphisError("Connection is dead")
 
             createStationReq = {
                 "name": name,
@@ -117,14 +117,14 @@ class Memphis:
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
-                raise Exception(err_msg)
+                raise MemphisError(err_msg)
             return Station(self, name)
 
         except Exception as e:
             if str(e).find('already exist') != -1:
                 return Station(self, name.lower())
             else:
-                raise Exception(e)
+                raise MemphisError(str(e)) from e
 
     async def close(self):
         """Close Memphis connection.
@@ -176,7 +176,8 @@ class Memphis:
         """
         try:
             if not self.is_connection_active:
-                raise Exception("Connection is dead")
+                raise MemphisError("Connection is dead")
+
             if generate_random_suffix:
                 producer_name = self.__generateRandomSuffix(producer_name)
             createProducerReq = {
@@ -192,7 +193,7 @@ class Memphis:
             create_res = create_res.data.decode("utf-8")
             create_res = json.loads(create_res)
             if create_res['error'] != "":
-                raise Exception(create_res)
+                raise MemphisError(create_res)
 
             station_name_internal = get_internal_name(station_name)
             await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
@@ -202,7 +203,7 @@ class Memphis:
             return Producer(self, producer_name, station_name)
 
         except Exception as e:
-            raise Exception(e)
+            raise MemphisError(str(e)) from e
 
     async def get_msg_schema_updates(self, station_name_internal, iterable):
         async for msg in iterable:
@@ -229,12 +230,12 @@ class Memphis:
             if pkg_name != "":
                 msg_name = desc_set.file[0].package + "." + msg_struct_name
             proto_msg = MessageFactory(pool).GetPrototype(
-                    pool.FindMessageTypeByName(msg_name))
+                pool.FindMessageTypeByName(msg_name))
             proto = proto_msg()
             self.proto_msgs[station_name] = proto
 
         except Exception as e:
-            return e
+            raise MemphisError(str(e)) from e
 
     async def start_listen_for_schema_updates(self, station_name, schema_update_data):
         schema_updates_subject = "$memphis_schema_updates_" + station_name
@@ -277,7 +278,8 @@ class Memphis:
         """
         try:
             if not self.is_connection_active:
-                raise Exception("Connection is dead")
+                raise MemphisError("Connection is dead")
+
             if generate_random_suffix:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
@@ -298,11 +300,12 @@ class Memphis:
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
-                raise Exception(err_msg)
+                raise MemphisError(err_msg)
+
             return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries)
 
         except Exception as e:
-            raise Exception(e)
+            raise MemphisError(str(e)) from e
 
 
 class Headers:
@@ -320,7 +323,7 @@ class Headers:
         if not key.startswith("$memphis"):
             self.headers[key] = value
         else:
-            raise Exception("Keys in headers should not start with $memphis")
+            raise MemphisHeaderError("Keys in headers should not start with $memphis")
 
 
 class Station:
@@ -339,7 +342,8 @@ class Station:
             res = await self.connection.broker_manager.request('$memphis_station_destructions', station_name)
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
-                raise Exception(error)
+                raise MemphisError(error)
+
             station_name_internal = get_internal_name(self.name)
             sub = self.connection.schema_updates_subs.get(
                 station_name_internal)
@@ -352,7 +356,7 @@ class Station:
             await sub.unsubscribe()
 
         except Exception as e:
-            raise Exception(e)
+            raise MemphisError(str(e)) from e
 
 
 def get_internal_name(name: str) -> str:
@@ -380,10 +384,10 @@ class Producer:
                 return string_msg
 
             else:
-                raise Exception("Unsupported message type")
+                raise MemphisSchemaError("Unsupported message type")
 
         except Exception as e:
-            raise Exception("Schema validation has failed:", e)
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
@@ -397,10 +401,10 @@ class Producer:
             Exception: _description_
         """
         try:
-            if self.connection.schema_updates_data[self.internal_station_name] !={}:
+            if self.connection.schema_updates_data[self.internal_station_name] != {}:
                 message = self.validate(message)
             elif not isinstance(message, bytearray):
-                raise Exception("Unsupported message type")
+                raise MemphisSchemaError("Unsupported message type")
 
             memphis_headers = {
                 "$memphis_producedBy": self.producer_name,
@@ -412,15 +416,16 @@ class Producer:
                 headers = memphis_headers
 
             if async_produce:
-                self.connection.broker_connection.publish(self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
+                self.connection.broker_connection.publish(
+                    self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
             else:
                 await self.connection.broker_connection.publish(self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
         except Exception as e:
             if hasattr(e, 'status_code') and e.status_code == '503':
-                raise Exception(
+                raise MemphisError(
                     "Produce operation has failed, please check whether Station/Producer are still exist")
             else:
-                raise Exception(e)
+                raise MemphisError(str(e)) from e
 
     async def destroy(self):
         """Destroy the producer.
@@ -436,13 +441,15 @@ class Producer:
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise Exception(error)
-                        
+
             station_name_internal = get_internal_name(self.station_name)
-            producer_number = self.connection.producers_per_station.get(station_name_internal) - 1
+            producer_number = self.connection.producers_per_station.get(
+                station_name_internal) - 1
             self.connection.producers_per_station[station_name_internal] = producer_number
 
             if producer_number == 0:
-                sub = self.connection.schema_updates_subs.get(station_name_internal)
+                sub = self.connection.schema_updates_subs.get(
+                    station_name_internal)
                 task = self.connection.schema_tasks.get(station_name_internal)
                 del self.connection.schema_updates_data[station_name_internal]
                 del self.connection.schema_updates_subs[station_name_internal]
@@ -453,8 +460,10 @@ class Producer:
         except Exception as e:
             raise Exception(e)
 
+
 async def default_error_handler(e):
-        await print("ping exception raised", e)
+    await print("ping exception raised", e)
+
 
 class Consumer:
     def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None):
@@ -493,11 +502,11 @@ class Consumer:
                     await callback(memphis_messages, None)
                     await asyncio.sleep(self.pull_interval_ms/1000)
                 except TimeoutError:
-                    await callback([], Exception("Memphis: TimeoutError"))
+                    await callback([], MemphisError("Memphis: TimeoutError"))
                     continue
                 except Exception as e:
                     if self.connection.is_connection_active:
-                        raise Exception(e)
+                        raise MemphisError(str(e)) from e
                     else:
                         return
             else:
@@ -513,7 +522,7 @@ class Consumer:
                 await callback([Message(msg)], None)
         except Exception as e:
             print("dls", e)
-            await callback([], Exception(e))
+            await callback([], MemphisError(str(e)))
             return
 
     async def __ping_consumer(self, callback):
@@ -521,10 +530,10 @@ class Consumer:
             try:
                 await asyncio.sleep(self.ping_consumer_invterval_ms/1000)
                 await self.connection.broker_connection.consumer_info(self.station_name, self.consumer_name)
-                  
+
             except Exception as e:
-                    await callback(e)
-            
+                await callback(e)
+
     async def destroy(self):
         """Destroy the consumer.
         """
@@ -542,9 +551,9 @@ class Consumer:
             res = await self.connection.broker_manager.request('$memphis_consumer_destructions', consumer_name)
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
-                raise Exception(error)
+                raise MemphisError(error)
         except Exception as e:
-            raise Exception(e)
+            raise MemphisError(str(e)) from e
 
 
 class Message:
@@ -575,7 +584,31 @@ class Message:
         except:
             return
 
+
 def random_bytes(amount: int) -> str:
     lst = [random.choice('0123456789abcdef') for n in range(amount)]
     s = "".join(lst)
     return s
+
+
+class MemphisError(Exception):
+    def __init__(self, message):
+        message = message.replace("nats", "memphis")
+        message = message.replace("NATS", "memphis")
+        message = message.replace("Nats", "memphis")
+        message = message.replace("NatsError", "MemphisError")
+
+        self.message = message
+        super().__init__("memphis: " + self.message)
+
+
+class MemphisConnectError(MemphisError):
+    pass
+
+
+class MemphisSchemaError(MemphisError):
+    pass
+
+
+class MemphisHeaderError(MemphisError):
+    pass

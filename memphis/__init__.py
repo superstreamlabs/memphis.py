@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from memphis.memphis import Memphis, Headers
+from memphis.memphis import Memphis, Headers, MemphisError, MemphisConnectError, MemphisSchemaError, MemphisHeaderError
 import memphis.retention_types
 import memphis.storage_types
