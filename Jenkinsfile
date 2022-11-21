@@ -16,6 +16,7 @@ node ("small-ec2-fleet") {
    }
     
     stage('Checkout to version branch'){
+      sh 'sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo'
       sh 'sudo yum install gh -y'
       sh(script:"""cat setup.py | grep version | cut -d\\\' -f 2 > version.conf""", returnStdout: true)
       withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
