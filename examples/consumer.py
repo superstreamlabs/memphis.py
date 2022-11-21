@@ -1,5 +1,5 @@
 import asyncio
-from memphis import Memphis
+from memphis import Memphis, MemphisError, MemphisConnectError, MemphisHeaderError
 
 
 async def main():
@@ -11,7 +11,7 @@ async def main():
                 headers = msg.get_headers()
             if error:
                 print(error)
-        except Exception as e:
+        except (MemphisError, MemphisConnectError, MemphisHeaderError) as e:
             print(e)
             return
 
@@ -25,7 +25,7 @@ async def main():
         # Keep your main thread alive so the consumer will keep receiving data
         await asyncio.sleep(5)
 
-    except Exception as e:
+    except (MemphisError, MemphisConnectError) as e:
         print(e)
 
     finally:
