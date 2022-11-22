@@ -370,7 +370,7 @@ class Producer:
         self.station_name = station_name
         self.internal_station_name = get_internal_name(self.station_name)
 
-    def validate(self, message):
+    async def validate(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
         try:
             if isinstance(message, bytearray):
@@ -384,10 +384,25 @@ class Producer:
                 return string_msg
 
             else:
+                msg = {
+                    "msg": 'Schema validation has failed ' + self.station_name + ' with producer ' + self.producer_name + ': Unsupported message type',
+                }
+                msgToSlack = json.dumps(msg).encode('utf-8')
+                await self.connection.broker_manager.publish("$memphis_schema_validation_fail_updates", msgToSlack)
                 raise MemphisSchemaError("Unsupported message type")
 
         except Exception as e:
-            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+            if hasattr(e, 'status_code') and e.status_code == '503':
+                msg = {
+                    "msg": 'Validate Message operation has failed ' + self.station_name + ' with producer ' + self.producer_name,
+                }
+            else:
+                msg = {
+                    "msg": 'Schema validation has failed at station ' + self.station_name + ' with producer ' + self.producer_name + ': ' + str(e),
+                }
+            msgToSlack = json.dumps(msg).encode('utf-8')
+            await self.connection.broker_manager.publish("$memphis_schema_validation_fail_updates", msgToSlack)
+            raise MemphisSchemaError(msg)
 
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
@@ -402,7 +417,7 @@ class Producer:
         """
         try:
             if self.connection.schema_updates_data[self.internal_station_name] != {}:
-                message = self.validate(message)
+                message = await self.validate(message)
             elif not isinstance(message, bytearray):
                 raise MemphisSchemaError("Unsupported message type")
 
