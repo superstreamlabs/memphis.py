@@ -85,6 +85,14 @@ class Memphis:
         except Exception as e:
             raise MemphisConnectError(str(e)) from e
 
+    async def send_notification(self, title, string):
+        msg = {
+                    "title": title,
+                    "msg": string,
+                 }
+        msgToSlack = json.dumps(msg).encode('utf-8')
+        await self.broker_manager.publish("$memphis_schema_validation_fail_updates", msgToSlack)
+
     async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
         Args:
@@ -384,25 +392,12 @@ class Producer:
                 return string_msg
 
             else:
-                msg = {
-                    "msg": 'Schema validation has failed ' + self.station_name + ' with producer ' + self.producer_name + ': Unsupported message type',
-                }
-                msgToSlack = json.dumps(msg).encode('utf-8')
-                await self.connection.broker_manager.publish("$memphis_schema_validation_fail_updates", msgToSlack)
+                await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type')
                 raise MemphisSchemaError("Unsupported message type")
 
         except Exception as e:
-            if hasattr(e, 'status_code') and e.status_code == '503':
-                msg = {
-                    "msg": 'Validate Message operation has failed ' + self.station_name + ' with producer ' + self.producer_name,
-                }
-            else:
-                msg = {
-                    "msg": 'Schema validation has failed at station ' + self.station_name + ' with producer ' + self.producer_name + ': ' + str(e),
-                }
-            msgToSlack = json.dumps(msg).encode('utf-8')
-            await self.connection.broker_manager.publish("$memphis_schema_validation_fail_updates", msgToSlack)
-            raise MemphisSchemaError(msg)
+            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: ' + str(e))
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
