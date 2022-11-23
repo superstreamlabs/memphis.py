@@ -20,6 +20,7 @@ import nats as broker
 from threading import Timer
 import asyncio
 
+from jsonschema import validate
 from google.protobuf import descriptor_pb2, descriptor_pool, reflection
 from google.protobuf.message_factory import MessageFactory
 from google.protobuf.message import Message
@@ -198,7 +199,7 @@ class Memphis:
             station_name_internal = get_internal_name(station_name)
             await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
 
-            if self.schema_updates_data[station_name_internal] != {}:
+            if self.schema_updates_data[station_name_internal] != {} and self.schema_updates_data[station_name_internal]['type'] == "protobuf":
                 self.parse_descriptor(station_name_internal)
             return Producer(self, producer_name, station_name)
 
@@ -370,7 +371,7 @@ class Producer:
         self.station_name = station_name
         self.internal_station_name = get_internal_name(self.station_name)
 
-    def validate(self, message):
+    def validateProtoBuf(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
         try:
             if isinstance(message, bytearray):
@@ -388,6 +389,24 @@ class Producer:
 
         except Exception as e:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
+    
+    def validateJsonSchema(self, message):
+        schema = self.connection.schema_updates_data[self.internal_station_name]['active_version']['schema_content']
+        try:
+            schema_obj = json.loads(schema)
+            if isinstance(message, bytearray):
+                message_obj = json.loads(message)
+            elif isinstance(message, dict):
+                message_obj = message
+                message = bytearray(json.dumps(message_obj).encode('utf-8'))
+            else:
+                raise MemphisSchemaError("Unsupported message type")
+
+            validate(instance=message_obj, schema=schema_obj)
+            return message
+        except Exception as e:
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+
 
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
         """Produces a message into a station.
@@ -402,7 +421,10 @@ class Producer:
         """
         try:
             if self.connection.schema_updates_data[self.internal_station_name] != {}:
-                message = self.validate(message)
+                if self.connection.schema_updates_data[self.internal_station_name]['type'] == "protobuf":
+                    message = self.validateProtoBuf(message)
+                elif self.connection.schema_updates_data[self.internal_station_name]['type'] == "json":
+                    message = self.validateJsonSchema(message)
             elif not isinstance(message, bytearray):
                 raise MemphisSchemaError("Unsupported message type")
 
