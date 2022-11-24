@@ -373,15 +373,13 @@ class Producer:
 
     def validateMsg(self, message):
         if self.connection.schema_updates_data[self.internal_station_name] != {}:
-            message_type = self.connection.schema_updates_data[self.internal_station_name]['type']
-            if message_type == "protobuf":
+            schema_type = self.connection.schema_updates_data[self.internal_station_name]['type']
+            if schema_type == "protobuf":
                 message = self.validateProtoBuf(message)
                 return message
-            elif message_type == "json":
+            elif schema_type == "json":
                 message = self.validateJsonSchema(message)
                 return message
-            else:
-                raise MemphisSchemaError("Invalid schema type")
         elif not isinstance(message, bytearray):
             raise MemphisSchemaError("Unsupported message type")
         else:
