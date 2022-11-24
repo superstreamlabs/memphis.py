@@ -91,7 +91,7 @@ class Memphis:
                     "msg": string,
                  }
         msgToSlack = json.dumps(msg).encode('utf-8')
-        await self.broker_manager.publish("$memphis_schema_validation_fail_updates", msgToSlack)
+        await self.broker_manager.publish("$memphis_notifications", msgToSlack)
 
     async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
