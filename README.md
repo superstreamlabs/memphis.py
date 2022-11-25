@@ -166,7 +166,7 @@ producer = await memphis.producer(station_name="<station-name>", producer_name="
 
 ```python
 await prod.produce(
-  message='bytearray/protobuf class/dict', # bytes / protobuf class (schema validated station - protobuf) or bytes/dict (schema validated station - json schema) in case your station is schema validated
+  message='bytearray/protobuf class/dict', # bytes / protobuf class (schema validated station - protobuf) or bytes/dict (schema validated station - json schema)
   ack_wait_sec=15) # defaults to 15
 ```
 
@@ -176,7 +176,7 @@ await prod.produce(
 headers= Headers()
 headers.add("key", "value")
 await producer.produce(
-  message='bytearray/protobuf class/dict', # bytes / protobuf class (schema validated station - protobuf) or bytes/dict (schema validated station - json schema) in case your station is schema validated
+  message='bytearray/protobuf class/dict', # bytes / protobuf class (schema validated station - protobuf) or bytes/dict (schema validated station - json schema)
   headers=headers) # default to {}
 ```
 
@@ -185,7 +185,7 @@ Meaning your application won't wait for broker acknowledgement - use only in cas
 
 ```python
 await producer.produce(
-  message='bytearray/protobuf class/dict', # bytes / protobuf class (schema validated station - protobuf) or bytes/dict (schema validated station - json schema) in case your station is schema validated
+  message='bytearray/protobuf class/dict', # bytes / protobuf class (schema validated station - protobuf) or bytes/dict (schema validated station - json schema)
   headers={}, async_produce=True)
 ```
 
