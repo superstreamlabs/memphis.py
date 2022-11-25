@@ -85,13 +85,14 @@ class Memphis:
         except Exception as e:
             raise MemphisConnectError(str(e)) from e
 
-    async def send_notification(self, title, string):
+    async def send_notification(self, title, msg, failedMsg):
         msg = {
                     "title": title,
-                    "msg": string,
+                    "msg": msg,
+                    "code": failedMsg
                  }
-        msgToSlack = json.dumps(msg).encode('utf-8')
-        await self.broker_manager.publish("$memphis_notifications", msgToSlack)
+        msgToSend = json.dumps(msg).encode('utf-8')
+        await self.broker_manager.publish("$memphis_notifications", msgToSend)
 
     async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, dedup_enabled=False, dedup_window_ms=0):
         """Creates a station.
@@ -380,23 +381,26 @@ class Producer:
 
     async def validate(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
+        msgToSend = ""
         try:
             if isinstance(message, bytearray):
-                proto_msg.ParseFromString(bytes(message))
+                msgToSend = bytes(message)
+                proto_msg.ParseFromString(msgToSend)
                 proto_msg.SerializeToString()
+                msgToSend = msgToSend.decode("utf-8")
                 return message
             elif hasattr(message, "SerializeToString"):
-                string_msg = message.SerializeToString()
-                proto_msg.ParseFromString(string_msg)
+                msgToSend = message.SerializeToString()
+                proto_msg.ParseFromString(msgToSend)
                 proto_msg.SerializeToString()
-                return string_msg
+                return msgToSend
 
             else:
-                await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type')
+                await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type', msgToSend )
                 raise MemphisSchemaError("Unsupported message type")
 
         except Exception as e:
-            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: ' + str(e))
+            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: ' + str(e), msgToSend.decode("utf-8") )
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
