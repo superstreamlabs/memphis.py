@@ -21,7 +21,8 @@ setup(
     install_requires=[
         'asyncio',
         'nats-py',
-        'protobuf'
+        'protobuf',
+        'jsonschema'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
