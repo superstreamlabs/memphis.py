@@ -92,8 +92,7 @@ station = memphis.station(
   retention_value=604800, # defaults to 604800
   storage_type=storage_types.DISK, # storage_types.DISK/storage_types.MEMORY. Defaults to DISK
   replicas=1, # defaults to 1
-  dedup_enabled=False, # defaults to false
-  dedup_window_ms: 0, # defaults to 0
+  idempotency_window_ms: 120000, # defaults to 2 minutes
 )
 ```
 
@@ -187,6 +186,15 @@ Meaning your application won't wait for broker acknowledgement - use only in cas
 await producer.produce(
   message='bytearray/protobuf class/dict', # bytes / protobuf class (schema validated station - protobuf) or bytes/dict (schema validated station - json schema)
   headers={}, async_produce=True)
+```
+
+### Message ID
+Stations are idempotent by default for 2 minutes (can be configured), Idempotency achieved by adding a message id
+
+```python
+await producer.produce(
+  message='bytearray/protobuf class/dict', # bytes / protobuf class (schema validated station - protobuf) or bytes/dict (schema validated station - json schema)
+  headers={}, async_produce=True, idempotency_window_ms=120000)
 ```
 
 ### Destroying a Producer
