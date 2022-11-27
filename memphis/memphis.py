@@ -86,7 +86,7 @@ class Memphis:
         except Exception as e:
             raise MemphisConnectError(str(e)) from e
 
-    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, dedup_enabled=False, dedup_window_ms=0):
+    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000):
         """Creates a station.
         Args:
             name (str): station name.
@@ -94,8 +94,7 @@ class Memphis:
             retention_value (int, optional): number which represents the retention based on the retention_type. Defaults to 604800.
             storage_type (str, optional): persistance storage for messages of the station: disk/memory. Defaults to "disk".
             replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
-            dedup_enabled (bool, optional): whether to allow dedup mecanism, dedup happens based on message ID. Defaults to False.
-            dedup_window_ms (int, optional): time frame in which dedup track messages. Defaults to 0.
+            idempotency_window_ms (int, optional): time frame in which idempotent messages will be tracked, happens based on message ID Defaults to 120000.
         Returns:
             object: station
         """
@@ -109,8 +108,7 @@ class Memphis:
                 "retention_value": retention_value,
                 "storage_type": storage_type,
                 "replicas": replicas,
-                "dedup_enabled": dedup_enabled,
-                "dedup_window_in_ms": dedup_window_ms
+                "idempotency_window_in_ms": idempotency_window_ms
             }
             create_station_req_bytes = json.dumps(
                 createStationReq, indent=2).encode('utf-8')
@@ -324,7 +322,8 @@ class Headers:
         if not key.startswith("$memphis"):
             self.headers[key] = value
         else:
-            raise MemphisHeaderError("Keys in headers should not start with $memphis")
+            raise MemphisHeaderError(
+                "Keys in headers should not start with $memphis")
 
 
 class Station:
@@ -403,9 +402,10 @@ class Producer:
 
         except Exception as e:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
-    
+
     def validateJsonSchema(self, message):
-        schema = self.connection.schema_updates_data[self.internal_station_name]['active_version']['schema_content']
+        schema = self.connection.schema_updates_data[
+            self.internal_station_name]['active_version']['schema_content']
         try:
             schema_obj = json.loads(schema)
             if isinstance(message, bytearray):
@@ -421,14 +421,14 @@ class Producer:
         except Exception as e:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
-
-    async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
+    async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False, msg_id=None):
         """Produces a message into a station.
         Args:
             message (bytes): message to send into the station (bytes array / protobuf class -in case your station is schema validated).
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
+            msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotency
         Raises:
             Exception: _description_
             Exception: _description_
@@ -439,6 +439,10 @@ class Producer:
             memphis_headers = {
                 "$memphis_producedBy": self.producer_name,
                 "$memphis_connectionId": self.connection.connection_id}
+
+            if msg_id != None:
+                memphis_headers["msg-id"] = msg_id
+
             if headers != {}:
                 headers = headers.headers
                 headers.update(memphis_headers)
