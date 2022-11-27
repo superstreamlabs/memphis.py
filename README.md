@@ -194,7 +194,9 @@ Stations are idempotent by default for 2 minutes (can be configured), Idempotenc
 ```python
 await producer.produce(
   message='bytearray/protobuf class/dict', # bytes / protobuf class (schema validated station - protobuf) or bytes/dict (schema validated station - json schema)
-  headers={}, async_produce=True, idempotency_window_ms=120000)
+  headers={}, 
+  async_produce=True,
+  msg_id="123")
 ```
 
 ### Destroying a Producer
