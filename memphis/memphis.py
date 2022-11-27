@@ -27,6 +27,7 @@ from google.protobuf.message import Message
 import memphis.retention_types as retention_types
 import memphis.storage_types as storage_types
 
+schemaVFailAlertType = 'schema_validation_fail_alert';
 
 class set_interval():
     def __init__(self, func, sec):
@@ -85,10 +86,11 @@ class Memphis:
         except Exception as e:
             raise MemphisConnectError(str(e)) from e
 
-    async def send_notification(self, title, msg, failedMsg):
+    async def send_notification(self, title, msg, failedMsg, type):
         msg = {
                     "title": title,
                     "msg": msg,
+                    "type": type,
                     "code": failedMsg
                  }
         msgToSend = json.dumps(msg).encode('utf-8')
@@ -396,11 +398,11 @@ class Producer:
                 return msgToSend
 
             else:
-                await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type', msgToSend )
+                await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type', msgToSend, schemaVFailAlertType )
                 raise MemphisSchemaError("Unsupported message type")
 
         except Exception as e:
-            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: ' + str(e), msgToSend.decode("utf-8") )
+            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: ' + str(e), msgToSend.decode("utf-8"), schemaVFailAlertType )
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
