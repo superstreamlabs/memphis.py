@@ -28,6 +28,7 @@ from google.protobuf.message import Message
 import memphis.retention_types as retention_types
 import memphis.storage_types as storage_types
 
+schemaVFailAlertType = 'schema_validation_fail_alert';
 
 class set_interval():
     def __init__(self, func, sec):
@@ -86,6 +87,15 @@ class Memphis:
         except Exception as e:
             raise MemphisConnectError(str(e)) from e
 
+    async def send_notification(self, title, msg, failedMsg, type):
+        msg = {
+                    "title": title,
+                    "msg": msg,
+                    "type": type,
+                    "code": failedMsg
+                 }
+        msgToSend = json.dumps(msg).encode('utf-8')
+        await self.broker_manager.publish("$memphis_notifications", msgToSend)
     async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000):
         """Creates a station.
         Args:
@@ -370,11 +380,11 @@ class Producer:
         self.station_name = station_name
         self.internal_station_name = get_internal_name(self.station_name)
 
-    def validateMsg(self, message):
+    async def validateMsg(self, message):
         if self.connection.schema_updates_data[self.internal_station_name] != {}:
             schema_type = self.connection.schema_updates_data[self.internal_station_name]['type']
             if schema_type == "protobuf":
-                message = self.validateProtoBuf(message)
+                message = await self.validateProtoBuf(message)
                 return message
             elif schema_type == "json":
                 message = self.validateJsonSchema(message)
@@ -384,23 +394,28 @@ class Producer:
         else:
             return message
 
-    def validateProtoBuf(self, message):
+    async def validateProtoBuf(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
+        msgToSend = ""
         try:
             if isinstance(message, bytearray):
-                proto_msg.ParseFromString(bytes(message))
+                msgToSend = bytes(message)
+                proto_msg.ParseFromString(msgToSend)
                 proto_msg.SerializeToString()
+                msgToSend = msgToSend.decode("utf-8")
                 return message
             elif hasattr(message, "SerializeToString"):
-                string_msg = message.SerializeToString()
-                proto_msg.ParseFromString(string_msg)
+                msgToSend = message.SerializeToString()
+                proto_msg.ParseFromString(msgToSend)
                 proto_msg.SerializeToString()
-                return string_msg
+                return msgToSend
 
             else:
+                await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type', msgToSend, schemaVFailAlertType )
                 raise MemphisSchemaError("Unsupported message type")
 
         except Exception as e:
+            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: ' + str(e), msgToSend.decode("utf-8"), schemaVFailAlertType )
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     def validateJsonSchema(self, message):
@@ -434,7 +449,7 @@ class Producer:
             Exception: _description_
         """
         try:
-            message = self.validateMsg(message)
+            message = await self.validateMsg(message)
 
             memphis_headers = {
                 "$memphis_producedBy": self.producer_name,
