@@ -411,11 +411,9 @@ class Producer:
                 return msgToSend
 
             else:
-                await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type', msgToSend, schemaVFailAlertType )
                 raise MemphisSchemaError("Unsupported message type")
 
         except Exception as e:
-            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: ' + str(e), msgToSend.decode("utf-8"), schemaVFailAlertType )
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     def validateJsonSchema(self, message):
@@ -474,6 +472,13 @@ class Producer:
                 raise MemphisError(
                     "Produce operation has failed, please check whether Station/Producer are still exist")
             else:
+                if ("Schema validation has failed" in str(e) or "Unsupported message type" in str(e)): 
+                    msgToSend = ""
+                    if isinstance(message, bytearray):
+                        msgToSend = str(message, 'utf-8')
+                    elif hasattr(message, "SerializeToString"):
+                        msgToSend = message.SerializeToString().decode("utf-8")
+                    await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type', msgToSend, schemaVFailAlertType )
                 raise MemphisError(str(e)) from e
 
     async def destroy(self):
