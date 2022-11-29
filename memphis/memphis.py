@@ -552,7 +552,7 @@ class Consumer:
                     memphis_messages = []
                     msgs = await self.psub.fetch(self.batch_size)
                     for msg in msgs:
-                        memphis_messages.append(Message(msg))
+                        memphis_messages.append(Message(msg, self.connection, self.consumer_group))
                     await callback(memphis_messages, None)
                     await asyncio.sleep(self.pull_interval_ms/1000)
                 except TimeoutError:
@@ -573,7 +573,7 @@ class Consumer:
             subscription_name = "$memphis_dlq_"+subject+"_"+consumer_group
             self.consumer_dlq = await self.connection.broker_manager.subscribe(subscription_name, subscription_name)
             async for msg in self.consumer_dlq.messages:
-                await callback([Message(msg)], None)
+                await callback([Message(msg, self.connection, self.consumer_group)], None)
         except Exception as e:
             print("dls", e)
             await callback([], MemphisError(str(e)))
@@ -611,8 +611,10 @@ class Consumer:
 
 
 class Message:
-    def __init__(self, message):
+    def __init__(self, message, connection, cg_name):
         self.message = message
+        self.connection = connection
+        self.cg_name = cg_name
 
     async def ack(self):
         """Ack a message is done processing.
@@ -620,6 +622,18 @@ class Message:
         try:
             await self.message.ack()
         except Exception as e:
+            if ("$memphis_pm_id" in self.message.headers):
+                try:
+                    msg = {
+                            "id": self.message.headers["$memphis_pm_id"],
+                            "cg_name": self.cg_name,
+                        }
+                    msgToAck = json.dumps(msg).encode('utf-8')
+                    await self.connection.broker_manager.publish("$memphis_pm_acks", msgToAck)
+                except Exception as er:
+                    raise MemphisConnectError(str(er)) from er
+            else:
+                raise MemphisConnectError(str(e)) from e
             return
 
     def get_data(self):
