@@ -555,7 +555,7 @@ class Consumer:
                         memphis_messages.append(Message(msg, self.connection, self.consumer_group))
                     await callback(memphis_messages, None)
                     await asyncio.sleep(self.pull_interval_ms/1000)
-                except TimeoutError:
+                except asyncio.TimeoutError:
                     await callback([], MemphisError("Memphis: TimeoutError"))
                     continue
                 except Exception as e:
