@@ -20,6 +20,7 @@ import nats as broker
 from threading import Timer
 import asyncio
 
+from jsonschema import validate
 from google.protobuf import descriptor_pb2, descriptor_pool, reflection
 from google.protobuf.message_factory import MessageFactory
 from google.protobuf.message import Message
@@ -27,6 +28,7 @@ from google.protobuf.message import Message
 import memphis.retention_types as retention_types
 import memphis.storage_types as storage_types
 
+schemaVFailAlertType = 'schema_validation_fail_alert';
 
 class set_interval():
     def __init__(self, func, sec):
@@ -85,7 +87,16 @@ class Memphis:
         except Exception as e:
             raise MemphisConnectError(str(e)) from e
 
-    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, dedup_enabled=False, dedup_window_ms=0):
+    async def send_notification(self, title, msg, failedMsg, type):
+        msg = {
+                    "title": title,
+                    "msg": msg,
+                    "type": type,
+                    "code": failedMsg
+                 }
+        msgToSend = json.dumps(msg).encode('utf-8')
+        await self.broker_manager.publish("$memphis_notifications", msgToSend)
+    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000):
         """Creates a station.
         Args:
             name (str): station name.
@@ -93,8 +104,7 @@ class Memphis:
             retention_value (int, optional): number which represents the retention based on the retention_type. Defaults to 604800.
             storage_type (str, optional): persistance storage for messages of the station: disk/memory. Defaults to "disk".
             replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
-            dedup_enabled (bool, optional): whether to allow dedup mecanism, dedup happens based on message ID. Defaults to False.
-            dedup_window_ms (int, optional): time frame in which dedup track messages. Defaults to 0.
+            idempotency_window_ms (int, optional): time frame in which idempotent messages will be tracked, happens based on message ID Defaults to 120000.
         Returns:
             object: station
         """
@@ -108,8 +118,7 @@ class Memphis:
                 "retention_value": retention_value,
                 "storage_type": storage_type,
                 "replicas": replicas,
-                "dedup_enabled": dedup_enabled,
-                "dedup_window_in_ms": dedup_window_ms
+                "idempotency_window_in_ms": idempotency_window_ms
             }
             create_station_req_bytes = json.dumps(
                 createStationReq, indent=2).encode('utf-8')
@@ -198,7 +207,7 @@ class Memphis:
             station_name_internal = get_internal_name(station_name)
             await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
 
-            if self.schema_updates_data[station_name_internal] != {}:
+            if self.schema_updates_data[station_name_internal] != {} and self.schema_updates_data[station_name_internal]['type'] == "protobuf":
                 self.parse_descriptor(station_name_internal)
             return Producer(self, producer_name, station_name)
 
@@ -323,7 +332,8 @@ class Headers:
         if not key.startswith("$memphis"):
             self.headers[key] = value
         else:
-            raise MemphisHeaderError("Keys in headers should not start with $memphis")
+            raise MemphisHeaderError(
+                "Keys in headers should not start with $memphis")
 
 
 class Station:
@@ -370,18 +380,35 @@ class Producer:
         self.station_name = station_name
         self.internal_station_name = get_internal_name(self.station_name)
 
-    def validate(self, message):
+    async def validateMsg(self, message):
+        if self.connection.schema_updates_data[self.internal_station_name] != {}:
+            schema_type = self.connection.schema_updates_data[self.internal_station_name]['type']
+            if schema_type == "protobuf":
+                message = await self.validateProtoBuf(message)
+                return message
+            elif schema_type == "json":
+                message = self.validateJsonSchema(message)
+                return message
+        elif not isinstance(message, bytearray):
+            raise MemphisSchemaError("Unsupported message type")
+        else:
+            return message
+
+    async def validateProtoBuf(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
+        msgToSend = ""
         try:
             if isinstance(message, bytearray):
-                proto_msg.ParseFromString(bytes(message))
+                msgToSend = bytes(message)
+                proto_msg.ParseFromString(msgToSend)
                 proto_msg.SerializeToString()
+                msgToSend = msgToSend.decode("utf-8")
                 return message
             elif hasattr(message, "SerializeToString"):
-                string_msg = message.SerializeToString()
-                proto_msg.ParseFromString(string_msg)
+                msgToSend = message.SerializeToString()
+                proto_msg.ParseFromString(msgToSend)
                 proto_msg.SerializeToString()
-                return string_msg
+                return msgToSend
 
             else:
                 raise MemphisSchemaError("Unsupported message type")
@@ -389,26 +416,46 @@ class Producer:
         except Exception as e:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
-    async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False):
+    def validateJsonSchema(self, message):
+        schema = self.connection.schema_updates_data[
+            self.internal_station_name]['active_version']['schema_content']
+        try:
+            schema_obj = json.loads(schema)
+            if isinstance(message, bytearray):
+                message_obj = json.loads(message)
+            elif isinstance(message, dict):
+                message_obj = message
+                message = bytearray(json.dumps(message_obj).encode('utf-8'))
+            else:
+                raise MemphisSchemaError("Unsupported message type")
+
+            validate(instance=message_obj, schema=schema_obj)
+            return message
+        except Exception as e:
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+
+    async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False, msg_id=None):
         """Produces a message into a station.
         Args:
             message (bytes): message to send into the station (bytes array / protobuf class -in case your station is schema validated).
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
+            msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotency
         Raises:
             Exception: _description_
             Exception: _description_
         """
         try:
-            if self.connection.schema_updates_data[self.internal_station_name] != {}:
-                message = self.validate(message)
-            elif not isinstance(message, bytearray):
-                raise MemphisSchemaError("Unsupported message type")
+            message = await self.validateMsg(message)
 
             memphis_headers = {
                 "$memphis_producedBy": self.producer_name,
                 "$memphis_connectionId": self.connection.connection_id}
+
+            if msg_id != None:
+                memphis_headers["msg-id"] = msg_id
+
             if headers != {}:
                 headers = headers.headers
                 headers.update(memphis_headers)
@@ -425,6 +472,13 @@ class Producer:
                 raise MemphisError(
                     "Produce operation has failed, please check whether Station/Producer are still exist")
             else:
+                if ("Schema validation has failed" in str(e) or "Unsupported message type" in str(e)): 
+                    msgToSend = ""
+                    if isinstance(message, bytearray):
+                        msgToSend = str(message, 'utf-8')
+                    elif hasattr(message, "SerializeToString"):
+                        msgToSend = message.SerializeToString().decode("utf-8")
+                    await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type', msgToSend, schemaVFailAlertType )
                 raise MemphisError(str(e)) from e
 
     async def destroy(self):
@@ -498,7 +552,7 @@ class Consumer:
                     memphis_messages = []
                     msgs = await self.psub.fetch(self.batch_size)
                     for msg in msgs:
-                        memphis_messages.append(Message(msg))
+                        memphis_messages.append(Message(msg, self.connection, self.consumer_group))
                     await callback(memphis_messages, None)
                     await asyncio.sleep(self.pull_interval_ms/1000)
                 except TimeoutError:
@@ -519,7 +573,7 @@ class Consumer:
             subscription_name = "$memphis_dlq_"+subject+"_"+consumer_group
             self.consumer_dlq = await self.connection.broker_manager.subscribe(subscription_name, subscription_name)
             async for msg in self.consumer_dlq.messages:
-                await callback([Message(msg)], None)
+                await callback([Message(msg, self.connection, self.consumer_group)], None)
         except Exception as e:
             print("dls", e)
             await callback([], MemphisError(str(e)))
@@ -557,8 +611,10 @@ class Consumer:
 
 
 class Message:
-    def __init__(self, message):
+    def __init__(self, message, connection, cg_name):
         self.message = message
+        self.connection = connection
+        self.cg_name = cg_name
 
     async def ack(self):
         """Ack a message is done processing.
@@ -566,6 +622,18 @@ class Message:
         try:
             await self.message.ack()
         except Exception as e:
+            if ("$memphis_pm_id" in self.message.headers):
+                try:
+                    msg = {
+                            "id": self.message.headers["$memphis_pm_id"],
+                            "cg_name": self.cg_name,
+                        }
+                    msgToAck = json.dumps(msg).encode('utf-8')
+                    await self.connection.broker_manager.publish("$memphis_pm_acks", msgToAck)
+                except Exception as er:
+                    raise MemphisConnectError(str(er)) from er
+            else:
+                raise MemphisConnectError(str(e)) from e
             return
 
     def get_data(self):
