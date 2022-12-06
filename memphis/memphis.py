@@ -139,12 +139,30 @@ class Memphis:
 
     async def attach_schema(self, name, stationName):
         try:
+            if name == '' or stationName == '':
+                raise MemphisError("attachSchema error: Please provide all parameters")
             msg = {
                         "name": name,
                         "station_name": stationName,
                     }
             msgToSend = json.dumps(msg).encode('utf-8')
             err_msg = await self.broker_manager.request("$memphis_schema_attachments", msgToSend) 
+            err_msg = err_msg.data.decode("utf-8")
+
+            if err_msg != "":
+                raise MemphisError(err_msg)
+        except Exception as e:
+            raise MemphisError(str(e)) from e
+    
+    async def detach_schema(self, stationName):
+        try:
+            if stationName == '':
+                raise MemphisError("attachSchema error: Please provide station name")
+            msg = {
+                        "station_name": stationName,
+                    }
+            msgToSend = json.dumps(msg).encode('utf-8')
+            err_msg = await self.broker_manager.request("$memphis_schema_detachments", msgToSend) 
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":

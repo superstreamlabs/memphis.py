@@ -158,6 +158,13 @@ station.destroy()
 await memphis.attach_schema("<schema-name>", "<station-name>")
 ```
 
+### Detaching a Schema from Station
+
+```python
+await memphis.detach_schema("<station-name>")
+```
+
+
 ### Produce and Consume messages
 
 The most common client operations are `produce` to send messages and `consume` to
