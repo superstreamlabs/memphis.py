@@ -92,9 +92,12 @@ await memphis.close()
 
 ### Creating a Station
 
+_If a station already exists nothing happens, the new configuration will not be applied_
+
 ```python
 station = memphis.station(
   name="<station-name>",
+  schema_name="<schema-name>",
   retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
   storage_type=storage_types.DISK, # storage_types.DISK/storage_types.MEMORY. Defaults to DISK
@@ -148,6 +151,19 @@ Destroying a station will remove all its resources (producers/consumers)
 ```python
 station.destroy()
 ```
+
+### Attaching a Schema to an Existing Station
+
+```python
+await memphis.attach_schema("<schema-name>", "<station-name>")
+```
+
+### Detaching a Schema from Station
+
+```python
+await memphis.detach_schema("<station-name>")
+```
+
 
 ### Produce and Consume messages
 
