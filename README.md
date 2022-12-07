@@ -92,7 +92,7 @@ await memphis.close()
 
 ### Creating a Station
 
-_If a station already exists, the returned station will be returned, the new configuration will not apply_
+_If a station already exists nothing happens, the new configuration will not be applied_
 
 ```python
 station = memphis.station(
@@ -152,7 +152,7 @@ Destroying a station will remove all its resources (producers/consumers)
 station.destroy()
 ```
 
-### Attaching a Schema to Existing Station
+### Attaching a Schema to an Existing Station
 
 ```python
 await memphis.attach_schema("<schema-name>", "<station-name>")

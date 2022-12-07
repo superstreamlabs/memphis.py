@@ -97,7 +97,7 @@ class Memphis:
         msgToSend = json.dumps(msg).encode('utf-8')
         await self.broker_manager.publish("$memphis_notifications", msgToSend)
 
-    async def station(self, name, schema_name="", retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000):
+    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000, schema_name=""):
         """Creates a station.
         Args:
             name (str): station name.
@@ -106,6 +106,7 @@ class Memphis:
             storage_type (str, optional): persistance storage for messages of the station: disk/memory. Defaults to "disk".
             replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
             idempotency_window_ms (int, optional): time frame in which idempotent messages will be tracked, happens based on message ID Defaults to 120000.
+            schema_name (str): schema name.
         Returns:
             object: station
         """
@@ -115,12 +116,12 @@ class Memphis:
 
             createStationReq = {
                 "name": name,
-                "schema_name": schema_name,
                 "retention_type": retention_type,
                 "retention_value": retention_value,
                 "storage_type": storage_type,
                 "replicas": replicas,
-                "idempotency_window_in_ms": idempotency_window_ms
+                "idempotency_window_in_ms": idempotency_window_ms,
+                "schema_name": schema_name
             }
             create_station_req_bytes = json.dumps(
                 createStationReq, indent=2).encode('utf-8')
@@ -138,9 +139,16 @@ class Memphis:
                 raise MemphisError(str(e)) from e
 
     async def attach_schema(self, name, stationName):
+        """Attaches a schema to an existing station.
+        Args:
+            name (str): schema name.
+            stationName (str): station name.
+        Raises:
+            Exception: _description_
+        """
         try:
             if name == '' or stationName == '':
-                raise MemphisError("attachSchema error: Please provide all parameters")
+                raise MemphisError("name and station name can not be empty")
             msg = {
                         "name": name,
                         "station_name": stationName,
@@ -155,9 +163,15 @@ class Memphis:
             raise MemphisError(str(e)) from e
     
     async def detach_schema(self, stationName):
+        """Detaches a schema from station.
+        Args:
+            stationName (str): station name.
+        Raises:
+            Exception: _description_
+        """
         try:
             if stationName == '':
-                raise MemphisError("attachSchema error: Please provide station name")
+                raise MemphisError("station name is missing")
             msg = {
                         "station_name": stationName,
                     }
