@@ -252,7 +252,7 @@ class Memphis:
             create_res = create_res.data.decode("utf-8")
             create_res = json.loads(create_res)
             if create_res['error'] != "":
-                raise MemphisError(create_res)
+                raise MemphisError(create_res['error'])
 
             station_name_internal = get_internal_name(station_name)
             await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
