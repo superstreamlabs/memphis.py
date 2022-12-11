@@ -125,7 +125,7 @@ class Memphis:
             }
             create_station_req_bytes = json.dumps(
                 createStationReq, indent=2).encode('utf-8')
-            err_msg = await self.broker_manager.request("$memphis_station_creations", create_station_req_bytes)
+            err_msg = await self.broker_manager.request("$memphis_station_creations", create_station_req_bytes, timeout=5)
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
@@ -154,7 +154,7 @@ class Memphis:
                         "station_name": stationName,
                     }
             msgToSend = json.dumps(msg).encode('utf-8')
-            err_msg = await self.broker_manager.request("$memphis_schema_attachments", msgToSend) 
+            err_msg = await self.broker_manager.request("$memphis_schema_attachments", msgToSend, timeout=5) 
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
@@ -176,7 +176,7 @@ class Memphis:
                         "station_name": stationName,
                     }
             msgToSend = json.dumps(msg).encode('utf-8')
-            err_msg = await self.broker_manager.request("$memphis_schema_detachments", msgToSend) 
+            err_msg = await self.broker_manager.request("$memphis_schema_detachments", msgToSend, timeout=5) 
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
@@ -248,7 +248,7 @@ class Memphis:
             }
             create_producer_req_bytes = json.dumps(
                 createProducerReq, indent=2).encode('utf-8')
-            create_res = await self.broker_manager.request("$memphis_producer_creations", create_producer_req_bytes)
+            create_res = await self.broker_manager.request("$memphis_producer_creations", create_producer_req_bytes, timeout=5)
             create_res = create_res.data.decode("utf-8")
             create_res = json.loads(create_res)
             if create_res['error'] != "":
@@ -355,7 +355,7 @@ class Memphis:
 
             create_consumer_req_bytes = json.dumps(
                 createConsumerReq, indent=2).encode('utf-8')
-            err_msg = await self.broker_manager.request("$memphis_consumer_creations", create_consumer_req_bytes)
+            err_msg = await self.broker_manager.request("$memphis_consumer_creations", create_consumer_req_bytes, timeout=5)
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
@@ -399,7 +399,7 @@ class Station:
                 "station_name": self.name
             }
             station_name = json.dumps(nameReq, indent=2).encode('utf-8')
-            res = await self.connection.broker_manager.request('$memphis_station_destructions', station_name)
+            res = await self.connection.broker_manager.request('$memphis_station_destructions', station_name, timeout=5)
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise MemphisError(error)
@@ -541,7 +541,7 @@ class Producer:
             }
 
             producer_name = json.dumps(destroyProducerReq).encode('utf-8')
-            res = await self.connection.broker_manager.request('$memphis_producer_destructions', producer_name)
+            res = await self.connection.broker_manager.request('$memphis_producer_destructions', producer_name, timeout=5)
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise Exception(error)
@@ -633,7 +633,7 @@ class Consumer:
         while True:
             try:
                 await asyncio.sleep(self.ping_consumer_invterval_ms/1000)
-                await self.connection.broker_connection.consumer_info(self.station_name, self.consumer_name)
+                await self.connection.broker_connection.consumer_info(self.station_name, self.consumer_name, timeout=30)
 
             except Exception as e:
                 await callback(e)
@@ -652,7 +652,7 @@ class Consumer:
             }
             consumer_name = json.dumps(
                 destroyConsumerReq, indent=2).encode('utf-8')
-            res = await self.connection.broker_manager.request('$memphis_consumer_destructions', consumer_name)
+            res = await self.connection.broker_manager.request('$memphis_consumer_destructions', consumer_name, timeout=5)
             error = res.data.decode('utf-8')
             if error != "" and not "not exist" in error:
                 raise MemphisError(error)
