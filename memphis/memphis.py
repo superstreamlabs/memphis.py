@@ -501,9 +501,8 @@ class Producer:
                 msg = message.decode("utf-8")
                 msg = parse(msg)
             elif isinstance(message, str):
-                bytesMsg = message.encode('utf-8')
                 msg = parse(message)
-                message = bytesMsg
+                message =  message.encode('utf-8')
             elif isinstance(message, graphql.language.ast.DocumentNode):
                 msg = message
                 message = str(msg.loc.source.body)
