@@ -508,6 +508,8 @@ class Producer:
                 msg = message
                 message = str(msg.loc.source.body)
                 message = message.encode('utf-8')
+            else:
+                raise MemphisError("Unsupported message type")
             validate_res = validate_graphql(schema=self.connection.schema_graphql, document_ast=msg)
             if len(validate_res) > 0:
                 raise Exception(
