@@ -444,7 +444,7 @@ class Producer:
         if self.connection.schema_updates_data[self.internal_station_name] != {}:
             schema_type = self.connection.schema_updates_data[self.internal_station_name]['type']
             if schema_type == "protobuf":
-                message = await self.validateProtoBuf(message)
+                message = self.validateProtoBuf(message)
                 return message
             elif schema_type == "json":
                 message = self.validateJsonSchema(message)
@@ -457,7 +457,7 @@ class Producer:
         else:
             return message
 
-    async def validateProtoBuf(self, message):
+    def validateProtoBuf(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
         msgToSend = ""
         try:
