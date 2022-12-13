@@ -14,6 +14,8 @@
 
 import random
 import json
+from graphql import build_schema as build_graphql_schema, parse as parse_graphql, validate as validate_graphql
+import graphql
 
 import nats as broker
 
@@ -28,7 +30,7 @@ from google.protobuf.message import Message
 import memphis.retention_types as retention_types
 import memphis.storage_types as storage_types
 
-schemaVFailAlertType = 'schema_validation_fail_alert';
+schemaVFailAlertType = 'schema_validation_fail_alert'
 
 class set_interval():
     def __init__(self, func, sec):
@@ -51,6 +53,8 @@ class Memphis:
         self.producers_per_station = {}
         self.schema_tasks = {}
         self.proto_msgs = {}
+        self.graphql_schemas = {}
+        self.json_schemas = {}
 
     async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
@@ -184,7 +188,6 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-
     async def close(self):
         """Close Memphis connection.
         """
@@ -257,8 +260,15 @@ class Memphis:
             station_name_internal = get_internal_name(station_name)
             await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
 
-            if self.schema_updates_data[station_name_internal] != {} and self.schema_updates_data[station_name_internal]['type'] == "protobuf":
-                self.parse_descriptor(station_name_internal)
+            if self.schema_updates_data[station_name_internal] != {}:
+                if self.schema_updates_data[station_name_internal]['type'] == "protobuf":
+                    self.parse_descriptor(station_name_internal)
+                if self.schema_updates_data[station_name_internal]['type'] == "json":
+                    schema = self.schema_updates_data[station_name_internal]['active_version']['schema_content']
+                    self.json_schemas[station_name_internal] = json.loads(schema)
+                elif self.schema_updates_data[station_name_internal]['type'] == "graphql":
+                    self.graphql_schemas[station_name_internal] = build_graphql_schema(
+                        self.schema_updates_data[station_name_internal]['active_version']['schema_content'])
             return Producer(self, producer_name, station_name)
 
         except Exception as e:
@@ -434,17 +444,20 @@ class Producer:
         if self.connection.schema_updates_data[self.internal_station_name] != {}:
             schema_type = self.connection.schema_updates_data[self.internal_station_name]['type']
             if schema_type == "protobuf":
-                message = await self.validateProtoBuf(message)
+                message = self.validateProtoBuf(message)
                 return message
             elif schema_type == "json":
                 message = self.validateJsonSchema(message)
+                return message
+            elif schema_type == "graphql":
+                message = self.validateGraphQL(message)
                 return message
         elif not isinstance(message, bytearray):
             raise MemphisSchemaError("Unsupported message type")
         else:
             return message
 
-    async def validateProtoBuf(self, message):
+    def validateProtoBuf(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
         msgToSend = ""
         try:
@@ -467,10 +480,7 @@ class Producer:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     def validateJsonSchema(self, message):
-        schema = self.connection.schema_updates_data[
-            self.internal_station_name]['active_version']['schema_content']
         try:
-            schema_obj = json.loads(schema)
             if isinstance(message, bytearray):
                 message_obj = json.loads(message)
             elif isinstance(message, dict):
@@ -479,10 +489,32 @@ class Producer:
             else:
                 raise MemphisSchemaError("Unsupported message type")
 
-            validate(instance=message_obj, schema=schema_obj)
+            validate(instance=message_obj, schema=self.connection.json_schemas[self.internal_station_name])
             return message
         except Exception as e:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
+
+    def validateGraphQL(self, message):
+        try:
+            if isinstance(message, bytearray):
+                msg = message.decode("utf-8")
+                msg = parse_graphql(msg)
+            elif isinstance(message, str):
+                msg = parse_graphql(message)
+                message = message.encode('utf-8')
+            elif isinstance(message, graphql.language.ast.DocumentNode):
+                msg = message
+                message = str(msg.loc.source.body)
+                message = message.encode('utf-8')
+            else:
+                raise MemphisError("Unsupported message type")
+            validate_res = validate_graphql(schema=self.connection.graphql_schemas[self.internal_station_name], document_ast=msg)
+            if len(validate_res) > 0:
+                raise Exception(
+                    "Schema validation has failed: " + str(validate_res))
+            return message
+        except Exception as e:
+            raise Exception("Schema validation has failed: " + str(e))
 
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False, msg_id=None):
         """Produces a message into a station.
