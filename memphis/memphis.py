@@ -519,7 +519,7 @@ class Producer:
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False, msg_id=None):
         """Produces a message into a station.
         Args:
-            message (bytes): message to send into the station (bytes array / protobuf class -in case your station is schema validated).
+            message (bytearray): message to send into the station - bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
