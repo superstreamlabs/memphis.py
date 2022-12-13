@@ -265,7 +265,7 @@ class Memphis:
                 if self.schema_updates_data[station_name_internal]['type'] == "protobuf":
                     self.parse_descriptor(station_name_internal)
                 elif self.schema_updates_data[station_name_internal]['type'] == "graphql":
-                    self.schema_graphql = build_schema(
+                    self.schema_graphql[station_name_internal] = build_schema(
                         self.schema_updates_data[station_name_internal]['active_version']['schema_content'], assume_valid=True)
             return Producer(self, producer_name, station_name)
 
@@ -509,7 +509,7 @@ class Producer:
                 message = message.encode('utf-8')
             else:
                 raise MemphisError("Unsupported message type")
-            validate_res = validate_graphql(schema=self.connection.schema_graphql, document_ast=msg)
+            validate_res = validate_graphql(schema=self.connection.schema_graphql[self.internal_station_name], document_ast=msg)
             if len(validate_res) > 0:
                 raise Exception(
                     "Schema validation has failed: " + str(validate_res))
