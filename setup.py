@@ -22,7 +22,8 @@ setup(
         'asyncio',
         'nats-py',
         'protobuf',
-        'jsonschema'
+        'jsonschema',
+        'graphql'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
