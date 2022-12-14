@@ -84,7 +84,7 @@ class Memphis:
                                                        connect_timeout=self.timeout_ms/1000,
                                                        max_reconnect_attempts=self.max_reconnect,
                                                        token=self.connection_token,
-                                                       name=self.connection_id + "::" + self.username, max_outstanding_pings=1)
+                                                       name=self.connection_id + "::" + self.username)
 
             self.broker_connection = self.broker_manager.jetstream()
             self.is_connection_active = True
