@@ -102,7 +102,9 @@ station = memphis.station(
   retention_value=604800, # defaults to 604800
   storage_type=storage_types.DISK, # storage_types.DISK/storage_types.MEMORY. Defaults to DISK
   replicas=1, # defaults to 1
-  idempotency_window_ms: 120000, # defaults to 2 minutes
+  idempotency_window_ms=120000, # defaults to 2 minutes
+  send_poison_msg_to_dls=False, # defaults to true
+  send_schema_failed_msg_to_dls=True # defaults to true
 )
 ```
 

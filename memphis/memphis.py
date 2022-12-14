@@ -101,7 +101,7 @@ class Memphis:
         msgToSend = json.dumps(msg).encode('utf-8')
         await self.broker_manager.publish("$memphis_notifications", msgToSend)
 
-    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000, schema_name=""):
+    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000, schema_name="",send_poison_msg_to_dls = True, send_schema_failed_msg_to_dls = True):
         """Creates a station.
         Args:
             name (str): station name.
@@ -125,7 +125,11 @@ class Memphis:
                 "storage_type": storage_type,
                 "replicas": replicas,
                 "idempotency_window_in_ms": idempotency_window_ms,
-                "schema_name": schema_name
+                "schema_name": schema_name,
+                "dls_configuration": {
+                    "poison": send_poison_msg_to_dls,
+                    "Schemaverse": send_schema_failed_msg_to_dls
+                }
             }
             create_station_req_bytes = json.dumps(
                 createStationReq, indent=2).encode('utf-8')
