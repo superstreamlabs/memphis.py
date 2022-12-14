@@ -23,7 +23,7 @@ setup(
         'nats-py',
         'protobuf',
         'jsonschema',
-        'graphql'
+        'graphql-core'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
