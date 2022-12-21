@@ -549,8 +549,13 @@ class Producer:
                 headers = memphis_headers
 
             if async_produce:
-                self.connection.broker_connection.publish(
-                    self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(self.connection.broker_connection.publish(
+                        self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers))
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    raise MemphisError(e)
             else:
                 await self.connection.broker_connection.publish(self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
         except Exception as e:
