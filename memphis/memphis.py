@@ -708,11 +708,11 @@ class Message:
         try:
             await self.message.ack()
         except Exception as e:
-            if ("$memphis_pm_id" in self.message.headers):
+            if ("$memphis_pm_id" in self.message.headers & "$memphis_pm_sequence" in self.message.headers):
                 try:
                     msg = {
                             "id": self.message.headers["$memphis_pm_id"],
-                            "cg_name": self.cg_name,
+                            "sequence": self.message.headers["$memphis_pm_sequence"],
                         }
                     msgToAck = json.dumps(msg).encode('utf-8')
                     await self.connection.broker_manager.publish("$memphis_pm_acks", msgToAck)
