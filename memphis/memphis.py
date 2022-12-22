@@ -630,7 +630,7 @@ class Consumer:
         """Consume events.
         """
         self.t_consume = asyncio.create_task(self.__consume(callback))
-        self.t_dlq = asyncio.create_task(self.__consume_dlq(callback))
+        self.t_dls = asyncio.create_task(self.__consume_dls(callback))
 
     async def __consume(self, callback):
         subject = get_internal_name(self.station_name)
@@ -657,13 +657,13 @@ class Consumer:
             else:
                 break
 
-    async def __consume_dlq(self, callback):
+    async def __consume_dls(self, callback):
         subject = get_internal_name(self.station_name)
         consumer_group = get_internal_name(self.consumer_group)
         try:
-            subscription_name = "$memphis_dlq_"+subject+"_"+consumer_group
-            self.consumer_dlq = await self.connection.broker_manager.subscribe(subscription_name, subscription_name)
-            async for msg in self.consumer_dlq.messages:
+            subscription_name = "$memphis_dls_"+subject+"_"+consumer_group
+            self.consumer_dls = await self.connection.broker_manager.subscribe(subscription_name, subscription_name)
+            async for msg in self.consumer_dls.messages:
                 await callback([Message(msg, self.connection, self.consumer_group)], None)
         except Exception as e:
             print("dls", e)
@@ -683,7 +683,7 @@ class Consumer:
         """Destroy the consumer.
         """
         self.t_consume.cancel()
-        self.t_dlq.cancel()
+        self.t_dls.cancel()
         self.t_ping.cancel()
         self.pull_interval_ms = None
         try:
@@ -713,11 +713,11 @@ class Message:
         try:
             await self.message.ack()
         except Exception as e:
-            if ("$memphis_pm_id" in self.message.headers):
+            if ("$memphis_pm_id" in self.message.headers & "$memphis_pm_sequence" in self.message.headers):
                 try:
                     msg = {
                             "id": self.message.headers["$memphis_pm_id"],
-                            "cg_name": self.cg_name,
+                            "sequence": self.message.headers["$memphis_pm_sequence"],
                         }
                     msgToAck = json.dumps(msg).encode('utf-8')
                     await self.connection.broker_manager.publish("$memphis_pm_acks", msgToAck)
