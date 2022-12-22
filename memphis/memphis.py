@@ -443,25 +443,26 @@ class Producer:
         self.producer_name = producer_name
         self.station_name = station_name
         self.internal_station_name = get_internal_name(self.station_name)
+        self.loop = asyncio.get_running_loop()
 
-    async def validateMsg(self, message):
+    async def validate_msg(self, message):
         if self.connection.schema_updates_data[self.internal_station_name] != {}:
             schema_type = self.connection.schema_updates_data[self.internal_station_name]['type']
             if schema_type == "protobuf":
-                message = self.validateProtoBuf(message)
+                message = self.validate_protobuf(message)
                 return message
             elif schema_type == "json":
-                message = self.validateJsonSchema(message)
+                message = self.validate_json_schema(message)
                 return message
             elif schema_type == "graphql":
-                message = self.validateGraphQL(message)
+                message = self.validate_graphql(message)
                 return message
         elif not isinstance(message, bytearray):
             raise MemphisSchemaError("Unsupported message type")
         else:
             return message
 
-    def validateProtoBuf(self, message):
+    def validate_protobuf(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
         msgToSend = ""
         try:
@@ -483,7 +484,7 @@ class Producer:
         except Exception as e:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
-    def validateJsonSchema(self, message):
+    def validate_json_schema(self, message):
         try:
             if isinstance(message, bytearray):
                 message_obj = json.loads(message)
@@ -498,7 +499,7 @@ class Producer:
         except Exception as e:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
-    def validateGraphQL(self, message):
+    def validate_graphql(self, message):
         try:
             if isinstance(message, bytearray):
                 msg = message.decode("utf-8")
@@ -533,7 +534,7 @@ class Producer:
             Exception: _description_
         """
         try:
-            message = await self.validateMsg(message)
+            message = await self.validate_msg(message)
 
             memphis_headers = {
                 "$memphis_producedBy": self.producer_name,
@@ -549,8 +550,12 @@ class Producer:
                 headers = memphis_headers
 
             if async_produce:
-                self.connection.broker_connection.publish(
-                    self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
+                try:
+                    self.loop.create_task(self.connection.broker_connection.publish(
+                        self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers))
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    raise MemphisError(e)
             else:
                 await self.connection.broker_connection.publish(self.internal_station_name + ".final", message, timeout=ack_wait_sec, headers=headers)
         except Exception as e:
