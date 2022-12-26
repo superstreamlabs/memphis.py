@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import calendar
-import datetime
 import random
 import json
+import time
 from graphql import build_schema as build_graphql_schema, parse as parse_graphql, validate as validate_graphql
 import graphql
 
@@ -62,7 +61,7 @@ class Memphis:
         self.update_configurations = {}
         self.configuration_tasks = {}
 
-    async def get_msg_configurations(self, iterable):
+    async def get_msgs_update_configurations(self, iterable):
         try:
             async for msg in iterable:
                 message = msg.data.decode("utf-8")
@@ -76,11 +75,11 @@ class Memphis:
 
     async def configurations_listener(self):
         try:
-            sub = await self.broker_manager.subscribe("memphis_sdk_configurations_updates")
+            sub = await self.broker_manager.subscribe("$memphis_sdk_configurations_updates")
             self.update_configurations = sub
             loop = asyncio.get_event_loop()
-            task = loop.create_task(self.get_msg_configurations(self.update_configurations.messages))
-            self.configuration_tasks =  task
+            task = loop.create_task(self.get_msgs_update_configurations(self.update_configurations.messages))
+            self.configuration_tasks =  task 
         except Exception as err:
             raise MemphisError(err)
 
@@ -599,8 +598,7 @@ class Producer:
                     elif hasattr(message, "SerializeToString"):
                         msgToSend = message.SerializeToString().decode("utf-8")
                     if self.connection.station_schemaverse_to_dls[self.internal_station_name]:
-                        date  = datetime.datetime.utcnow()
-                        unix_time = calendar.timegm(date.utctimetuple())
+                        unix_time = int(time.time())
                         id = self.get_dls_msg_id(self.internal_station_name, self.producer_name, str(unix_time))
                         buf = {
                             "_id": id,
@@ -626,7 +624,6 @@ class Producer:
                         else:
                             headers = memphis_headers
                         await self.connection.broker_connection.publish('$memphis-' + self.internal_station_name + '-dls.schema.' + id, buf, headers=headers)
-
                         if self.connection.cluster_configurations.get('send_notification'):
                             await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type', msgToSend, schemaVFailAlertType )
                 raise MemphisError(str(e)) from e
