@@ -459,7 +459,6 @@ class Station:
             del self.connection.schema_tasks[station_name_internal]
             task.cancel()
             await sub.unsubscribe()
-            await self.connection.update_configurations_sub.unsubscribe()
 
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -661,7 +660,6 @@ class Producer:
                 del self.connection.schema_tasks[station_name_internal]
                 task.cancel()
                 await sub.unsubscribe()
-                await self.connection.update_configurations_sub.unsubscribe()
 
         except Exception as e:
             raise Exception(e)
