@@ -14,6 +14,7 @@
 
 import random
 import json
+import time
 from graphql import build_schema as build_graphql_schema, parse as parse_graphql, validate as validate_graphql
 import graphql
 
@@ -55,6 +56,32 @@ class Memphis:
         self.proto_msgs = {}
         self.graphql_schemas = {}
         self.json_schemas = {}
+        self.cluster_configurations = {}
+        self.station_schemaverse_to_dls = {}
+        self.update_configurations_sub = {}
+        self.configuration_tasks = {}
+
+    async def get_msgs_update_configurations(self, iterable):
+        try:
+            async for msg in iterable:
+                message = msg.data.decode("utf-8")
+                data = json.loads(message)
+                if data['type'] == 'send_notification':
+                    self.cluster_configurations[data['type']] = data['update']
+                elif data['type'] == 'schemaverse_to_dls':
+                    self.station_schemaverse_to_dls[data['station_name']] = data['update']
+        except Exception as err:
+            raise MemphisError(err)
+
+    async def configurations_listener(self):
+        try:
+            sub = await self.broker_manager.subscribe("$memphis_sdk_configurations_updates")
+            self.update_configurations_sub = sub
+            loop = asyncio.get_event_loop()
+            task = loop.create_task(self.get_msgs_update_configurations(self.update_configurations_sub.messages))
+            self.configuration_tasks =  task 
+        except Exception as err:
+            raise MemphisError(err)
 
     async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
         """Creates connection with Memphis.
@@ -86,6 +113,7 @@ class Memphis:
                                                        token=self.connection_token,
                                                        name=self.connection_id + "::" + self.username)
 
+            await self.configurations_listener()
             self.broker_connection = self.broker_manager.jetstream()
             self.is_connection_active = True
         except Exception as e:
@@ -202,6 +230,7 @@ class Memphis:
                 self.connection_id = None
                 self.is_connection_active = False
                 keys_schema_updates_subs = self.schema_updates_subs.keys()
+                self.configuration_tasks.cancel()
                 for key in keys_schema_updates_subs:
                     sub = self.schema_updates_subs.get(key)
                     task = self.schema_tasks.get(key)
@@ -211,6 +240,7 @@ class Memphis:
                     del self.schema_tasks[key]
                     task.cancel()
                     await sub.unsubscribe()
+                await self.update_configurations_sub.unsubscribe()
         except:
             return
 
@@ -262,6 +292,8 @@ class Memphis:
                 raise MemphisError(create_res['error'])
 
             station_name_internal = get_internal_name(station_name)
+            self.station_schemaverse_to_dls[station_name_internal] = create_res['schemaverse_to_dls']
+            self.cluster_configurations['send_notification'] = create_res['send_notification']
             await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
 
             if self.schema_updates_data[station_name_internal] != {}:
@@ -521,6 +553,9 @@ class Producer:
         except Exception as e:
             raise Exception("Schema validation has failed: " + str(e))
 
+    def get_dls_msg_id(self, station_name, producer_name, unix_time):
+        return station_name + '~' + producer_name + '~0~' + unix_time
+
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False, msg_id=None):
         """Produces a message into a station.
         Args:
@@ -569,7 +604,37 @@ class Producer:
                         msgToSend = str(message, 'utf-8')
                     elif hasattr(message, "SerializeToString"):
                         msgToSend = message.SerializeToString().decode("utf-8")
-                    await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError: Unsupported message type', msgToSend, schemaVFailAlertType )
+                    if self.connection.station_schemaverse_to_dls[self.internal_station_name]:
+                        unix_time = int(time.time())
+                        id = self.get_dls_msg_id(self.internal_station_name, self.producer_name, str(unix_time))
+
+                        memphis_headers = {
+                        "$memphis_producedBy": self.producer_name,
+                        "$memphis_connectionId": self.connection.connection_id}
+
+                        if headers != {}:
+                            headers = headers.headers
+                            headers.update(memphis_headers)
+                        else:
+                            headers = memphis_headers
+
+                        buf = {
+                            "_id": id,
+                            "station_name": self.internal_station_name,
+                            "producer": {
+                                "name": self.producer_name,
+                                "connection_id": self.connection.connection_id
+                            },
+                            "creation_unix": unix_time,
+                            "message": {
+                                "data": msgToSend,
+                                "headers": headers,
+                            }
+                        }
+                        buf = json.dumps(buf).encode('utf-8')
+                        await self.connection.broker_connection.publish('$memphis-' + self.internal_station_name + '-dls.schema.' + id, buf)
+                        if self.connection.cluster_configurations.get('send_notification'):
+                            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError:' + e, msgToSend, schemaVFailAlertType )
                 raise MemphisError(str(e)) from e
 
     async def destroy(self):
