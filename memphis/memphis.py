@@ -293,6 +293,7 @@ class Memphis:
 
             station_name_internal = get_internal_name(station_name)
             self.station_schemaverse_to_dls[station_name_internal] = create_res['schemaverse_to_dls']
+            self.cluster_configurations['send_notification'] = create_res['send_notification']
             await self.start_listen_for_schema_updates(station_name_internal, create_res['schema_update'])
 
             if self.schema_updates_data[station_name_internal] != {}:
