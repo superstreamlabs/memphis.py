@@ -519,12 +519,15 @@ class Producer:
     def validate_json_schema(self, message):
         try:
             if isinstance(message, bytearray):
-                message_obj = json.loads(message)
+                try:
+                    message_obj = json.loads(message)
+                except Exception as e:
+                    raise Exception("Expecting Json format: " + str(e))
             elif isinstance(message, dict):
                 message_obj = message
                 message = bytearray(json.dumps(message_obj).encode('utf-8'))
             else:
-                raise MemphisSchemaError("Unsupported message type")
+                raise Exception("Unsupported message type")
 
             validate(instance=message_obj, schema=self.connection.json_schemas[self.internal_station_name])
             return message
@@ -821,9 +824,11 @@ class MemphisError(Exception):
         message = message.replace("NATS", "memphis")
         message = message.replace("Nats", "memphis")
         message = message.replace("NatsError", "MemphisError")
-
         self.message = message
-        super().__init__("memphis: " + self.message)
+        if message.startswith("memphis:") :
+            super().__init__(self.message)
+        else:
+            super().__init__("memphis: " + self.message)
 
 
 class MemphisConnectError(MemphisError):
