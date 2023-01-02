@@ -507,7 +507,7 @@ class Producer:
                 except Exception as e:
                     if 'parsing message' in str(e):
                         e = 'Invalid message format, expecting protobuf'
-                    raise Exception(str(e))
+                    raise MemphisSchemaError(str(e))
                 return message
             elif hasattr(message, "SerializeToString"):
                 msgToSend = message.SerializeToString()
@@ -519,7 +519,7 @@ class Producer:
                 raise MemphisSchemaError("Unsupported message type")
 
         except Exception as e:
-            raise Exception("Schema validation has failed: " + str(e))
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     def validate_json_schema(self, message):
         try:
