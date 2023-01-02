@@ -628,6 +628,8 @@ class Producer:
                         else:
                             headers = memphis_headers
 
+                        msgToSendEncoded = msgToSend.encode('utf-8')
+                        msgHex = msgToSendEncoded.hex()
                         buf = {
                             "_id": id,
                             "station_name": self.internal_station_name,
@@ -637,7 +639,7 @@ class Producer:
                             },
                             "creation_unix": unix_time,
                             "message": {
-                                "data": msgToSend,
+                                "data": msgHex,
                                 "headers": headers,
                             }
                         }
