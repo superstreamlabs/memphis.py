@@ -532,7 +532,7 @@ class Producer:
             validate(instance=message_obj, schema=self.connection.json_schemas[self.internal_station_name])
             return message
         except Exception as e:
-            raise Exception("Schema validation has failed: " + str(e))
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     def validate_graphql(self, message):
         try:
@@ -824,9 +824,11 @@ class MemphisError(Exception):
         message = message.replace("NATS", "memphis")
         message = message.replace("Nats", "memphis")
         message = message.replace("NatsError", "MemphisError")
-
         self.message = message
-        super().__init__("memphis: " + self.message)
+        if message.startswith("memphis:") :
+            super().__init__(self.message)
+        else:
+            super().__init__("memphis: " + self.message)
 
 
 class MemphisConnectError(MemphisError):
