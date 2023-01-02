@@ -500,9 +500,14 @@ class Producer:
         try:
             if isinstance(message, bytearray):
                 msgToSend = bytes(message)
-                proto_msg.ParseFromString(msgToSend)
-                proto_msg.SerializeToString()
-                msgToSend = msgToSend.decode("utf-8")
+                try:
+                    proto_msg.ParseFromString(msgToSend)
+                    proto_msg.SerializeToString()
+                    msgToSend = msgToSend.decode("utf-8")
+                except Exception as e:
+                    if 'parsing message' in str(e):
+                        e = 'Invalid message format, expecting protobuf'
+                    raise MemphisSchemaError(str(e))
                 return message
             elif hasattr(message, "SerializeToString"):
                 msgToSend = message.SerializeToString()
@@ -554,6 +559,8 @@ class Producer:
                     "Schema validation has failed: " + str(validate_res))
             return message
         except Exception as e:
+            if 'Syntax Error' in str(e):
+                e = "Invalid message format, expected GraphQL"
             raise Exception("Schema validation has failed: " + str(e))
 
     def get_dls_msg_id(self, station_name, producer_name, unix_time):
@@ -637,7 +644,7 @@ class Producer:
                         buf = json.dumps(buf).encode('utf-8')
                         await self.connection.broker_connection.publish('$memphis-' + self.internal_station_name + '-dls.schema.' + id, buf)
                         if self.connection.cluster_configurations.get('send_notification'):
-                            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError:' + e, msgToSend, schemaVFailAlertType )
+                            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError:' + str(e), msgToSend, schemaVFailAlertType )
                 raise MemphisError(str(e)) from e
 
     async def destroy(self):
