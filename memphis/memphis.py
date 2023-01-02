@@ -519,17 +519,20 @@ class Producer:
     def validate_json_schema(self, message):
         try:
             if isinstance(message, bytearray):
-                message_obj = json.loads(message)
+                try:
+                    message_obj = json.loads(message)
+                except Exception as e:
+                    raise Exception("Expecting Json format: " + str(e))
             elif isinstance(message, dict):
                 message_obj = message
                 message = bytearray(json.dumps(message_obj).encode('utf-8'))
             else:
-                raise MemphisSchemaError("Unsupported message type")
+                raise Exception("Unsupported message type")
 
             validate(instance=message_obj, schema=self.connection.json_schemas[self.internal_station_name])
             return message
         except Exception as e:
-            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+            raise Exception("Schema validation has failed: " + str(e))
 
     def validate_graphql(self, message):
         try:
