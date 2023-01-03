@@ -234,13 +234,20 @@ class Memphis:
                 for key in keys_schema_updates_subs:
                     sub = self.schema_updates_subs.get(key)
                     task = self.schema_tasks.get(key)
-                    del self.schema_updates_data[key]
-                    del self.schema_updates_subs[key]
-                    del self.producers_per_station[key]
-                    del self.schema_tasks[key]
-                    task.cancel()
-                    await sub.unsubscribe()
-                await self.update_configurations_sub.unsubscribe()
+                    if key in self.schema_updates_data:
+                        del self.schema_updates_data[key]
+                    if key in self.schema_updates_subs:
+                        del self.schema_updates_subs[key]
+                    if key in self.producers_per_station:
+                        del self.producers_per_station[key]
+                    if key in self.schema_tasks:
+                        del self.schema_tasks[key]
+                    if task is not None:
+                        task.cancel()
+                    if sub is not None:
+                        await sub.unsubscribe()
+                if self.update_configurations_sub is not None:
+                    await self.update_configurations_sub.unsubscribe()
         except:
             return
 
@@ -454,12 +461,18 @@ class Station:
             sub = self.connection.schema_updates_subs.get(
                 station_name_internal)
             task = self.connection.schema_tasks.get(station_name_internal)
-            del self.connection.schema_updates_data[station_name_internal]
-            del self.connection.schema_updates_subs[station_name_internal]
-            del self.connection.producers_per_station[station_name_internal]
-            del self.connection.schema_tasks[station_name_internal]
-            task.cancel()
-            await sub.unsubscribe()
+            if station_name_internal in self.connection.schema_updates_data:
+                del self.connection.schema_updates_data[station_name_internal]
+            if station_name_internal in self.connection.schema_updates_subs:
+                del self.connection.schema_updates_subs[station_name_internal]
+            if station_name_internal in self.connection.producers_per_station:
+                del self.connection.producers_per_station[station_name_internal]
+            if station_name_internal in self.connection.schema_tasks:
+                del self.connection.schema_tasks[station_name_internal]
+            if task is not None:
+                task.cancel()
+            if sub is not None:
+                await sub.unsubscribe()
 
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -673,11 +686,16 @@ class Producer:
                 sub = self.connection.schema_updates_subs.get(
                     station_name_internal)
                 task = self.connection.schema_tasks.get(station_name_internal)
-                del self.connection.schema_updates_data[station_name_internal]
-                del self.connection.schema_updates_subs[station_name_internal]
-                del self.connection.schema_tasks[station_name_internal]
-                task.cancel()
-                await sub.unsubscribe()
+                if station_name_internal in self.connection.schema_updates_data:
+                    del self.connection.schema_updates_data[station_name_internal]
+                if station_name_internal in self.connection.schema_updates_subs:
+                    del self.connection.schema_updates_subs[station_name_internal]
+                if station_name_internal in self.connection.schema_tasks:
+                    del self.connection.schema_tasks[station_name_internal]
+                if task is not None:
+                    task.cancel()
+                if sub is not None:
+                    await sub.unsubscribe()
 
         except Exception as e:
             raise Exception(e)
@@ -759,9 +777,12 @@ class Consumer:
     async def destroy(self):
         """Destroy the consumer.
         """
-        self.t_consume.cancel()
-        self.t_dls.cancel()
-        self.t_ping.cancel()
+        if self.t_consume is not None:
+            self.t_consume.cancel()
+        if self.t_dls is not None:
+            self.t_dls.cancel()
+        if self.t_ping is not None:
+            self.t_ping.cancel()
         self.pull_interval_ms = None
         try:
             destroyConsumerReq = {
