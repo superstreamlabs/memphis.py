@@ -372,7 +372,7 @@ class Memphis:
                 station_name, self.schema_updates_subs[station_name].messages))
             self.schema_tasks[station_name] = task
 
-    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
+    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False, start_consume_from_sequence=0, last_messages=0):
         """Creates a consumer.
         Args:.
             station_name (str): station name to consume messages from.
@@ -396,6 +396,15 @@ class Memphis:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
 
+            if start_consume_from_sequence < 0:
+                raise MemphisError("start_consume_from_sequence must be positive")
+
+            if last_messages < 0 :
+                raise MemphisError("last_messages must be positive")
+            
+            if start_consume_from_sequence !=0 and last_messages !=0 :
+                raise MemphisError("Consumer creation can't contain more than one of the following options: start_consume_from_sequence or last_messages")
+
             createConsumerReq = {
                 'name': consumer_name,
                 "station_name": station_name,
@@ -403,7 +412,9 @@ class Memphis:
                 "consumer_type": 'application',
                 "consumers_group": consumer_group,
                 "max_ack_time_ms": max_ack_time_ms,
-                "max_msg_deliveries": max_msg_deliveries
+                "max_msg_deliveries": max_msg_deliveries,
+                "opt_start_sequence": start_consume_from_sequence,
+                "last_messages": last_messages
             }
 
             create_consumer_req_bytes = json.dumps(
@@ -414,7 +425,7 @@ class Memphis:
             if err_msg != "":
                 raise MemphisError(err_msg)
 
-            return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries)
+            return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages)
 
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -706,7 +717,7 @@ async def default_error_handler(e):
 
 
 class Consumer:
-    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None):
+    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None, start_consume_from_sequence=0, last_messages=0):
         self.connection = connection
         self.station_name = station_name.lower()
         self.consumer_name = consumer_name.lower()
@@ -720,7 +731,9 @@ class Consumer:
         if error_callback is None:
             error_callback = default_error_handler
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
-
+        self.start_consume_from_sequence = start_consume_from_sequence
+        self.last_messages= last_messages
+    
     def consume(self, callback):
         """Consume events.
         """
