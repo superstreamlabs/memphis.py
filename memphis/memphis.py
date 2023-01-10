@@ -423,7 +423,7 @@ class Memphis:
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
-                if "start sequence can not be updated" or "deliver policy can not be updated" in err_msg:
+                if "can not be updated" in err_msg:
                     raise MemphisError("The consumer already exists with different configuration. You can't change the configuration to an existing consumer.")
                 else:
                     raise MemphisError(err_msg)
