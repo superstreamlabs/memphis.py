@@ -423,9 +423,6 @@ class Memphis:
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
-                if "can not be updated" in err_msg:
-                    raise MemphisError("The consumer already exists with different configuration. You can't change the configuration to an existing consumer.")
-                else:
                     raise MemphisError(err_msg)
 
             return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, start_consume_from_sequence=start_consume_from_sequence)
