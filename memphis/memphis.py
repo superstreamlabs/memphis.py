@@ -422,10 +422,13 @@ class Memphis:
             err_msg = await self.broker_manager.request("$memphis_consumer_creations", create_consumer_req_bytes, timeout=5)
             err_msg = err_msg.data.decode("utf-8")
 
+            if "start sequence can not be updated" in err_msg:
+                raise MemphisError("The consumer already exists with different configuration. You can't change the configuration to an existing consumer.")
+
             if err_msg != "":
                 raise MemphisError(err_msg)
 
-            return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages)
+            return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, start_consume_from_sequence=start_consume_from_sequence)
 
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -717,7 +720,7 @@ async def default_error_handler(e):
 
 
 class Consumer:
-    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None, start_consume_from_sequence=0, last_messages=0):
+    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None, start_consume_from_sequence=0):
         self.connection = connection
         self.station_name = station_name.lower()
         self.consumer_name = consumer_name.lower()
@@ -732,7 +735,6 @@ class Consumer:
             error_callback = default_error_handler
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
         self.start_consume_from_sequence = start_consume_from_sequence
-        self.last_messages= last_messages
     
     def consume(self, callback):
         """Consume events.
@@ -744,7 +746,7 @@ class Consumer:
         subject = get_internal_name(self.station_name)
         consumer_group = get_internal_name(self.consumer_group)
         self.psub = await self.connection.broker_connection.pull_subscribe(
-            subject + ".final", durable=consumer_group)
+            subject + ".final", durable=consumer_group, config={"opt_start_seq":self.start_consume_from_sequence})
         while True:
             if self.connection.is_connection_active and self.pull_interval_ms:
                 try:
