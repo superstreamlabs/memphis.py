@@ -61,7 +61,6 @@ class Memphis:
         self.station_schemaverse_to_dls = {}
         self.update_configurations_sub = {}
         self.configuration_tasks = {}
-        # self.
 
     async def get_msgs_update_configurations(self, iterable):
         try:
@@ -96,6 +95,9 @@ class Memphis:
             max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
             reconnect_interval_ms (int, optional): Interval in miliseconds between reconnect attempts. Defaults to 200.
             timeout_ms (int, optional): connection timeout in miliseconds. Defaults to 15000.
+            key_file (string): path to tls key file.
+            cert_file (string): path to tls cert file.
+            ca_file (string): path to tls ca file.
         """
         self.host = self.__normalize_host(host)
         self.username = username
@@ -107,13 +109,13 @@ class Memphis:
         self.timeout_ms = timeout_ms
         self.connection_id = self.__generateConnectionID()
         try:
-            if (cert_file != '' or key_file != ''):
+            if (cert_file != '' or key_file != '' or ca_file != ''):
                 if cert_file == '':
-                    raise MemphisError("Must provide a TLS cert file")
+                    raise MemphisConnectError("Must provide a TLS cert file")
                 if key_file == '':
-                    raise MemphisError("Must provide a TLS key file")
+                    raise MemphisConnectError("Must provide a TLS key file")
                 if ca_file == '':
-                    raise MemphisError("Must provide a TLS ca file")
+                    raise MemphisConnectError("Must provide a TLS ca file")
                 ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
                 ssl_ctx.load_verify_locations(ca_file)
                 ssl_ctx.load_cert_chain(certfile=cert_file, keyfile=key_file)
