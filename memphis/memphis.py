@@ -413,7 +413,7 @@ class Memphis:
                 "consumers_group": consumer_group,
                 "max_ack_time_ms": max_ack_time_ms,
                 "max_msg_deliveries": max_msg_deliveries,
-                "opt_start_sequence": start_consume_from_sequence,
+                "start_consume_from_sequence": start_consume_from_sequence,
                 "last_messages": last_messages
             }
 
