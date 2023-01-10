@@ -422,11 +422,11 @@ class Memphis:
             err_msg = await self.broker_manager.request("$memphis_consumer_creations", create_consumer_req_bytes, timeout=5)
             err_msg = err_msg.data.decode("utf-8")
 
-            if "start sequence can not be updated" in err_msg:
-                raise MemphisError("The consumer already exists with different configuration. You can't change the configuration to an existing consumer.")
-
             if err_msg != "":
-                raise MemphisError(err_msg)
+                if "start sequence can not be updated" or "deliver policy can not be updated" in err_msg:
+                    raise MemphisError("The consumer already exists with different configuration. You can't change the configuration to an existing consumer.")
+                else:
+                    raise MemphisError(err_msg)
 
             return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, start_consume_from_sequence=start_consume_from_sequence)
 
@@ -746,7 +746,7 @@ class Consumer:
         subject = get_internal_name(self.station_name)
         consumer_group = get_internal_name(self.consumer_group)
         self.psub = await self.connection.broker_connection.pull_subscribe(
-            subject + ".final", durable=consumer_group, config={"opt_start_seq":self.start_consume_from_sequence})
+            subject + ".final", durable=consumer_group)
         while True:
             if self.connection.is_connection_active and self.pull_interval_ms:
                 try:
