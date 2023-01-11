@@ -72,7 +72,11 @@ async def main():
       reconnect=True, # defaults to True
       max_reconnect=3, # defaults to 3
       reconnect_interval_ms=1500, # defaults to 1500
-      timeout_ms=1500 # defaults to 1500
+      timeout_ms=1500, # defaults to 1500
+      # for TLS connection:
+      key_file='<key-client.pem>', 
+      cert_file='<cert-client.pem>', 
+      ca_file='<rootCA.pem>'
       )
     ...
   except Exception as e:

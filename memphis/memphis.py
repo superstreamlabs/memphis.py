@@ -14,6 +14,7 @@
 
 import random
 import json
+import ssl
 import time
 from graphql import build_schema as build_graphql_schema, parse as parse_graphql, validate as validate_graphql
 import graphql
@@ -83,7 +84,7 @@ class Memphis:
         except Exception as err:
             raise MemphisError(err)
 
-    async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
+    async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000, cert_file = '', key_file='', ca_file=''):
         """Creates connection with Memphis.
         Args:
             host (str): memphis host.
@@ -94,6 +95,9 @@ class Memphis:
             max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
             reconnect_interval_ms (int, optional): Interval in miliseconds between reconnect attempts. Defaults to 200.
             timeout_ms (int, optional): connection timeout in miliseconds. Defaults to 15000.
+            key_file (string): path to tls key file.
+            cert_file (string): path to tls cert file.
+            ca_file (string): path to tls ca file.
         """
         self.host = self.__normalize_host(host)
         self.username = username
@@ -105,13 +109,33 @@ class Memphis:
         self.timeout_ms = timeout_ms
         self.connection_id = self.__generateConnectionID()
         try:
-            self.broker_manager = await broker.connect(servers=self.host+":"+str(self.port),
-                                                       allow_reconnect=self.reconnect,
-                                                       reconnect_time_wait=self.reconnect_interval_ms/1000,
-                                                       connect_timeout=self.timeout_ms/1000,
-                                                       max_reconnect_attempts=self.max_reconnect,
-                                                       token=self.connection_token,
-                                                       name=self.connection_id + "::" + self.username)
+            if (cert_file != '' or key_file != '' or ca_file != ''):
+                if cert_file == '':
+                    raise MemphisConnectError("Must provide a TLS cert file")
+                if key_file == '':
+                    raise MemphisConnectError("Must provide a TLS key file")
+                if ca_file == '':
+                    raise MemphisConnectError("Must provide a TLS ca file")
+                ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+                ssl_ctx.load_verify_locations(ca_file)
+                ssl_ctx.load_cert_chain(certfile=cert_file, keyfile=key_file)
+                self.broker_manager = await broker.connect(servers=self.host+":"+str(self.port),
+                                                        allow_reconnect=self.reconnect,
+                                                        reconnect_time_wait=self.reconnect_interval_ms/1000,
+                                                        connect_timeout=self.timeout_ms/1000,
+                                                        max_reconnect_attempts=self.max_reconnect,
+                                                        token=self.connection_token,
+                                                        name=self.connection_id + "::" + self.username,
+                                                        tls=ssl_ctx,
+                                                        tls_hostname=self.host)
+            else :
+                self.broker_manager = await broker.connect(servers=self.host+":"+str(self.port),
+                                                        allow_reconnect=self.reconnect,
+                                                        reconnect_time_wait=self.reconnect_interval_ms/1000,
+                                                        connect_timeout=self.timeout_ms/1000,
+                                                        max_reconnect_attempts=self.max_reconnect,
+                                                        token=self.connection_token,
+                                                        name=self.connection_id + "::" + self.username)
 
             await self.configurations_listener()
             self.broker_connection = self.broker_manager.jetstream()
