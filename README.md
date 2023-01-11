@@ -247,8 +247,8 @@ consumer = await memphis.consumer(
   max_ack_time_ms=30000, # defaults to 30000
   max_msg_deliveries=10, # defaults to 10
   generate_random_suffix=False
-  start_consume_from_sequence=0 # start consume from specific sequence. defaults to 0
-  last_messages=0 # consume specific amount of messages from last. defaults to 0
+  start_consume_from_sequence=1 # start consuming from a specific sequence. defaults to 1
+  last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station)
 )
 ```
 
