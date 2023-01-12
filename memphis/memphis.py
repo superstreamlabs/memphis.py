@@ -398,10 +398,10 @@ class Memphis:
             cg = consumer_name if not consumer_group else consumer_group
 
             if start_consume_from_sequence <= 0:
-                raise MemphisError("start_consume_from_sequence has to be a positive number and start from 1")
+                raise MemphisError("start_consume_from_sequence has to be a positive number")
 
             if last_messages < -1:
-                raise MemphisError("last-messages has to be start from -1")
+                raise MemphisError("min value for last_messages is -1")
 
             if start_consume_from_sequence > 1 and last_messages > -1 :
                 raise MemphisError("Consumer creation options can't contain both start_consume_from_sequence and last_messages")
