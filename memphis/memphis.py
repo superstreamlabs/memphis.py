@@ -386,7 +386,6 @@ class Memphis:
             generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
-
         Returns:
             object: consumer
         """
@@ -398,8 +397,11 @@ class Memphis:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
 
-            if start_consume_from_sequence < 0:
-                raise MemphisError("start_consume_from_sequence has to be a positive number")
+            if start_consume_from_sequence <= 0:
+                raise MemphisError("start_consume_from_sequence has to be a positive number and start from 1")
+
+            if last_messages < -1:
+                raise MemphisError("last-messages has to be start from -1")
 
             if start_consume_from_sequence > 1 and last_messages > -1 :
                 raise MemphisError("Consumer creation options can't contain both start_consume_from_sequence and last_messages")
