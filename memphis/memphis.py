@@ -414,7 +414,8 @@ class Memphis:
                 "max_ack_time_ms": max_ack_time_ms,
                 "max_msg_deliveries": max_msg_deliveries,
                 "start_consume_from_sequence": start_consume_from_sequence,
-                "last_messages": last_messages
+                "last_messages": last_messages,
+                "req_version": 1
             }
 
             create_consumer_req_bytes = json.dumps(
@@ -733,7 +734,7 @@ class Consumer:
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
         self.start_consume_from_sequence = start_consume_from_sequence
         self.last_messages= last_messages
-    
+
     def consume(self, callback):
         """Consume events.
         """
