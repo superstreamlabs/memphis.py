@@ -424,7 +424,7 @@ class Memphis:
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
-                    raise MemphisError(err_msg)
+                raise MemphisError(err_msg)
 
             return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages)
 
@@ -855,6 +855,13 @@ class Message:
         except:
             return
 
+    def get_sequence_number(self):
+        """Get message sequence number.
+        """
+        try:
+            return self.message.metadata.sequence.consumer
+        except:
+            return
 
 def random_bytes(amount: int) -> str:
     lst = [random.choice('0123456789abcdef') for n in range(amount)]

@@ -281,6 +281,13 @@ Get headers per message
 headers = message.get_headers()
 ```
 
+### Get message sequence number
+Get message sequence number
+
+```python
+sequence_number = msg.get_sequence_number()
+```
+
 ### Destroying a Consumer
 
 ```python
