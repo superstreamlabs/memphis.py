@@ -900,7 +900,7 @@ class Message:
         """Get message sequence number.
         """
         try:
-            return self.message.metadata.sequence.consumer
+            return self.message.metadata.sequence.stream
         except:
             return
 
