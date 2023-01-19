@@ -823,7 +823,8 @@ class Consumer:
         while True:
             try:
                 await asyncio.sleep(self.ping_consumer_invterval_ms/1000)
-                await self.connection.broker_connection.consumer_info(self.station_name, self.consumer_name, timeout=30)
+                consumer_group = get_internal_name(self.consumer_group)
+                await self.connection.broker_connection.consumer_info(self.station_name, consumer_group, timeout=30)
 
             except Exception as e:
                 await callback(e)
