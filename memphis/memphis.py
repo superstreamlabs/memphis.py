@@ -25,7 +25,7 @@ from threading import Timer
 import asyncio
 
 from jsonschema import validate
-from google.protobuf import descriptor_pb2, descriptor_pool, reflection
+from google.protobuf import descriptor_pb2, descriptor_pool
 from google.protobuf.message_factory import MessageFactory
 from google.protobuf.message import Message
 
