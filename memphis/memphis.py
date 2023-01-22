@@ -526,6 +526,7 @@ class Station:
 
 
 def get_internal_name(name: str) -> str:
+    name = name.lower()
     return name.replace(".", "#")
 
 
