@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 setup(
     name='memphis-py',
     packages=['memphis'],
-    version='0.2.7',
+    version='0.2.8',
     license='Apache-2.0',
     description='A powerful messaging platform for modern developers',
     long_description=long_description,
