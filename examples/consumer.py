@@ -3,7 +3,7 @@ from memphis import Memphis, MemphisError, MemphisConnectError, MemphisHeaderErr
 
 
 async def main():
-    async def msg_handler(msgs, error):
+    async def msg_handler(msgs, error, context):
         try:
             for msg in msgs:
                 print("message: ", msg.get_data())
@@ -21,6 +21,8 @@ async def main():
 
         consumer = await memphis.consumer(
             station_name="<station-name>", consumer_name="<consumer-name>", consumer_group="")
+        
+        consumer.set_context({"key": "value"})
         consumer.consume(msg_handler)
         # Keep your main thread alive so the consumer will keep receiving data
         await asyncio.Event().wait()
