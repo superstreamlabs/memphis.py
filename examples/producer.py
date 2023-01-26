@@ -12,7 +12,7 @@ async def main():
         headers = Headers()
         headers.add("key", "value") 
         for i in range(5):
-            await producer.produce(bytearray('Message #'+str(i)+': Hello world', 'utf-8'), headers=headers)
+            await producer.produce(bytearray('Message #'+str(i)+': Hello world', 'utf-8'), headers=headers) # you can send the message parameter as dict as well
 
     except (MemphisError, MemphisConnectError, MemphisHeaderError, MemphisSchemaError) as e:
         print(e)
