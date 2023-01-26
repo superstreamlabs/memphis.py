@@ -14,6 +14,7 @@
 
 import random
 import json
+import ssl
 import time
 from graphql import build_schema as build_graphql_schema, parse as parse_graphql, validate as validate_graphql
 import graphql
@@ -24,7 +25,7 @@ from threading import Timer
 import asyncio
 
 from jsonschema import validate
-from google.protobuf import descriptor_pb2, descriptor_pool, reflection
+from google.protobuf import descriptor_pb2, descriptor_pool
 from google.protobuf.message_factory import MessageFactory
 from google.protobuf.message import Message
 
@@ -32,6 +33,7 @@ import memphis.retention_types as retention_types
 import memphis.storage_types as storage_types
 
 schemaVFailAlertType = 'schema_validation_fail_alert'
+
 
 class set_interval():
     def __init__(self, func, sec):
@@ -69,7 +71,8 @@ class Memphis:
                 if data['type'] == 'send_notification':
                     self.cluster_configurations[data['type']] = data['update']
                 elif data['type'] == 'schemaverse_to_dls':
-                    self.station_schemaverse_to_dls[data['station_name']] = data['update']
+                    self.station_schemaverse_to_dls[data['station_name']
+                                                    ] = data['update']
         except Exception as err:
             raise MemphisError(err)
 
@@ -78,12 +81,13 @@ class Memphis:
             sub = await self.broker_manager.subscribe("$memphis_sdk_configurations_updates")
             self.update_configurations_sub = sub
             loop = asyncio.get_event_loop()
-            task = loop.create_task(self.get_msgs_update_configurations(self.update_configurations_sub.messages))
-            self.configuration_tasks =  task 
+            task = loop.create_task(self.get_msgs_update_configurations(
+                self.update_configurations_sub.messages))
+            self.configuration_tasks = task
         except Exception as err:
             raise MemphisError(err)
 
-    async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000):
+    async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000, cert_file='', key_file='', ca_file=''):
         """Creates connection with Memphis.
         Args:
             host (str): memphis host.
@@ -94,6 +98,9 @@ class Memphis:
             max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
             reconnect_interval_ms (int, optional): Interval in miliseconds between reconnect attempts. Defaults to 200.
             timeout_ms (int, optional): connection timeout in miliseconds. Defaults to 15000.
+            key_file (string): path to tls key file.
+            cert_file (string): path to tls cert file.
+            ca_file (string): path to tls ca file.
         """
         self.host = self.__normalize_host(host)
         self.username = username
@@ -105,13 +112,34 @@ class Memphis:
         self.timeout_ms = timeout_ms
         self.connection_id = self.__generateConnectionID()
         try:
-            self.broker_manager = await broker.connect(servers=self.host+":"+str(self.port),
-                                                       allow_reconnect=self.reconnect,
-                                                       reconnect_time_wait=self.reconnect_interval_ms/1000,
-                                                       connect_timeout=self.timeout_ms/1000,
-                                                       max_reconnect_attempts=self.max_reconnect,
-                                                       token=self.connection_token,
-                                                       name=self.connection_id + "::" + self.username)
+            if (cert_file != '' or key_file != '' or ca_file != ''):
+                if cert_file == '':
+                    raise MemphisConnectError("Must provide a TLS cert file")
+                if key_file == '':
+                    raise MemphisConnectError("Must provide a TLS key file")
+                if ca_file == '':
+                    raise MemphisConnectError("Must provide a TLS ca file")
+                ssl_ctx = ssl.create_default_context(
+                    purpose=ssl.Purpose.SERVER_AUTH)
+                ssl_ctx.load_verify_locations(ca_file)
+                ssl_ctx.load_cert_chain(certfile=cert_file, keyfile=key_file)
+                self.broker_manager = await broker.connect(servers=self.host+":"+str(self.port),
+                                                           allow_reconnect=self.reconnect,
+                                                           reconnect_time_wait=self.reconnect_interval_ms/1000,
+                                                           connect_timeout=self.timeout_ms/1000,
+                                                           max_reconnect_attempts=self.max_reconnect,
+                                                           token=self.connection_token,
+                                                           name=self.connection_id + "::" + self.username,
+                                                           tls=ssl_ctx,
+                                                           tls_hostname=self.host)
+            else:
+                self.broker_manager = await broker.connect(servers=self.host+":"+str(self.port),
+                                                           allow_reconnect=self.reconnect,
+                                                           reconnect_time_wait=self.reconnect_interval_ms/1000,
+                                                           connect_timeout=self.timeout_ms/1000,
+                                                           max_reconnect_attempts=self.max_reconnect,
+                                                           token=self.connection_token,
+                                                           name=self.connection_id + "::" + self.username)
 
             await self.configurations_listener()
             self.broker_connection = self.broker_manager.jetstream()
@@ -121,15 +149,15 @@ class Memphis:
 
     async def send_notification(self, title, msg, failedMsg, type):
         msg = {
-                    "title": title,
-                    "msg": msg,
-                    "type": type,
-                    "code": failedMsg
-                 }
+            "title": title,
+            "msg": msg,
+            "type": type,
+            "code": failedMsg
+        }
         msgToSend = json.dumps(msg).encode('utf-8')
         await self.broker_manager.publish("$memphis_notifications", msgToSend)
 
-    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000, schema_name="",send_poison_msg_to_dls = True, send_schema_failed_msg_to_dls = True):
+    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000, schema_name="", send_poison_msg_to_dls=True, send_schema_failed_msg_to_dls=True):
         """Creates a station.
         Args:
             name (str): station name.
@@ -157,7 +185,8 @@ class Memphis:
                 "dls_configuration": {
                     "poison": send_poison_msg_to_dls,
                     "Schemaverse": send_schema_failed_msg_to_dls
-                }
+                },
+                "username": self.username
             }
             create_station_req_bytes = json.dumps(
                 createStationReq, indent=2).encode('utf-8')
@@ -186,18 +215,19 @@ class Memphis:
             if name == '' or stationName == '':
                 raise MemphisError("name and station name can not be empty")
             msg = {
-                        "name": name,
-                        "station_name": stationName,
-                    }
+                "name": name,
+                "station_name": stationName,
+                "username": self.username
+            }
             msgToSend = json.dumps(msg).encode('utf-8')
-            err_msg = await self.broker_manager.request("$memphis_schema_attachments", msgToSend, timeout=5) 
+            err_msg = await self.broker_manager.request("$memphis_schema_attachments", msgToSend, timeout=5)
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
                 raise MemphisError(err_msg)
         except Exception as e:
             raise MemphisError(str(e)) from e
-    
+
     async def detach_schema(self, stationName):
         """Detaches a schema from station.
         Args:
@@ -209,10 +239,11 @@ class Memphis:
             if stationName == '':
                 raise MemphisError("station name is missing")
             msg = {
-                        "station_name": stationName,
-                    }
+                "station_name": stationName,
+                "username": self.username
+            }
             msgToSend = json.dumps(msg).encode('utf-8')
-            err_msg = await self.broker_manager.request("$memphis_schema_detachments", msgToSend, timeout=5) 
+            err_msg = await self.broker_manager.request("$memphis_schema_detachments", msgToSend, timeout=5)
             err_msg = err_msg.data.decode("utf-8")
 
             if err_msg != "":
@@ -288,7 +319,8 @@ class Memphis:
                 "station_name": station_name,
                 "connection_id": self.connection_id,
                 "producer_type": "application",
-                "req_version": 1
+                "req_version": 1,
+                "username": self.username
             }
             create_producer_req_bytes = json.dumps(
                 createProducerReq, indent=2).encode('utf-8')
@@ -308,7 +340,8 @@ class Memphis:
                     self.parse_descriptor(station_name_internal)
                 if self.schema_updates_data[station_name_internal]['type'] == "json":
                     schema = self.schema_updates_data[station_name_internal]['active_version']['schema_content']
-                    self.json_schemas[station_name_internal] = json.loads(schema)
+                    self.json_schemas[station_name_internal] = json.loads(
+                        schema)
                 elif self.schema_updates_data[station_name_internal]['type'] == "graphql":
                     self.graphql_schemas[station_name_internal] = build_graphql_schema(
                         self.schema_updates_data[station_name_internal]['active_version']['schema_content'])
@@ -372,7 +405,7 @@ class Memphis:
                 station_name, self.schema_updates_subs[station_name].messages))
             self.schema_tasks[station_name] = task
 
-    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False):
+    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False, start_consume_from_sequence=1, last_messages=-1):
         """Creates a consumer.
         Args:.
             station_name (str): station name to consume messages from.
@@ -384,7 +417,8 @@ class Memphis:
             max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
             generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
-
+            start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
+            last_messages: consume the last N messages, defaults to -1 (all messages in the station).
         Returns:
             object: consumer
         """
@@ -396,6 +430,14 @@ class Memphis:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
 
+            if start_consume_from_sequence <= 0:
+                raise MemphisError("start_consume_from_sequence has to be a positive number")
+
+            if last_messages < -1:
+                raise MemphisError("min value for last_messages is -1")
+
+            if start_consume_from_sequence > 1 and last_messages > -1 :
+                raise MemphisError("Consumer creation options can't contain both start_consume_from_sequence and last_messages")
             createConsumerReq = {
                 'name': consumer_name,
                 "station_name": station_name,
@@ -403,7 +445,11 @@ class Memphis:
                 "consumer_type": 'application',
                 "consumers_group": consumer_group,
                 "max_ack_time_ms": max_ack_time_ms,
-                "max_msg_deliveries": max_msg_deliveries
+                "max_msg_deliveries": max_msg_deliveries,
+                "start_consume_from_sequence": start_consume_from_sequence,
+                "last_messages": last_messages,
+                "req_version": 1,
+                "username": self.username
             }
 
             create_consumer_req_bytes = json.dumps(
@@ -414,7 +460,7 @@ class Memphis:
             if err_msg != "":
                 raise MemphisError(err_msg)
 
-            return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries)
+            return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages)
 
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -449,7 +495,8 @@ class Station:
         """
         try:
             nameReq = {
-                "station_name": self.name
+                "station_name": self.name,
+                "username": self.connection.username
             }
             station_name = json.dumps(nameReq, indent=2).encode('utf-8')
             res = await self.connection.broker_manager.request('$memphis_station_destructions', station_name, timeout=5)
@@ -479,13 +526,14 @@ class Station:
 
 
 def get_internal_name(name: str) -> str:
+    name = name.lower()
     return name.replace(".", "#")
 
 
 class Producer:
     def __init__(self, connection, producer_name, station_name):
         self.connection = connection
-        self.producer_name = producer_name
+        self.producer_name = producer_name.lower()
         self.station_name = station_name
         self.internal_station_name = get_internal_name(self.station_name)
         self.loop = asyncio.get_running_loop()
@@ -502,9 +550,11 @@ class Producer:
             elif schema_type == "graphql":
                 message = self.validate_graphql(message)
                 return message
-        elif not isinstance(message, bytearray):
+        elif not isinstance(message, bytearray) and not isinstance(message, dict) :
             raise MemphisSchemaError("Unsupported message type")
         else:
+            if isinstance(message, dict):
+                message = bytearray(json.dumps(message).encode('utf-8'))
             return message
 
     def validate_protobuf(self, message):
@@ -547,7 +597,8 @@ class Producer:
             else:
                 raise Exception("Unsupported message type")
 
-            validate(instance=message_obj, schema=self.connection.json_schemas[self.internal_station_name])
+            validate(instance=message_obj,
+                     schema=self.connection.json_schemas[self.internal_station_name])
             return message
         except Exception as e:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
@@ -566,7 +617,8 @@ class Producer:
                 message = message.encode('utf-8')
             else:
                 raise MemphisError("Unsupported message type")
-            validate_res = validate_graphql(schema=self.connection.graphql_schemas[self.internal_station_name], document_ast=msg)
+            validate_res = validate_graphql(
+                schema=self.connection.graphql_schemas[self.internal_station_name], document_ast=msg)
             if len(validate_res) > 0:
                 raise Exception(
                     "Schema validation has failed: " + str(validate_res))
@@ -582,7 +634,7 @@ class Producer:
     async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False, msg_id=None):
         """Produces a message into a station.
         Args:
-            message (bytearray): message to send into the station - bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
@@ -621,7 +673,7 @@ class Producer:
                 raise MemphisError(
                     "Produce operation has failed, please check whether Station/Producer are still exist")
             else:
-                if ("Schema validation has failed" in str(e) or "Unsupported message type" in str(e)): 
+                if ("Schema validation has failed" in str(e) or "Unsupported message type" in str(e)):
                     msgToSend = ""
                     if isinstance(message, bytearray):
                         msgToSend = str(message, 'utf-8')
@@ -629,11 +681,12 @@ class Producer:
                         msgToSend = message.SerializeToString().decode("utf-8")
                     if self.connection.station_schemaverse_to_dls[self.internal_station_name]:
                         unix_time = int(time.time())
-                        id = self.get_dls_msg_id(self.internal_station_name, self.producer_name, str(unix_time))
+                        id = self.get_dls_msg_id(
+                            self.internal_station_name, self.producer_name, str(unix_time))
 
                         memphis_headers = {
-                        "$memphis_producedBy": self.producer_name,
-                        "$memphis_connectionId": self.connection.connection_id}
+                            "$memphis_producedBy": self.producer_name,
+                            "$memphis_connectionId": self.connection.connection_id}
 
                         if headers != {}:
                             headers = headers.headers
@@ -659,7 +712,7 @@ class Producer:
                         buf = json.dumps(buf).encode('utf-8')
                         await self.connection.broker_connection.publish('$memphis-' + self.internal_station_name + '-dls.schema.' + id, buf)
                         if self.connection.cluster_configurations.get('send_notification'):
-                            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError:' + str(e), msgToSend, schemaVFailAlertType )
+                            await self.connection.send_notification('Schema validation has failed', 'Station: ' + self.station_name + '\nProducer: ' + self.producer_name + '\nError:' + str(e), msgToSend, schemaVFailAlertType)
                 raise MemphisError(str(e)) from e
 
     async def destroy(self):
@@ -668,7 +721,8 @@ class Producer:
         try:
             destroyProducerReq = {
                 "name": self.producer_name,
-                "station_name": self.station_name
+                "station_name": self.station_name,
+                "username": self.connection.username
             }
 
             producer_name = json.dumps(destroyProducerReq).encode('utf-8')
@@ -706,7 +760,7 @@ async def default_error_handler(e):
 
 
 class Consumer:
-    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None):
+    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None, start_consume_from_sequence=1, last_messages=-1):
         self.connection = connection
         self.station_name = station_name.lower()
         self.consumer_name = consumer_name.lower()
@@ -720,6 +774,14 @@ class Consumer:
         if error_callback is None:
             error_callback = default_error_handler
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
+        self.start_consume_from_sequence = start_consume_from_sequence
+        self.last_messages= last_messages
+        self.context = {}
+
+    def set_context(self, context):
+        """Set a context (dict) that will be passed to each message handler call.
+        """
+        self.context = context
 
     def consume(self, callback):
         """Consume events.
@@ -738,8 +800,9 @@ class Consumer:
                     memphis_messages = []
                     msgs = await self.psub.fetch(self.batch_size)
                     for msg in msgs:
-                        memphis_messages.append(Message(msg, self.connection, self.consumer_group))
-                    await callback(memphis_messages, None)
+                        memphis_messages.append(
+                            Message(msg, self.connection, self.consumer_group))
+                    await callback(memphis_messages, None, self.context)
                     await asyncio.sleep(self.pull_interval_ms/1000)
                 except asyncio.TimeoutError:
                     await callback([], MemphisError("Memphis: TimeoutError"))
@@ -759,7 +822,7 @@ class Consumer:
             subscription_name = "$memphis_dls_"+subject+"_"+consumer_group
             self.consumer_dls = await self.connection.broker_manager.subscribe(subscription_name, subscription_name)
             async for msg in self.consumer_dls.messages:
-                await callback([Message(msg, self.connection, self.consumer_group)], None)
+                await callback([Message(msg, self.connection, self.consumer_group)], None, self.context)
         except Exception as e:
             print("dls", e)
             await callback([], MemphisError(str(e)))
@@ -769,7 +832,8 @@ class Consumer:
         while True:
             try:
                 await asyncio.sleep(self.ping_consumer_invterval_ms/1000)
-                await self.connection.broker_connection.consumer_info(self.station_name, self.consumer_name, timeout=30)
+                consumer_group = get_internal_name(self.consumer_group)
+                await self.connection.broker_connection.consumer_info(self.station_name, consumer_group, timeout=30)
 
             except Exception as e:
                 await callback(e)
@@ -787,7 +851,8 @@ class Consumer:
         try:
             destroyConsumerReq = {
                 "name": self.consumer_name,
-                "station_name": self.station_name
+                "station_name": self.station_name,
+                "username": self.connection.username
             }
             consumer_name = json.dumps(
                 destroyConsumerReq, indent=2).encode('utf-8')
@@ -814,9 +879,9 @@ class Message:
             if ("$memphis_pm_id" in self.message.headers & "$memphis_pm_sequence" in self.message.headers):
                 try:
                     msg = {
-                            "id": self.message.headers["$memphis_pm_id"],
-                            "sequence": self.message.headers["$memphis_pm_sequence"],
-                        }
+                        "id": self.message.headers["$memphis_pm_id"],
+                        "sequence": self.message.headers["$memphis_pm_sequence"],
+                    }
                     msgToAck = json.dumps(msg).encode('utf-8')
                     await self.connection.broker_manager.publish("$memphis_pm_acks", msgToAck)
                 except Exception as er:
@@ -829,7 +894,7 @@ class Message:
         """Receive the message.
         """
         try:
-            return self.message.data
+            return bytearray(self.message.data)
         except:
             return
 
@@ -841,6 +906,13 @@ class Message:
         except:
             return
 
+    def get_sequence_number(self):
+        """Get message sequence number.
+        """
+        try:
+            return self.message.metadata.sequence.stream
+        except:
+            return
 
 def random_bytes(amount: int) -> str:
     lst = [random.choice('0123456789abcdef') for n in range(amount)]
@@ -855,7 +927,7 @@ class MemphisError(Exception):
         message = message.replace("Nats", "memphis")
         message = message.replace("NatsError", "MemphisError")
         self.message = message
-        if message.startswith("memphis:") :
+        if message.startswith("memphis:"):
             super().__init__(self.message)
         else:
             super().__init__("memphis: " + self.message)

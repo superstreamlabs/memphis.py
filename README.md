@@ -38,10 +38,12 @@
 <img src="https://img.shields.io/github/last-commit/memphisdev/memphis-broker?color=61dfc6&label=last%20commit">
 </p>
 
-**[Memphis{dev}](https://memphis.dev)** is an open-source real-time data processing platform<br>
-that provides end-to-end support for in-app streaming use cases using Memphis distributed message broker.<br>
-Memphis' platform requires zero ops, enables rapid development, extreme cost reduction, <br>
-eliminates coding barriers, and saves a great amount of dev time for data-oriented developers and data engineers.
+**[Memphis](https://memphis.dev)** is a next-generation message broker.<br>
+A simple, robust, and durable cloud-native message broker wrapped with<br>
+an entire ecosystem that enables fast and reliable development of next-generation event-driven use cases.<br><br>
+Memphis enables building modern applications that require large volumes of streamed and enriched data,<br>
+modern protocols, zero ops, rapid development, extreme cost reduction,<br>
+and a significantly lower amount of dev time for data-oriented developers and data engineers.
 
 ## Installation
 
@@ -72,7 +74,11 @@ async def main():
       reconnect=True, # defaults to True
       max_reconnect=3, # defaults to 3
       reconnect_interval_ms=1500, # defaults to 1500
-      timeout_ms=1500 # defaults to 1500
+      timeout_ms=1500, # defaults to 1500
+      # for TLS connection:
+      key_file='<key-client.pem>', 
+      cert_file='<cert-client.pem>', 
+      ca_file='<rootCA.pem>'
       )
     ...
   except Exception as e:
@@ -247,7 +253,16 @@ consumer = await memphis.consumer(
   max_ack_time_ms=30000, # defaults to 30000
   max_msg_deliveries=10, # defaults to 10
   generate_random_suffix=False
+  start_consume_from_sequence=1 # start consuming from a specific sequence. defaults to 1
+  last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station)
 )
+```
+
+### Setting a context for message handler function
+
+```python
+context = {"key": "value"}
+consumer.set_context(context)
 ```
 
 ### Processing messages
@@ -255,7 +270,7 @@ consumer = await memphis.consumer(
 Once all the messages in the station were consumed the msg_handler will receive error: `Memphis: TimeoutError`.
 
 ```python
-async def msg_handler(msgs, error):
+async def msg_handler(msgs, error, context):
   for msg in msgs:
     print("message: ", msg.get_data())
     await msg.ack()
@@ -277,6 +292,13 @@ Get headers per message
 
 ``python
 headers = message.get_headers()
+```
+
+### Get message sequence number
+Get message sequence number
+
+```python
+sequence_number = msg.get_sequence_number()
 ```
 
 ### Destroying a Consumer
