@@ -258,12 +258,19 @@ consumer = await memphis.consumer(
 )
 ```
 
+### Setting a context for message handler function
+
+```python
+context = {"key": "value"}
+consumer.set_context(context)
+```
+
 ### Processing messages
 
 Once all the messages in the station were consumed the msg_handler will receive error: `Memphis: TimeoutError`.
 
 ```python
-async def msg_handler(msgs, error):
+async def msg_handler(msgs, error, context):
   for msg in msgs:
     print("message: ", msg.get_data())
     await msg.ack()
