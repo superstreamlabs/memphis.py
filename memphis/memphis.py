@@ -805,7 +805,7 @@ class Consumer:
                     await callback(memphis_messages, None, self.context)
                     await asyncio.sleep(self.pull_interval_ms/1000)
                 except asyncio.TimeoutError:
-                    await callback([], MemphisError("Memphis: TimeoutError"))
+                    await callback([], MemphisError("Memphis: TimeoutError"), self.context)
                     continue
                 except Exception as e:
                     if self.connection.is_connection_active:
