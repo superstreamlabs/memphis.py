@@ -407,19 +407,7 @@ class Memphis:
                 station_name, self.schema_updates_subs[station_name].messages))
             self.schema_tasks[station_name] = task
 
-    async def consumer(self,
-        station_name: str,
-        consumer_name: str,
-        consumer_group: str ="",
-        pull_interval_ms: int = 1000,
-        batch_size: int = 10,
-        batch_max_time_to_wait_ms: int =5000,
-        max_ack_time_ms: int=30000,
-        max_msg_deliveries: int=10,
-        generate_random_suffix: bool=False,
-        start_consume_from_sequence: int=1,
-        last_messages: int=-1,
-        ):
+    async def consumer(self, station_name: str, consumer_name: str, consumer_group: str ="", pull_interval_ms: int = 1000, batch_size: int = 10, batch_max_time_to_wait_ms: int =5000, max_ack_time_ms: int=30000, max_msg_deliveries: int=10, generate_random_suffix: bool=False, start_consume_from_sequence: int=1, last_messages: int=-1):
         """Creates a consumer.
         Args:.
             station_name (str): station name to consume messages from.
