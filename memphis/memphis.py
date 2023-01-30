@@ -1,3 +1,4 @@
+from __future__ import annotations
 # Credit for The NATS.IO Authors
 # Copyright 2021-2022 The Memphis Authors
 # Licensed under the Apache License, Version 2.0 (the “License”);
@@ -12,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Iterable, Callable, Dict, Union, Any
 import random
 import json
 import ssl
@@ -27,7 +29,6 @@ import asyncio
 from jsonschema import validate
 from google.protobuf import descriptor_pb2, descriptor_pool
 from google.protobuf.message_factory import MessageFactory
-from google.protobuf.message import Message
 
 import memphis.retention_types as retention_types
 import memphis.storage_types as storage_types
@@ -36,7 +37,7 @@ schemaVFailAlertType = 'schema_validation_fail_alert'
 
 
 class set_interval():
-    def __init__(self, func, sec):
+    def __init__(self, func: Callable, sec: int):
         def func_wrapper():
             self.t = Timer(sec, func_wrapper)
             self.t.start()
@@ -63,7 +64,7 @@ class Memphis:
         self.update_configurations_sub = {}
         self.configuration_tasks = {}
 
-    async def get_msgs_update_configurations(self, iterable):
+    async def get_msgs_update_configurations(self, iterable: Iterable):
         try:
             async for msg in iterable:
                 message = msg.data.decode("utf-8")
@@ -87,7 +88,7 @@ class Memphis:
         except Exception as err:
             raise MemphisError(err)
 
-    async def connect(self, host, username, connection_token, port=6666, reconnect=True, max_reconnect=10, reconnect_interval_ms=1500, timeout_ms=15000, cert_file='', key_file='', ca_file=''):
+    async def connect(self, host: str, username: str, connection_token: str, port: int = 6666, reconnect: bool = True, max_reconnect: int = 10, reconnect_interval_ms: int = 1500, timeout_ms: int = 15000, cert_file: str = "", key_file: str = "", ca_file: str = ""):
         """Creates connection with Memphis.
         Args:
             host (str): memphis host.
@@ -157,7 +158,8 @@ class Memphis:
         msgToSend = json.dumps(msg).encode('utf-8')
         await self.broker_manager.publish("$memphis_notifications", msgToSend)
 
-    async def station(self, name, retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value=604800, storage_type=storage_types.DISK, replicas=1, idempotency_window_ms=120000, schema_name="", send_poison_msg_to_dls=True, send_schema_failed_msg_to_dls=True):
+    async def station(self, name: str,
+        retention_type: str = retention_types.MAX_MESSAGE_AGE_SECONDS, retention_value: int = 604800, storage_type: str = storage_types.DISK, replicas: int = 1, idempotency_window_ms: int = 120000, schema_name: str = "", send_poison_msg_to_dls: bool = True, send_schema_failed_msg_to_dls: bool = True,):
         """Creates a station.
         Args:
             name (str): station name.
@@ -296,7 +298,7 @@ class Memphis:
         else:
             return host
 
-    async def producer(self, station_name, producer_name, generate_random_suffix=False):
+    async def producer(self, station_name: str, producer_name: str, generate_random_suffix: bool =False):
         """Creates a producer.
         Args:
             station_name (str): station name to produce messages into.
@@ -405,7 +407,19 @@ class Memphis:
                 station_name, self.schema_updates_subs[station_name].messages))
             self.schema_tasks[station_name] = task
 
-    async def consumer(self, station_name, consumer_name, consumer_group="", pull_interval_ms=1000, batch_size=10, batch_max_time_to_wait_ms=5000, max_ack_time_ms=30000, max_msg_deliveries=10, generate_random_suffix=False, start_consume_from_sequence=1, last_messages=-1):
+    async def consumer(self,
+        station_name: str,
+        consumer_name: str,
+        consumer_group: str ="",
+        pull_interval_ms: int = 1000,
+        batch_size: int = 10,
+        batch_max_time_to_wait_ms: int =5000,
+        max_ack_time_ms: int=30000,
+        max_msg_deliveries: int=10,
+        generate_random_suffix: bool=False,
+        start_consume_from_sequence: int=1,
+        last_messages: int=-1,
+        ):
         """Creates a consumer.
         Args:.
             station_name (str): station name to consume messages from.
@@ -486,7 +500,7 @@ class Headers:
 
 
 class Station:
-    def __init__(self, connection, name):
+    def __init__(self, connection, name: str):
         self.connection = connection
         self.name = name.lower()
 
@@ -531,7 +545,7 @@ def get_internal_name(name: str) -> str:
 
 
 class Producer:
-    def __init__(self, connection, producer_name, station_name):
+    def __init__(self, connection, producer_name: str, station_name: str):
         self.connection = connection
         self.producer_name = producer_name
         self.station_name = station_name
@@ -626,10 +640,10 @@ class Producer:
                 e = "Invalid message format, expected GraphQL"
             raise Exception("Schema validation has failed: " + str(e))
 
-    def get_dls_msg_id(self, station_name, producer_name, unix_time):
+    def get_dls_msg_id(self, station_name: str, producer_name: str, unix_time: str):
         return station_name + '~' + producer_name + '~0~' + unix_time
 
-    async def produce(self, message, ack_wait_sec=15, headers={}, async_produce=False, msg_id=None):
+    async def produce(self, message, ack_wait_sec: int = 15, headers: Dict[str, Any]={}, async_produce: bool=False, msg_id: Union[str, None]= None):
         """Produces a message into a station.
         Args:
             message (bytearray): message to send into the station - bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
@@ -758,7 +772,7 @@ async def default_error_handler(e):
 
 
 class Consumer:
-    def __init__(self, connection, station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries=10, error_callback=None, start_consume_from_sequence=1, last_messages=-1):
+    def __init__(self, connection, station_name: str, consumer_name, consumer_group, pull_interval_ms: int, batch_size: int, batch_max_time_to_wait_ms: int, max_ack_time_ms: int, max_msg_deliveries: int=10, error_callback=None, start_consume_from_sequence: int=1, last_messages: int=-1):
         self.connection = connection
         self.station_name = station_name.lower()
         self.consumer_name = consumer_name.lower()
