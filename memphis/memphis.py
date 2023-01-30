@@ -633,7 +633,7 @@ class Producer:
     def get_dls_msg_id(self, station_name: str, producer_name: str, unix_time: str):
         return station_name + '~' + producer_name + '~0~' + unix_time
 
-    async def produce(self, message, ack_wait_sec: int = 15, headers: Dict[str, Any]={}, async_produce: bool=False, msg_id: Union[str, None]= None):
+    async def produce(self, message, ack_wait_sec: int = 15, headers: Union[Headers, None] = None, async_produce: bool=False, msg_id: Union[str, None]= None):
         """Produces a message into a station.
         Args:
             message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
@@ -652,10 +652,10 @@ class Producer:
                 "$memphis_producedBy": self.producer_name,
                 "$memphis_connectionId": self.connection.connection_id}
 
-            if msg_id != None:
+            if msg_id is not None:
                 memphis_headers["msg-id"] = msg_id
 
-            if headers != {}:
+            if headers is not None:
                 headers = headers.headers
                 headers.update(memphis_headers)
             else:
