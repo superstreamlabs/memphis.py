@@ -535,7 +535,7 @@ def get_internal_name(name: str) -> str:
 class Producer:
     def __init__(self, connection, producer_name: str, station_name: str):
         self.connection = connection
-        self.producer_name = producer_name
+        self.producer_name = producer_name.lower()
         self.station_name = station_name
         self.internal_station_name = get_internal_name(self.station_name)
         self.loop = asyncio.get_running_loop()
@@ -552,9 +552,11 @@ class Producer:
             elif schema_type == "graphql":
                 message = self.validate_graphql(message)
                 return message
-        elif not isinstance(message, bytearray):
+        elif not isinstance(message, bytearray) and not isinstance(message, dict) :
             raise MemphisSchemaError("Unsupported message type")
         else:
+            if isinstance(message, dict):
+                message = bytearray(json.dumps(message).encode('utf-8'))
             return message
 
     def validate_protobuf(self, message):
@@ -634,7 +636,7 @@ class Producer:
     async def produce(self, message, ack_wait_sec: int = 15, headers: Dict[str, Any]={}, async_produce: bool=False, msg_id: Union[str, None]= None):
         """Produces a message into a station.
         Args:
-            message (bytearray): message to send into the station - bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
@@ -775,7 +777,14 @@ class Consumer:
             error_callback = default_error_handler
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
         self.start_consume_from_sequence = start_consume_from_sequence
+
         self.last_messages= last_messages
+        self.context = {}
+
+    def set_context(self, context):
+        """Set a context (dict) that will be passed to each message handler call.
+        """
+        self.context = context
 
     def consume(self, callback):
         """Consume events.
@@ -796,8 +805,9 @@ class Consumer:
                     for msg in msgs:
                         memphis_messages.append(
                             Message(msg, self.connection, self.consumer_group))
-                    await callback(memphis_messages, None)
+                    await callback(memphis_messages, None, self.context)
                     await asyncio.sleep(self.pull_interval_ms/1000)
+
                 except asyncio.TimeoutError:
                     await callback([], MemphisError("Memphis: TimeoutError"))
                     continue
@@ -816,7 +826,7 @@ class Consumer:
             subscription_name = "$memphis_dls_"+subject+"_"+consumer_group
             self.consumer_dls = await self.connection.broker_manager.subscribe(subscription_name, subscription_name)
             async for msg in self.consumer_dls.messages:
-                await callback([Message(msg, self.connection, self.consumer_group)], None)
+                await callback([Message(msg, self.connection, self.consumer_group)], None, self.context)
         except Exception as e:
             print("dls", e)
             await callback([], MemphisError(str(e)))
@@ -888,7 +898,7 @@ class Message:
         """Receive the message.
         """
         try:
-            return self.message.data
+            return bytearray(self.message.data)
         except:
             return
 
