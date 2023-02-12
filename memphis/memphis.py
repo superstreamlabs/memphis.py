@@ -278,7 +278,6 @@ class Memphis:
         try:
             if self.is_connection_active:
                 await self.broker_manager.close()
-                self.broker_manager = None
                 self.connection_id = None
                 self.is_connection_active = False
                 keys_schema_updates_subs = self.schema_updates_subs.keys()
