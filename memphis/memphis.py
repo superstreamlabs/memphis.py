@@ -368,7 +368,7 @@ class Memphis:
                     self.graphql_schemas[station_name_internal] = build_graphql_schema(
                         self.schema_updates_data[station_name_internal]['active_version']['schema_content'])
             producer = Producer(self, producer_name, station_name)
-            map_key = station_name+"_"+producer_name
+            map_key = station_name_internal+"_"+producer_name.lower()
             self.producers_map[map_key] = producer
             return producer
 
@@ -502,7 +502,8 @@ class Memphis:
             Exception: _description_
         """
         try:
-            map_key = station_name+"_"+producer_name
+            station_name_internal = get_internal_name(station_name)
+            map_key = station_name_internal+"_"+producer_name.lower()
             producer = None
             if map_key in self.producers_map:
                 producer = self.producers_map[map_key]
@@ -785,7 +786,7 @@ class Producer:
                 if sub is not None:
                     await sub.unsubscribe()
 
-            map_key = self.station_name+"_"+self.producer_name
+            map_key = station_name_internal+"_"+self.producer_name.lower()
             del self.connection.producers_map[map_key]
 
         except Exception as e:
