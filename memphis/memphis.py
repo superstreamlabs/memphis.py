@@ -300,6 +300,7 @@ class Memphis:
                         await sub.unsubscribe()
                 if self.update_configurations_sub is not None:
                     await self.update_configurations_sub.unsubscribe()
+                self.producers_map.clear()
         except:
             return
 
@@ -487,6 +488,7 @@ class Memphis:
             return Consumer(self, station_name, consumer_name, cg, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages)
         except Exception as e:
             raise MemphisError(str(e)) from e
+
     async def produce(self, message, station_name: str, producer_name: str, generate_random_suffix: bool =False,  ack_wait_sec: int = 15, headers: Union[Headers, None] = None, async_produce: bool=False, msg_id: Union[str, None]= None):
         """Produces a message into a station without the need to create a producer.
         Args:
@@ -510,6 +512,9 @@ class Memphis:
             await producer.produce(message=message, ack_wait_sec=ack_wait_sec, headers=headers, async_produce= async_produce, msg_id=msg_id)
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def is_connected(self):
+        return self.broker_manager.is_connected
 
 
 class Station:
@@ -547,6 +552,8 @@ class Station:
                 task.cancel()
             if sub is not None:
                 await sub.unsubscribe()
+
+            self.connection.producers_map = {k: v for k, v in self.connection.producers_map.items() if self.name not in k}
 
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -777,6 +784,9 @@ class Producer:
                     task.cancel()
                 if sub is not None:
                     await sub.unsubscribe()
+
+            map_key = self.station_name+"_"+self.producer_name
+            del self.connection.producers_map[map_key]
 
         except Exception as e:
             raise Exception(e)
