@@ -197,7 +197,22 @@ producer = await memphis.producer(station_name="<station-name>", producer_name="
 ```
 
 ### Producing a message
+Without creating a producer.
+In cases where extra performance is needed the recommended way is to create a producer first
+and produce messages by using the produce function of it
+```python
+await memphis.produce(station_name='test_station_py', producer_name='prod_py',
+  message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema) 
+  generate_random_suffix=False, #defaults to false
+  ack_wait_sec=15, # defaults to 15
+  headers=headers, # default to {}
+  async_produce=False, #defaults to false
+  msg_id="123"
+)
+```
 
+
+Creating a producer first
 ```python
 await prod.produce(
   message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
@@ -305,4 +320,11 @@ sequence_number = msg.get_sequence_number()
 
 ```python
 consumer.destroy()
+```
+
+
+### Check if broker is connected 
+
+```python
+memphis.is_connected()
 ```
