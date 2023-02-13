@@ -488,7 +488,7 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    async def produce(self, message, station_name: str, producer_name: str, generate_random_suffix: bool =False,  ack_wait_sec: int = 15, headers: Union[Headers, None] = None, async_produce: bool=False, msg_id: Union[str, None]= None):
+    async def produce(self, station_name: str, producer_name: str, message, generate_random_suffix: bool =False,  ack_wait_sec: int = 15, headers: Union[Headers, None] = None, async_produce: bool=False, msg_id: Union[str, None]= None):
         """Produces a message into a station without the need to create a producer.
         Args:
             message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)

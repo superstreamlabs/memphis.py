@@ -201,8 +201,8 @@ Without creating a producer.
 In cases where extra performance is needed the recommended way is to create a producer first
 and produce messages by using the produce function of it
 ```python
-await memphis.produce(message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
-station_name='test_station_py', producer_name='prod_py', 
+await memphis.produce(station_name='test_station_py', producer_name='prod_py',
+  message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema) 
   generate_random_suffix=False, #defaults to false
   ack_wait_sec=15, # defaults to 15
   headers=headers, # default to {}
