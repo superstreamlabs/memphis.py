@@ -491,7 +491,10 @@ class Memphis:
     async def produce(self, station_name: str, producer_name: str, message, generate_random_suffix: bool =False,  ack_wait_sec: int = 15, headers: Union[Headers, None] = None, async_produce: bool=False, msg_id: Union[str, None]= None):
         """Produces a message into a station without the need to create a producer.
         Args:
+            station_name (str): station name to produce messages into.
+            producer_name (str): name for the producer.
             message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+            generate_random_suffix (bool): false by default, if true concatenate a random suffix to producer's name
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement

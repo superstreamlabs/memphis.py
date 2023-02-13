@@ -321,3 +321,10 @@ sequence_number = msg.get_sequence_number()
 ```python
 consumer.destroy()
 ```
+
+
+### Check if broker is connected 
+
+```python
+memphis.is_connected()
+```
