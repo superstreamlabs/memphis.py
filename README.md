@@ -323,7 +323,7 @@ consumer.destroy()
 ```
 
 
-### Check if broker is connected 
+### Check connection status
 
 ```python
 memphis.is_connected()

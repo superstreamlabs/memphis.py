@@ -501,7 +501,6 @@ class Memphis:
             msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotency
         Raises:
             Exception: _description_
-            Exception: _description_
         """
         try:
             station_name_internal = get_internal_name(station_name)
