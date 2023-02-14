@@ -325,7 +325,6 @@ class Memphis:
             generate_random_suffix (bool): false by default, if true concatenate a random suffix to producer's name
         Raises:
             Exception: _description_
-            Exception: _description_
         Returns:
             _type_: _description_
         """
@@ -367,7 +366,7 @@ class Memphis:
                     self.graphql_schemas[station_name_internal] = build_graphql_schema(
                         self.schema_updates_data[station_name_internal]['active_version']['schema_content'])
             producer = Producer(self, producer_name, station_name, real_name)
-            map_key = station_name_internal+"_"+real_name.lower()
+            map_key = station_name_internal+"_"+real_name
             self.producers_map[map_key] = producer
             return producer
 
@@ -500,7 +499,6 @@ class Memphis:
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
             msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotency
         Raises:
-            Exception: _description_
             Exception: _description_
         """
         try:
@@ -678,7 +676,6 @@ class Producer:
             msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotency
         Raises:
             Exception: _description_
-            Exception: _description_
         """
         try:
             message = await self.validate_msg(message)
@@ -788,7 +785,7 @@ class Producer:
                 if sub is not None:
                     await sub.unsubscribe()
 
-            map_key = station_name_internal+"_"+self.real_name.lower()
+            map_key = station_name_internal+"_"+self.real_name
             del self.connection.producers_map[map_key]
 
         except Exception as e:
