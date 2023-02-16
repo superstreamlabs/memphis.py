@@ -1,5 +1,6 @@
 import asyncio
-from memphis import Memphis, MemphisError, MemphisConnectError, MemphisHeaderError
+
+from memphis import Memphis, MemphisConnectError, MemphisError, MemphisHeaderError
 
 
 async def main():
@@ -17,11 +18,18 @@ async def main():
 
     try:
         memphis = Memphis()
-        await memphis.connect(host="<memphis-host>", username="<application type username>", connection_token="<broker-token>")
+        await memphis.connect(
+            host="<memphis-host>",
+            username="<application type username>",
+            connection_token="<broker-token>",
+        )
 
         consumer = await memphis.consumer(
-            station_name="<station-name>", consumer_name="<consumer-name>", consumer_group="")
-        
+            station_name="<station-name>",
+            consumer_name="<consumer-name>",
+            consumer_group="",
+        )
+
         consumer.set_context({"key": "value"})
         consumer.consume(msg_handler)
         # Keep your main thread alive so the consumer will keep receiving data
@@ -33,5 +41,6 @@ async def main():
     finally:
         await memphis.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())
