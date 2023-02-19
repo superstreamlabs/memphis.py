@@ -114,7 +114,8 @@ station = memphis.station(
   replicas=1, # defaults to 1
   idempotency_window_ms=120000, # defaults to 2 minutes
   send_poison_msg_to_dls=True, # defaults to true
-  send_schema_failed_msg_to_dls=True # defaults to true
+  send_schema_failed_msg_to_dls=True, # defaults to true
+  tiered_storage_enabled=False # defaults to false
 )
 ```
 
