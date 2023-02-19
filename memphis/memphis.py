@@ -207,6 +207,7 @@ class Memphis:
         schema_name: str = "",
         send_poison_msg_to_dls: bool = True,
         send_schema_failed_msg_to_dls: bool = True,
+        tiered_storage_enabled: bool = False
     ):
         """Creates a station.
         Args:
@@ -237,6 +238,7 @@ class Memphis:
                     "Schemaverse": send_schema_failed_msg_to_dls,
                 },
                 "username": self.username,
+                "tiered_storage_enabled": tiered_storage_enabled
             }
             create_station_req_bytes = json.dumps(createStationReq, indent=2).encode(
                 "utf-8"
