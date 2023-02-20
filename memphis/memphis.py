@@ -84,6 +84,7 @@ class Memphis:
         self.update_configurations_sub = {}
         self.configuration_tasks = {}
         self.producers_map = dict()
+        self.consumers_map = dict()
 
     async def get_msgs_update_configurations(self, iterable: Iterable):
         try:
@@ -388,45 +389,45 @@ class Memphis:
             if create_res["error"] != "":
                 raise MemphisError(create_res["error"])
 
-            station_name_internal = get_internal_name(station_name)
-            self.station_schemaverse_to_dls[station_name_internal] = create_res[
+            internal_station_name = get_internal_name(station_name)
+            self.station_schemaverse_to_dls[internal_station_name] = create_res[
                 "schemaverse_to_dls"
             ]
             self.cluster_configurations["send_notification"] = create_res[
                 "send_notification"
             ]
             await self.start_listen_for_schema_updates(
-                station_name_internal, create_res["schema_update"]
+                internal_station_name, create_res["schema_update"]
             )
 
-            if self.schema_updates_data[station_name_internal] != {}:
+            if self.schema_updates_data[internal_station_name] != {}:
                 if (
-                    self.schema_updates_data[station_name_internal]["type"]
+                    self.schema_updates_data[internal_station_name]["type"]
                     == "protobuf"
                 ):
-                    self.parse_descriptor(station_name_internal)
-                if self.schema_updates_data[station_name_internal]["type"] == "json":
-                    schema = self.schema_updates_data[station_name_internal][
+                    self.parse_descriptor(internal_station_name)
+                if self.schema_updates_data[internal_station_name]["type"] == "json":
+                    schema = self.schema_updates_data[internal_station_name][
                         "active_version"
                     ]["schema_content"]
-                    self.json_schemas[station_name_internal] = json.loads(schema)
+                    self.json_schemas[internal_station_name] = json.loads(schema)
                 elif (
-                    self.schema_updates_data[station_name_internal]["type"] == "graphql"
+                    self.schema_updates_data[internal_station_name]["type"] == "graphql"
                 ):
-                    self.graphql_schemas[station_name_internal] = build_graphql_schema(
-                        self.schema_updates_data[station_name_internal][
+                    self.graphql_schemas[internal_station_name] = build_graphql_schema(
+                        self.schema_updates_data[internal_station_name][
                             "active_version"
                         ]["schema_content"]
                     )
             producer = Producer(self, producer_name, station_name, real_name)
-            map_key = station_name_internal + "_" + real_name
+            map_key = internal_station_name + "_" + real_name
             self.producers_map[map_key] = producer
             return producer
 
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    async def get_msg_schema_updates(self, station_name_internal, iterable):
+    async def get_msg_schema_updates(self, internal_station_name, iterable):
         async for msg in iterable:
             message = msg.data.decode("utf-8")
             message = json.loads(message)
@@ -434,8 +435,8 @@ class Memphis:
                 data = {}
             else:
                 data = message["init"]
-            self.schema_updates_data[station_name_internal] = data
-            self.parse_descriptor(station_name_internal)
+            self.schema_updates_data[internal_station_name] = data
+            self.parse_descriptor(internal_station_name)
 
     def parse_descriptor(self, station_name):
         try:
@@ -522,7 +523,7 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
-
+            real_name = consumer_name.lower()
             if generate_random_suffix:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
@@ -564,7 +565,9 @@ class Memphis:
             if err_msg != "":
                 raise MemphisError(err_msg)
 
-            return Consumer(
+            internal_station_name = get_internal_name(station_name)
+            map_key = internal_station_name + "_" + real_name
+            consumer = Consumer(
                 self,
                 station_name,
                 consumer_name,
@@ -577,6 +580,8 @@ class Memphis:
                 start_consume_from_sequence=start_consume_from_sequence,
                 last_messages=last_messages,
             )
+            self.consumers_map[map_key] = consumer
+            return consumer
         except Exception as e:
             raise MemphisError(str(e)) from e
 
@@ -605,8 +610,8 @@ class Memphis:
             Exception: _description_
         """
         try:
-            station_name_internal = get_internal_name(station_name)
-            map_key = station_name_internal + "_" + producer_name.lower()
+            internal_station_name = get_internal_name(station_name)
+            map_key = internal_station_name + "_" + producer_name.lower()
             producer = None
             if map_key in self.producers_map:
                 producer = self.producers_map[map_key]
@@ -623,6 +628,35 @@ class Memphis:
                 async_produce=async_produce,
                 msg_id=msg_id,
             )
+        except Exception as e:
+            raise MemphisError(str(e)) from e
+
+    async def fetch_messages(
+        self,
+        station_name: str,
+        consumer_name: str,
+        consumer_group: str = "",
+        pull_interval_ms: int = 1000,
+        batch_size: int = 10,
+        batch_max_time_to_wait_ms: int = 5000,
+        max_ack_time_ms: int = 30000,
+        max_msg_deliveries: int = 10,
+        generate_random_suffix: bool = False,
+        start_consume_from_sequence: int = 1,
+        last_messages: int = -1
+        ):
+        try:
+            consumer = None
+            if not self.is_connection_active:
+                raise MemphisError("Cant fetch messages without being connected!")
+            internal_station_name = get_internal_name(station_name)
+            consumer_map_key = internal_station_name + "_" + consumer_name
+            if consumer_map_key in self.consumers_map:
+                consumer = self.consumers_map[consumer_map_key]
+            else:
+                consumer = await self.consumer(station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, generate_random_suffix, start_consume_from_sequence, last_messages)
+            
+            return await consumer.fetch()
         except Exception as e:
             raise MemphisError(str(e)) from e
 
@@ -647,17 +681,17 @@ class Station:
             if error != "" and not "not exist" in error:
                 raise MemphisError(error)
 
-            station_name_internal = get_internal_name(self.name)
-            sub = self.connection.schema_updates_subs.get(station_name_internal)
-            task = self.connection.schema_tasks.get(station_name_internal)
-            if station_name_internal in self.connection.schema_updates_data:
-                del self.connection.schema_updates_data[station_name_internal]
-            if station_name_internal in self.connection.schema_updates_subs:
-                del self.connection.schema_updates_subs[station_name_internal]
-            if station_name_internal in self.connection.producers_per_station:
-                del self.connection.producers_per_station[station_name_internal]
-            if station_name_internal in self.connection.schema_tasks:
-                del self.connection.schema_tasks[station_name_internal]
+            internal_station_name = get_internal_name(self.name)
+            sub = self.connection.schema_updates_subs.get(internal_station_name)
+            task = self.connection.schema_tasks.get(internal_station_name)
+            if internal_station_name in self.connection.schema_updates_data:
+                del self.connection.schema_updates_data[internal_station_name]
+            if internal_station_name in self.connection.schema_updates_subs:
+                del self.connection.schema_updates_subs[internal_station_name]
+            if internal_station_name in self.connection.producers_per_station:
+                del self.connection.producers_per_station[internal_station_name]
+            if internal_station_name in self.connection.schema_tasks:
+                del self.connection.schema_tasks[internal_station_name]
             if task is not None:
                 task.cancel()
             if sub is not None:
@@ -933,29 +967,29 @@ class Producer:
             if error != "" and not "not exist" in error:
                 raise Exception(error)
 
-            station_name_internal = get_internal_name(self.station_name)
+            internal_station_name = get_internal_name(self.station_name)
             producer_number = (
-                self.connection.producers_per_station.get(station_name_internal) - 1
+                self.connection.producers_per_station.get(internal_station_name) - 1
             )
             self.connection.producers_per_station[
-                station_name_internal
+                internal_station_name
             ] = producer_number
 
             if producer_number == 0:
-                sub = self.connection.schema_updates_subs.get(station_name_internal)
-                task = self.connection.schema_tasks.get(station_name_internal)
-                if station_name_internal in self.connection.schema_updates_data:
-                    del self.connection.schema_updates_data[station_name_internal]
-                if station_name_internal in self.connection.schema_updates_subs:
-                    del self.connection.schema_updates_subs[station_name_internal]
-                if station_name_internal in self.connection.schema_tasks:
-                    del self.connection.schema_tasks[station_name_internal]
+                sub = self.connection.schema_updates_subs.get(internal_station_name)
+                task = self.connection.schema_tasks.get(internal_station_name)
+                if internal_station_name in self.connection.schema_updates_data:
+                    del self.connection.schema_updates_data[internal_station_name]
+                if internal_station_name in self.connection.schema_updates_subs:
+                    del self.connection.schema_updates_subs[internal_station_name]
+                if internal_station_name in self.connection.schema_tasks:
+                    del self.connection.schema_tasks[internal_station_name]
                 if task is not None:
                     task.cancel()
                 if sub is not None:
                     await sub.unsubscribe()
 
-            map_key = station_name_internal + "_" + self.real_name
+            map_key = internal_station_name + "_" + self.real_name
             del self.connection.producers_map[map_key]
 
         except Exception as e:
@@ -1057,6 +1091,30 @@ class Consumer:
         except Exception as e:
             print("dls", e)
             await callback([], MemphisError(str(e)))
+            return
+
+    async def fetch(self):
+        """Fetch a batch of messages."""
+        if self.connection.is_connection_active and self.batch_max_time_to_wait_ms:
+            try:
+                durableName = ""
+                if self.consumer_group != "":
+                    durableName = get_internal_name(self.consumer_group)
+                else:
+                    durableName = get_internal_name(self.consumer_name)
+                subject = get_internal_name(self.station_name)
+                consumer_group = get_internal_name(self.consumer_group)
+                self.psub = await self.connection.broker_connection.pull_subscribe(
+                subject + ".final", durable=durableName
+                )
+                memphis_messages = []
+                msgs = await self.psub.fetch(self.batch_size)
+                for msg in msgs:
+                    memphis_messages.append(Message(msg, self.connection, self.consumer_group))
+                return memphis_messages
+            except Exception as e:
+                raise MemphisError(str(e)) from e
+        else:
             return
 
     async def __ping_consumer(self, callback):
