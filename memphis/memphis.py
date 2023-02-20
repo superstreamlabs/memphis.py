@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import json
 import random
@@ -962,8 +960,8 @@ class Producer:
             raise Exception(e)
 
 
-async def default_error_handler(e):
-    await print("ping exception raised", e)
+def default_error_handler(e):
+    print("ping exception raised", e)
 
 
 class Consumer:
@@ -1056,7 +1054,7 @@ class Consumer:
                 )
         except Exception as e:
             print("dls", e)
-            await callback([], MemphisError(str(e)))
+            await callback([], MemphisError(str(e)), self.context)
             return
 
     async def __ping_consumer(self, callback):
@@ -1069,7 +1067,7 @@ class Consumer:
                 )
 
             except Exception as e:
-                await callback(e)
+                callback(e)
 
     async def destroy(self):
         """Destroy the consumer."""
