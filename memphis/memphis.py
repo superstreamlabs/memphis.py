@@ -580,6 +580,9 @@ class Memphis:
                 start_consume_from_sequence=start_consume_from_sequence,
                 last_messages=last_messages,
             )
+            # consumer.dls_messages = []
+            # consumer.dls_current_index = 0
+            # consumer.dls_consumer = asyncio.create_task(consumer.__consume_dls(dls_callback, True))
             self.consumers_map[map_key] = consumer
             return consumer
         except Exception as e:
@@ -650,13 +653,16 @@ class Memphis:
             if not self.is_connection_active:
                 raise MemphisError("Cant fetch messages without being connected!")
             internal_station_name = get_internal_name(station_name)
-            consumer_map_key = internal_station_name + "_" + consumer_name
+            consumer_map_key = internal_station_name + "_" + consumer_name.lower()
             if consumer_map_key in self.consumers_map:
                 consumer = self.consumers_map[consumer_map_key]
             else:
                 consumer = await self.consumer(station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, generate_random_suffix, start_consume_from_sequence, last_messages)
             
-            return await consumer.fetch()
+            messages = await consumer.fetch()
+            if messages == None:
+                messages = []
+            return messages
         except Exception as e:
             raise MemphisError(str(e)) from e
 
@@ -999,6 +1005,12 @@ class Producer:
 async def default_error_handler(e):
     await print("ping exception raised", e)
 
+async def dls_callback(self, msgs, index):
+        for msg in msgs:
+                print("message: ", msg.get_data())
+                self.dls_messages[index] = Message(msg, self.connection, index)
+                self.dls_current_index+=1
+
 
 class Consumer:
     def __init__(
@@ -1030,9 +1042,12 @@ class Consumer:
             error_callback = default_error_handler
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
         self.start_consume_from_sequence = start_consume_from_sequence
-
         self.last_messages = last_messages
         self.context = {}
+        self.dls_messages = []
+        self.dls_current_index = 0
+        # self.dls_consumer = asyncio.create_task(self.__consume_dls(None, False))
+
 
     def set_context(self, context):
         """Set a context (dict) that will be passed to each message handler call."""
@@ -1041,7 +1056,7 @@ class Consumer:
     def consume(self, callback):
         """Consume events."""
         self.t_consume = asyncio.create_task(self.__consume(callback))
-        self.t_dls = asyncio.create_task(self.__consume_dls(callback))
+        self.t_dls = asyncio.create_task(self.__consume_dls(callback, False))
 
     async def __consume(self, callback):
         subject = get_internal_name(self.station_name)
@@ -1074,7 +1089,7 @@ class Consumer:
             else:
                 break
 
-    async def __consume_dls(self, callback):
+    async def __consume_dls(self, callback, consumerConstructor: bool):
         subject = get_internal_name(self.station_name)
         consumer_group = get_internal_name(self.consumer_group)
         try:
@@ -1082,12 +1097,27 @@ class Consumer:
             self.consumer_dls = await self.connection.broker_manager.subscribe(
                 subscription_name, subscription_name
             )
+            # if consumerConstructor:
+            #     async for msg in self.consumer_dls.messages:
+            #         index_to_insert = self.dls_current_index
+            #         if index_to_insert>=10000:
+            #             index_to_insert%=10000
+            #         await callback([Message(msg, self.connection, self.consumer_group)], index_to_insert)
+                    
+            # else:
             async for msg in self.consumer_dls.messages:
-                await callback(
-                    [Message(msg, self.connection, self.consumer_group)],
-                    None,
-                    self.context,
-                )
+                index_to_insert = self.dls_current_index
+                if index_to_insert>=10000:
+                    index_to_insert%=10000
+                print("message: ", msg.get_data())
+                self.dls_messages[index_to_insert] = Message(msg, self.connection, index_to_insert)
+                self.dls_current_index+=1
+                if callback != None:
+                    await callback(
+                        [Message(msg, self.connection, self.consumer_group)],
+                        None,
+                        self.context,
+                    )
         except Exception as e:
             print("dls", e)
             await callback([], MemphisError(str(e)))
@@ -1095,8 +1125,24 @@ class Consumer:
 
     async def fetch(self):
         """Fetch a batch of messages."""
+        messages = []
+        self.dls_consumer = asyncio.create_task(self.__consume_dls(None, False))
         if self.connection.is_connection_active and self.batch_max_time_to_wait_ms:
             try:
+                if len(self.dls_messages)>0:
+                    print("--------------------------------------------------------------------------------------------------")
+                    print("dls messages")
+                    print("--------------------------------------------------------------------------------------------------")
+                    if len(self.dls_messages) <= self.batch_size:
+                        messages = self.dls_messages
+                        self.dls_messages = []
+                        self.dls_current_index = 0
+                    else:
+                        messages = self.dls_messages[0:self.batch_size]
+                        del self.dls_messages[0:self.batch_size]
+                        self.dls_current_index -= len(messages)
+                    return messages
+
                 durableName = ""
                 if self.consumer_group != "":
                     durableName = get_internal_name(self.consumer_group)
@@ -1107,15 +1153,15 @@ class Consumer:
                 self.psub = await self.connection.broker_connection.pull_subscribe(
                 subject + ".final", durable=durableName
                 )
-                memphis_messages = []
                 msgs = await self.psub.fetch(self.batch_size)
                 for msg in msgs:
-                    memphis_messages.append(Message(msg, self.connection, self.consumer_group))
-                return memphis_messages
+                    messages.append(Message(msg, self.connection, self.consumer_group))
+                return messages
             except Exception as e:
-                raise MemphisError(str(e)) from e
+                if not "timeout" in str(e):
+                    raise MemphisError(str(e)) from e
         else:
-            return
+            return messages
 
     async def __ping_consumer(self, callback):
         while True:
