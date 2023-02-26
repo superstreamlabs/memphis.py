@@ -580,9 +580,6 @@ class Memphis:
                 start_consume_from_sequence=start_consume_from_sequence,
                 last_messages=last_messages,
             )
-            # consumer.dls_messages = []
-            # consumer.dls_current_index = 0
-            # consumer.dls_consumer = asyncio.create_task(consumer.__consume_dls(dls_callback, True))
             self.consumers_map[map_key] = consumer
             return consumer
         except Exception as e:
@@ -1005,11 +1002,6 @@ class Producer:
 async def default_error_handler(e):
     await print("ping exception raised", e)
 
-async def dls_callback(self, msgs, index):
-        for msg in msgs:
-                print("message: ", msg.get_data())
-                self.dls_messages[index] = Message(msg, self.connection, index)
-                self.dls_current_index+=1
 
 
 class Consumer:
@@ -1046,7 +1038,8 @@ class Consumer:
         self.context = {}
         self.dls_messages = []
         self.dls_current_index = 0
-        # self.dls_consumer = asyncio.create_task(self.__consume_dls(None, False))
+        self.dls_callback_func = None
+        self.t_dls = asyncio.create_task(self.__consume_dls())
 
 
     def set_context(self, context):
@@ -1055,8 +1048,8 @@ class Consumer:
 
     def consume(self, callback):
         """Consume events."""
+        self.dls_callback_func = callback
         self.t_consume = asyncio.create_task(self.__consume(callback))
-        self.t_dls = asyncio.create_task(self.__consume_dls(callback, False))
 
     async def __consume(self, callback):
         subject = get_internal_name(self.station_name)
@@ -1089,7 +1082,7 @@ class Consumer:
             else:
                 break
 
-    async def __consume_dls(self, callback, consumerConstructor: bool):
+    async def __consume_dls(self):
         subject = get_internal_name(self.station_name)
         consumer_group = get_internal_name(self.consumer_group)
         try:
@@ -1097,42 +1090,28 @@ class Consumer:
             self.consumer_dls = await self.connection.broker_manager.subscribe(
                 subscription_name, subscription_name
             )
-            # if consumerConstructor:
-            #     async for msg in self.consumer_dls.messages:
-            #         index_to_insert = self.dls_current_index
-            #         if index_to_insert>=10000:
-            #             index_to_insert%=10000
-            #         await callback([Message(msg, self.connection, self.consumer_group)], index_to_insert)
-                    
-            # else:
             async for msg in self.consumer_dls.messages:
                 index_to_insert = self.dls_current_index
                 if index_to_insert>=10000:
                     index_to_insert%=10000
-                print("message: ", msg.get_data())
-                self.dls_messages[index_to_insert] = Message(msg, self.connection, index_to_insert)
+                self.dls_messages.insert(index_to_insert, Message(msg, self.connection, self.consumer_group))
                 self.dls_current_index+=1
-                if callback != None:
-                    await callback(
+                if self.dls_callback_func != None:
+                    await self.dls_callback_func(
                         [Message(msg, self.connection, self.consumer_group)],
                         None,
                         self.context,
                     )
         except Exception as e:
-            print("dls", e)
-            await callback([], MemphisError(str(e)))
+            await self.dls_callback_func([], MemphisError(str(e)))
             return
 
     async def fetch(self):
         """Fetch a batch of messages."""
         messages = []
-        self.dls_consumer = asyncio.create_task(self.__consume_dls(None, False))
         if self.connection.is_connection_active and self.batch_max_time_to_wait_ms:
             try:
                 if len(self.dls_messages)>0:
-                    print("--------------------------------------------------------------------------------------------------")
-                    print("dls messages")
-                    print("--------------------------------------------------------------------------------------------------")
                     if len(self.dls_messages) <= self.batch_size:
                         messages = self.dls_messages
                         self.dls_messages = []
