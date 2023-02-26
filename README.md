@@ -55,7 +55,7 @@ $ pip3 install memphis-py
 
 ```python
 from memphis import Memphis, Headers
-from memphis import retention_types, storage_types
+from memphis.types import Retention, Storage
 ```
 
 ### Connecting to Memphis
@@ -108,9 +108,9 @@ _If a station already exists nothing happens, the new configuration will not be 
 station = memphis.station(
   name="<station-name>",
   schema_name="<schema-name>",
-  retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
+  retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
-  storage_type=storage_types.DISK, # storage_types.DISK/storage_types.MEMORY. Defaults to DISK
+  storage_type=Storage.DISK, # Storage.DISK/Storage.MEMORY. Defaults to DISK
   replicas=1, # defaults to 1
   idempotency_window_ms=120000, # defaults to 2 minutes
   send_poison_msg_to_dls=True, # defaults to true
@@ -124,19 +124,19 @@ station = memphis.station(
 Memphis currently supports the following types of retention:
 
 ```python
-memphis.retention_types.MAX_MESSAGE_AGE_SECONDS
+memphis.types.Retention.MAX_MESSAGE_AGE_SECONDS
 ```
 
 Means that every message persists for the value set in retention value field (in seconds)
 
 ```python
-memphis.retention_types.MESSAGES
+memphis.types.Retention.MESSAGES
 ```
 
 Means that after max amount of saved messages (set in retention value), the oldest messages will be deleted
 
 ```python
-memphis.retention_types.BYTES
+memphis.types.Retention.BYTES
 ```
 
 Means that after max amount of saved bytes (set in retention value), the oldest messages will be deleted
@@ -146,13 +146,13 @@ Means that after max amount of saved bytes (set in retention value), the oldest 
 Memphis currently supports the following types of messages storage:
 
 ```python
-memphis.storage_types.DISK
+memphis.types.Storage.DISK
 ```
 
 Means that messages persist on disk
 
 ```python
-memphis.storage_types.MEMORY
+memphis.types.Storage.MEMORY
 ```
 
 Means that messages persist on the main memory

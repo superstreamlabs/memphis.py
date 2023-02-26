@@ -12,6 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-MAX_MESSAGE_AGE_SECONDS = "message_age_sec"
-MESSAGES = "messages"
-BYTES = "bytes"
+from enum import Enum
+
+
+class Retention(Enum):
+    MAX_MESSAGE_AGE_SECONDS = "message_age_sec"
+    MESSAGES = "messages"
+    BYTES = "bytes"
+
+
+class Storage(Enum):
+    DISK = "file"
+    MEMORY = "memory"

@@ -22,8 +22,6 @@ from threading import Timer
 from typing import Callable, Iterable, Union
 
 import graphql
-import memphis.retention_types as retention_types
-import memphis.storage_types as storage_types
 import nats as broker
 from google.protobuf import descriptor_pb2, descriptor_pool
 from google.protobuf.message_factory import MessageFactory
@@ -31,7 +29,7 @@ from graphql import build_schema as build_graphql_schema
 from graphql import parse as parse_graphql
 from graphql import validate as validate_graphql
 from jsonschema import validate
-
+from memphis.types import Retention, Storage
 
 schemaVFailAlertType = "schema_validation_fail_alert"
 
@@ -198,22 +196,22 @@ class Memphis:
     async def station(
         self,
         name: str,
-        retention_type: str = retention_types.MAX_MESSAGE_AGE_SECONDS,
+        retention_type: Retention = Retention.MAX_MESSAGE_AGE_SECONDS,
         retention_value: int = 604800,
-        storage_type: str = storage_types.DISK,
+        storage_type: Storage = Storage.DISK,
         replicas: int = 1,
         idempotency_window_ms: int = 120000,
         schema_name: str = "",
         send_poison_msg_to_dls: bool = True,
         send_schema_failed_msg_to_dls: bool = True,
-        tiered_storage_enabled: bool = False
+        tiered_storage_enabled: bool = False,
     ):
         """Creates a station.
         Args:
             name (str): station name.
-            retention_type (str, optional): retention type: message_age_sec/messages/bytes . Defaults to "message_age_sec".
+            retention_type (Retention, optional): retention type: message_age_sec/messages/bytes . Defaults to "message_age_sec".
             retention_value (int, optional): number which represents the retention based on the retention_type. Defaults to 604800.
-            storage_type (str, optional): persistance storage for messages of the station: disk/memory. Defaults to "disk".
+            storage_type (Storage, optional): persistance storage for messages of the station: disk/memory. Defaults to "disk".
             replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
             idempotency_window_ms (int, optional): time frame in which idempotent messages will be tracked, happens based on message ID Defaults to 120000.
             schema_name (str): schema name.
@@ -237,7 +235,7 @@ class Memphis:
                     "Schemaverse": send_schema_failed_msg_to_dls,
                 },
                 "username": self.username,
-                "tiered_storage_enabled": tiered_storage_enabled
+                "tiered_storage_enabled": tiered_storage_enabled,
             }
             create_station_req_bytes = json.dumps(createStationReq, indent=2).encode(
                 "utf-8"
