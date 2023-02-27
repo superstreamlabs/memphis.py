@@ -1,3 +1,16 @@
+# Credit for The NATS.IO Authors
+# Copyright 2021-2022 The Memphis Authors
+# Licensed under the Apache License, Version 2.0 (the “License”);
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http:#www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an “AS IS” BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 from __future__ import annotations
 
 import asyncio
@@ -18,20 +31,6 @@ from graphql import build_schema as build_graphql_schema
 from graphql import parse as parse_graphql
 from graphql import validate as validate_graphql
 from jsonschema import validate
-
-# Credit for The NATS.IO Authors
-# Copyright 2021-2022 The Memphis Authors
-# Licensed under the Apache License, Version 2.0 (the “License”);
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http:#www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 
 schemaVFailAlertType = "schema_validation_fail_alert"
@@ -1022,8 +1021,8 @@ class Producer:
             raise Exception(e)
 
 
-async def default_error_handler(e):
-    await print("ping exception raised", e)
+def default_error_handler(e):
+    print("ping exception raised", e)
 
 
 
@@ -1126,7 +1125,7 @@ class Consumer:
                         self.context,
                     )
         except Exception as e:
-            await self.dls_callback_func([], MemphisError(str(e)))
+            await self.dls_callback_func([], MemphisError(str(e)), self.context)
             return
 
     async def fetch(self, batch_size: int = 10):
@@ -1176,7 +1175,7 @@ class Consumer:
                 )
 
             except Exception as e:
-                await callback(e)
+                callback(e)
 
     async def destroy(self):
         """Destroy the consumer."""
