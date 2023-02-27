@@ -1114,7 +1114,7 @@ class Consumer:
             await self.dls_callback_func([], MemphisError(str(e)))
             return
 
-    async def fetch(self, batch_size):
+    async def fetch(self, batch_size: int = 10):
         """Fetch a batch of messages."""
         messages = []
         if self.connection.is_connection_active:
