@@ -658,7 +658,7 @@ class Memphis:
             else:
                 consumer = await self.consumer(station_name=station_name, consumer_name=consumer_name, consumer_group=consumer_group, batch_size=batch_size, batch_max_time_to_wait_ms=batch_max_time_to_wait_ms, max_ack_time_ms=max_ack_time_ms, max_msg_deliveries=max_msg_deliveries, generate_random_suffix=generate_random_suffix, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages)
             
-            messages = await consumer.fetch()
+            messages = await consumer.fetch(batch_size)
             if messages == None:
                 messages = []
             return messages
@@ -1114,19 +1114,19 @@ class Consumer:
             await self.dls_callback_func([], MemphisError(str(e)))
             return
 
-    async def fetch(self):
+    async def fetch(self, batch_size):
         """Fetch a batch of messages."""
         messages = []
         if self.connection.is_connection_active:
             try:
                 if len(self.dls_messages)>0:
-                    if len(self.dls_messages) <= self.batch_size:
+                    if len(self.dls_messages) <= batch_size:
                         messages = self.dls_messages
                         self.dls_messages = []
                         self.dls_current_index = 0
                     else:
-                        messages = self.dls_messages[0:self.batch_size]
-                        del self.dls_messages[0:self.batch_size]
+                        messages = self.dls_messages[0:batch_size]
+                        del self.dls_messages[0:batch_size]
                         self.dls_current_index -= len(messages)
                     return messages
 
@@ -1140,7 +1140,7 @@ class Consumer:
                 self.psub = await self.connection.broker_connection.pull_subscribe(
                 subject + ".final", durable=durableName
                 )
-                msgs = await self.psub.fetch(self.batch_size)
+                msgs = await self.psub.fetch(batch_size)
                 for msg in msgs:
                     messages.append(Message(msg, self.connection, self.consumer_group))
                 return messages
