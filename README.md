@@ -295,13 +295,12 @@ async def msg_handler(msgs, error, context):
 consumer.consume(msg_handler)
 ```
 
-### Fetch single batch of messages
+### Fetch a single batch of messages
 ```python
 msgs = await memphis.fetch_messages(
   station_name="<station-name>",
   consumer_name="<consumer-name>",
   consumer_group="<group-name>", # defaults to the consumer name
-  pull_interval_ms=1000, # defaults to 1000
   batch_size=10, # defaults to 10
   batch_max_time_to_wait_ms=5000, # defaults to 5000
   max_ack_time_ms=30000, # defaults to 30000

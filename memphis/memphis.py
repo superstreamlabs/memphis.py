@@ -331,6 +331,9 @@ class Memphis:
                 if self.update_configurations_sub is not None:
                     await self.update_configurations_sub.unsubscribe()
                 self.producers_map.clear()
+                for consumer in self.consumers_map:
+                    consumer.dls_messages.clear()
+                self.consumers_map.clear()
         except:
             return
 
@@ -636,7 +639,6 @@ class Memphis:
         station_name: str,
         consumer_name: str,
         consumer_group: str = "",
-        pull_interval_ms: int = 1000,
         batch_size: int = 10,
         batch_max_time_to_wait_ms: int = 5000,
         max_ack_time_ms: int = 30000,
@@ -654,7 +656,7 @@ class Memphis:
             if consumer_map_key in self.consumers_map:
                 consumer = self.consumers_map[consumer_map_key]
             else:
-                consumer = await self.consumer(station_name, consumer_name, consumer_group, pull_interval_ms, batch_size, batch_max_time_to_wait_ms, max_ack_time_ms, max_msg_deliveries, generate_random_suffix, start_consume_from_sequence, last_messages)
+                consumer = await self.consumer(station_name=station_name, consumer_name=consumer_name, consumer_group=consumer_group, batch_size=batch_size, batch_max_time_to_wait_ms=batch_max_time_to_wait_ms, max_ack_time_ms=max_ack_time_ms, max_msg_deliveries=max_msg_deliveries, generate_random_suffix=generate_random_suffix, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages)
             
             messages = await consumer.fetch()
             if messages == None:
@@ -703,6 +705,12 @@ class Station:
             self.connection.producers_map = {
                 k: v
                 for k, v in self.connection.producers_map.items()
+                if self.name not in k
+            }
+
+            self.connection.consumers_map = {
+                k: v
+                for k, v in self.connection.consumers_map.items()
                 if self.name not in k
             }
 
@@ -1109,7 +1117,7 @@ class Consumer:
     async def fetch(self):
         """Fetch a batch of messages."""
         messages = []
-        if self.connection.is_connection_active and self.batch_max_time_to_wait_ms:
+        if self.connection.is_connection_active:
             try:
                 if len(self.dls_messages)>0:
                     if len(self.dls_messages) <= self.batch_size:
@@ -1176,6 +1184,10 @@ class Consumer:
             error = res.data.decode("utf-8")
             if error != "" and not "not exist" in error:
                 raise MemphisError(error)
+            self.dls_messages.clear()
+            internal_station_name = get_internal_name(self.station_name)
+            map_key = internal_station_name + "_" + self.consumer_name.lower()
+            del self.connection.consumers_map[map_key]
         except Exception as e:
             raise MemphisError(str(e)) from e
 
@@ -1193,7 +1205,7 @@ class Message:
         except Exception as e:
             if (
                 "$memphis_pm_id"
-                in self.message.headers & "$memphis_pm_sequence"
+                in self.message.headers and "$memphis_pm_sequence"
                 in self.message.headers
             ):
                 try:
