@@ -634,6 +634,7 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
+    
     async def fetch_messages(
         self,
         station_name: str,
@@ -647,6 +648,21 @@ class Memphis:
         start_consume_from_sequence: int = 1,
         last_messages: int = -1
         ):
+        """Consume a batch of messages.
+        Args:.
+            station_name (str): station name to consume messages from.
+            consumer_name (str): name for the consumer.
+            consumer_group (str, optional): consumer group name. Defaults to the consumer name.
+            batch_size (int, optional): pull batch size. Defaults to 10.
+            batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
+            max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
+            max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
+            generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
+            start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
+            last_messages: consume the last N messages, defaults to -1 (all messages in the station).
+        Returns:
+            list: Message
+        """
         try:
             consumer = None
             if not self.is_connection_active:
@@ -657,7 +673,6 @@ class Memphis:
                 consumer = self.consumers_map[consumer_map_key]
             else:
                 consumer = await self.consumer(station_name=station_name, consumer_name=consumer_name, consumer_group=consumer_group, batch_size=batch_size, batch_max_time_to_wait_ms=batch_max_time_to_wait_ms, max_ack_time_ms=max_ack_time_ms, max_msg_deliveries=max_msg_deliveries, generate_random_suffix=generate_random_suffix, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages)
-            
             messages = await consumer.fetch(batch_size)
             if messages == None:
                 messages = []
@@ -1119,6 +1134,7 @@ class Consumer:
         messages = []
         if self.connection.is_connection_active:
             try:
+                self.batch_size = batch_size
                 if len(self.dls_messages)>0:
                     if len(self.dls_messages) <= batch_size:
                         messages = self.dls_messages
