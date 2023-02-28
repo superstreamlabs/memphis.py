@@ -631,7 +631,6 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    
     async def fetch_messages(
         self,
         station_name: str,
@@ -643,8 +642,8 @@ class Memphis:
         max_msg_deliveries: int = 10,
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
-        last_messages: int = -1
-        ):
+        last_messages: int = -1,
+    ):
         """Consume a batch of messages.
         Args:.
             station_name (str): station name to consume messages from.
@@ -669,7 +668,18 @@ class Memphis:
             if consumer_map_key in self.consumers_map:
                 consumer = self.consumers_map[consumer_map_key]
             else:
-                consumer = await self.consumer(station_name=station_name, consumer_name=consumer_name, consumer_group=consumer_group, batch_size=batch_size, batch_max_time_to_wait_ms=batch_max_time_to_wait_ms, max_ack_time_ms=max_ack_time_ms, max_msg_deliveries=max_msg_deliveries, generate_random_suffix=generate_random_suffix, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages)
+                consumer = await self.consumer(
+                    station_name=station_name,
+                    consumer_name=consumer_name,
+                    consumer_group=consumer_group,
+                    batch_size=batch_size,
+                    batch_max_time_to_wait_ms=batch_max_time_to_wait_ms,
+                    max_ack_time_ms=max_ack_time_ms,
+                    max_msg_deliveries=max_msg_deliveries,
+                    generate_random_suffix=generate_random_suffix,
+                    start_consume_from_sequence=start_consume_from_sequence,
+                    last_messages=last_messages,
+                )
             messages = await consumer.fetch(batch_size)
             if messages == None:
                 messages = []
@@ -1023,7 +1033,6 @@ def default_error_handler(e):
     print("ping exception raised", e)
 
 
-
 class Consumer:
     def __init__(
         self,
@@ -1060,7 +1069,6 @@ class Consumer:
         self.dls_current_index = 0
         self.dls_callback_func = None
         self.t_dls = asyncio.create_task(self.__consume_dls())
-
 
     def set_context(self, context):
         """Set a context (dict) that will be passed to each message handler call."""
@@ -1112,10 +1120,12 @@ class Consumer:
             )
             async for msg in self.consumer_dls.messages:
                 index_to_insert = self.dls_current_index
-                if index_to_insert>=10000:
-                    index_to_insert%=10000
-                self.dls_messages.insert(index_to_insert, Message(msg, self.connection, self.consumer_group))
-                self.dls_current_index+=1
+                if index_to_insert >= 10000:
+                    index_to_insert %= 10000
+                self.dls_messages.insert(
+                    index_to_insert, Message(msg, self.connection, self.consumer_group)
+                )
+                self.dls_current_index += 1
                 if self.dls_callback_func != None:
                     await self.dls_callback_func(
                         [Message(msg, self.connection, self.consumer_group)],
@@ -1132,7 +1142,7 @@ class Consumer:
         if self.connection.is_connection_active:
             try:
                 self.batch_size = batch_size
-                if len(self.dls_messages)>0:
+                if len(self.dls_messages) > 0:
                     if len(self.dls_messages) <= batch_size:
                         messages = self.dls_messages
                         self.dls_messages = []
@@ -1151,7 +1161,7 @@ class Consumer:
                 subject = get_internal_name(self.station_name)
                 consumer_group = get_internal_name(self.consumer_group)
                 self.psub = await self.connection.broker_connection.pull_subscribe(
-                subject + ".final", durable=durableName
+                    subject + ".final", durable=durableName
                 )
                 msgs = await self.psub.fetch(batch_size)
                 for msg in msgs:
@@ -1217,9 +1227,8 @@ class Message:
             await self.message.ack()
         except Exception as e:
             if (
-                "$memphis_pm_id"
-                in self.message.headers and "$memphis_pm_sequence"
-                in self.message.headers
+                "$memphis_pm_id" in self.message.headers
+                and "$memphis_pm_sequence" in self.message.headers
             ):
                 try:
                     msg = {
