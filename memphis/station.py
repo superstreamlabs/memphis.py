@@ -21,17 +21,17 @@ class Station:
             if error != "" and not "not exist" in error:
                 raise MemphisError(error)
 
-            station_name_internal = get_internal_name(self.name)
-            sub = self.connection.schema_updates_subs.get(station_name_internal)
-            task = self.connection.schema_tasks.get(station_name_internal)
-            if station_name_internal in self.connection.schema_updates_data:
-                del self.connection.schema_updates_data[station_name_internal]
-            if station_name_internal in self.connection.schema_updates_subs:
-                del self.connection.schema_updates_subs[station_name_internal]
-            if station_name_internal in self.connection.producers_per_station:
-                del self.connection.producers_per_station[station_name_internal]
-            if station_name_internal in self.connection.schema_tasks:
-                del self.connection.schema_tasks[station_name_internal]
+            internal_station_name = get_internal_name(self.name)
+            sub = self.connection.schema_updates_subs.get(internal_station_name)
+            task = self.connection.schema_tasks.get(internal_station_name)
+            if internal_station_name in self.connection.schema_updates_data:
+                del self.connection.schema_updates_data[internal_station_name]
+            if internal_station_name in self.connection.schema_updates_subs:
+                del self.connection.schema_updates_subs[internal_station_name]
+            if internal_station_name in self.connection.producers_per_station:
+                del self.connection.producers_per_station[internal_station_name]
+            if internal_station_name in self.connection.schema_tasks:
+                del self.connection.schema_tasks[internal_station_name]
             if task is not None:
                 task.cancel()
             if sub is not None:
@@ -40,6 +40,12 @@ class Station:
             self.connection.producers_map = {
                 k: v
                 for k, v in self.connection.producers_map.items()
+                if self.name not in k
+            }
+
+            self.connection.consumers_map = {
+                k: v
+                for k, v in self.connection.consumers_map.items()
                 if self.name not in k
             }
 

@@ -295,6 +295,28 @@ async def msg_handler(msgs, error, context):
 consumer.consume(msg_handler)
 ```
 
+### Fetch a single batch of messages
+```python
+msgs = await memphis.fetch_messages(
+  station_name="<station-name>",
+  consumer_name="<consumer-name>",
+  consumer_group="<group-name>", # defaults to the consumer name
+  batch_size=10, # defaults to 10
+  batch_max_time_to_wait_ms=5000, # defaults to 5000
+  max_ack_time_ms=30000, # defaults to 30000
+  max_msg_deliveries=10, # defaults to 10
+  generate_random_suffix=False
+  start_consume_from_sequence=1 # start consuming from a specific sequence. defaults to 1
+  last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station))
+)
+```
+
+### Fetch a single batch of messages after creating a consumer
+```python
+msgs = await consumer.fetch(batch_size=10) # defaults to 10
+```
+
+
 ### Acknowledge a message
 
 Acknowledge a message indicates the Memphis server to not re-send the same message again to the same consumer / consumers group

@@ -29,41 +29,14 @@ from graphql import build_schema as build_graphql_schema
 from graphql import parse as parse_graphql
 from graphql import validate as validate_graphql
 from jsonschema import validate
+from memphis.consumer import Consumer
+from memphis.exceptions import MemphisConnectError, MemphisError, MemphisHeaderError
+from memphis.headers import Headers
+from memphis.producer import Producer
 from memphis.types import Retention, Storage
+from memphis.utils import get_internal_name
 
 schemaVFailAlertType = "schema_validation_fail_alert"
-
-
-class set_interval:
-    def __init__(self, func: Callable, sec: int):
-        def func_wrapper():
-            self.t = Timer(sec, func_wrapper)
-            self.t.start()
-            func()
-
-        self.t = Timer(sec, func_wrapper)
-        self.t.start()
-
-    def cancel(self):
-        self.t.cancel()
-
-
-class Headers:
-    def __init__(self):
-        self.headers = {}
-
-    def add(self, key, value):
-        """Add a header.
-        Args:
-            key (string): header key.
-            value (string): header value.
-        Raises:
-            Exception: _description_
-        """
-        if not key.startswith("$memphis"):
-            self.headers[key] = value
-        else:
-            raise MemphisHeaderError("Keys in headers should not start with $memphis")
 
 
 class Memphis:
@@ -81,6 +54,7 @@ class Memphis:
         self.update_configurations_sub = {}
         self.configuration_tasks = {}
         self.producers_map = dict()
+        self.consumers_map = dict()
 
     async def get_msgs_update_configurations(self, iterable: Iterable):
         try:
@@ -134,8 +108,8 @@ class Memphis:
             port (int, optional): port. Defaults to 6666.
             reconnect (bool, optional): whether to do reconnect while connection is lost. Defaults to True.
             max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
-            reconnect_interval_ms (int, optional): Interval in miliseconds between reconnect attempts. Defaults to 200.
-            timeout_ms (int, optional): connection timeout in miliseconds. Defaults to 15000.
+            reconnect_interval_ms (int, optional): Interval in milliseconds between reconnect attempts. Defaults to 200.
+            timeout_ms (int, optional): connection timeout in milliseconds. Defaults to 15000.
             key_file (string): path to tls key file.
             cert_file (string): path to tls cert file.
             ca_file (string): path to tls ca file.
@@ -327,6 +301,9 @@ class Memphis:
                 if self.update_configurations_sub is not None:
                     await self.update_configurations_sub.unsubscribe()
                 self.producers_map.clear()
+                for consumer in self.consumers_map:
+                    consumer.dls_messages.clear()
+                self.consumers_map.clear()
         except:
             return
 
@@ -385,45 +362,45 @@ class Memphis:
             if create_res["error"] != "":
                 raise MemphisError(create_res["error"])
 
-            station_name_internal = get_internal_name(station_name)
-            self.station_schemaverse_to_dls[station_name_internal] = create_res[
+            internal_station_name = get_internal_name(station_name)
+            self.station_schemaverse_to_dls[internal_station_name] = create_res[
                 "schemaverse_to_dls"
             ]
             self.cluster_configurations["send_notification"] = create_res[
                 "send_notification"
             ]
             await self.start_listen_for_schema_updates(
-                station_name_internal, create_res["schema_update"]
+                internal_station_name, create_res["schema_update"]
             )
 
-            if self.schema_updates_data[station_name_internal] != {}:
+            if self.schema_updates_data[internal_station_name] != {}:
                 if (
-                    self.schema_updates_data[station_name_internal]["type"]
+                    self.schema_updates_data[internal_station_name]["type"]
                     == "protobuf"
                 ):
-                    self.parse_descriptor(station_name_internal)
-                if self.schema_updates_data[station_name_internal]["type"] == "json":
-                    schema = self.schema_updates_data[station_name_internal][
+                    self.parse_descriptor(internal_station_name)
+                if self.schema_updates_data[internal_station_name]["type"] == "json":
+                    schema = self.schema_updates_data[internal_station_name][
                         "active_version"
                     ]["schema_content"]
-                    self.json_schemas[station_name_internal] = json.loads(schema)
+                    self.json_schemas[internal_station_name] = json.loads(schema)
                 elif (
-                    self.schema_updates_data[station_name_internal]["type"] == "graphql"
+                    self.schema_updates_data[internal_station_name]["type"] == "graphql"
                 ):
-                    self.graphql_schemas[station_name_internal] = build_graphql_schema(
-                        self.schema_updates_data[station_name_internal][
+                    self.graphql_schemas[internal_station_name] = build_graphql_schema(
+                        self.schema_updates_data[internal_station_name][
                             "active_version"
                         ]["schema_content"]
                     )
             producer = Producer(self, producer_name, station_name, real_name)
-            map_key = station_name_internal + "_" + real_name
+            map_key = internal_station_name + "_" + real_name
             self.producers_map[map_key] = producer
             return producer
 
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    async def get_msg_schema_updates(self, station_name_internal, iterable):
+    async def get_msg_schema_updates(self, internal_station_name, iterable):
         async for msg in iterable:
             message = msg.data.decode("utf-8")
             message = json.loads(message)
@@ -431,8 +408,8 @@ class Memphis:
                 data = {}
             else:
                 data = message["init"]
-            self.schema_updates_data[station_name_internal] = data
-            self.parse_descriptor(station_name_internal)
+            self.schema_updates_data[internal_station_name] = data
+            self.parse_descriptor(internal_station_name)
 
     def parse_descriptor(self, station_name):
         try:
@@ -505,10 +482,10 @@ class Memphis:
             station_name (str): station name to consume messages from.
             consumer_name (str): name for the consumer.
             consumer_group (str, optional): consumer group name. Defaults to the consumer name.
-            pull_interval_ms (int, optional): interval in miliseconds between pulls. Defaults to 1000.
+            pull_interval_ms (int, optional): interval in milliseconds between pulls. Defaults to 1000.
             batch_size (int, optional): pull batch size. Defaults to 10.
-            batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
-            max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
+            batch_max_time_to_wait_ms (int, optional): max time in milliseconds to wait between pulls. Defaults to 5000.
+            max_ack_time_ms (int, optional): max time for ack a message in milliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
             generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
@@ -519,7 +496,7 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
-
+            real_name = consumer_name.lower()
             if generate_random_suffix:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
@@ -561,7 +538,9 @@ class Memphis:
             if err_msg != "":
                 raise MemphisError(err_msg)
 
-            return Consumer(
+            internal_station_name = get_internal_name(station_name)
+            map_key = internal_station_name + "_" + real_name
+            consumer = Consumer(
                 self,
                 station_name,
                 consumer_name,
@@ -574,6 +553,8 @@ class Memphis:
                 start_consume_from_sequence=start_consume_from_sequence,
                 last_messages=last_messages,
             )
+            self.consumers_map[map_key] = consumer
+            return consumer
         except Exception as e:
             raise MemphisError(str(e)) from e
 
@@ -597,13 +578,13 @@ class Memphis:
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
-            msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotency
+            msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotence
         Raises:
             Exception: _description_
         """
         try:
-            station_name_internal = get_internal_name(station_name)
-            map_key = station_name_internal + "_" + producer_name.lower()
+            internal_station_name = get_internal_name(station_name)
+            map_key = internal_station_name + "_" + producer_name.lower()
             producer = None
             if map_key in self.producers_map:
                 producer = self.producers_map[map_key]
@@ -620,6 +601,62 @@ class Memphis:
                 async_produce=async_produce,
                 msg_id=msg_id,
             )
+        except Exception as e:
+            raise MemphisError(str(e)) from e
+
+    async def fetch_messages(
+        self,
+        station_name: str,
+        consumer_name: str,
+        consumer_group: str = "",
+        batch_size: int = 10,
+        batch_max_time_to_wait_ms: int = 5000,
+        max_ack_time_ms: int = 30000,
+        max_msg_deliveries: int = 10,
+        generate_random_suffix: bool = False,
+        start_consume_from_sequence: int = 1,
+        last_messages: int = -1,
+    ):
+        """Consume a batch of messages.
+        Args:.
+            station_name (str): station name to consume messages from.
+            consumer_name (str): name for the consumer.
+            consumer_group (str, optional): consumer group name. Defaults to the consumer name.
+            batch_size (int, optional): pull batch size. Defaults to 10.
+            batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
+            max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
+            max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
+            generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
+            start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
+            last_messages: consume the last N messages, defaults to -1 (all messages in the station).
+        Returns:
+            list: Message
+        """
+        try:
+            consumer = None
+            if not self.is_connection_active:
+                raise MemphisError("Cant fetch messages without being connected!")
+            internal_station_name = get_internal_name(station_name)
+            consumer_map_key = internal_station_name + "_" + consumer_name.lower()
+            if consumer_map_key in self.consumers_map:
+                consumer = self.consumers_map[consumer_map_key]
+            else:
+                consumer = await self.consumer(
+                    station_name=station_name,
+                    consumer_name=consumer_name,
+                    consumer_group=consumer_group,
+                    batch_size=batch_size,
+                    batch_max_time_to_wait_ms=batch_max_time_to_wait_ms,
+                    max_ack_time_ms=max_ack_time_ms,
+                    max_msg_deliveries=max_msg_deliveries,
+                    generate_random_suffix=generate_random_suffix,
+                    start_consume_from_sequence=start_consume_from_sequence,
+                    last_messages=last_messages,
+                )
+            messages = await consumer.fetch(batch_size)
+            if messages == None:
+                messages = []
+            return messages
         except Exception as e:
             raise MemphisError(str(e)) from e
 

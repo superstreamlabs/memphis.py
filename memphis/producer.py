@@ -269,29 +269,29 @@ class Producer:
             if error != "" and not "not exist" in error:
                 raise Exception(error)
 
-            station_name_internal = get_internal_name(self.station_name)
+            internal_station_name = get_internal_name(self.station_name)
             producer_number = (
-                self.connection.producers_per_station.get(station_name_internal) - 1
+                self.connection.producers_per_station.get(internal_station_name) - 1
             )
             self.connection.producers_per_station[
-                station_name_internal
+                internal_station_name
             ] = producer_number
 
             if producer_number == 0:
-                sub = self.connection.schema_updates_subs.get(station_name_internal)
-                task = self.connection.schema_tasks.get(station_name_internal)
-                if station_name_internal in self.connection.schema_updates_data:
-                    del self.connection.schema_updates_data[station_name_internal]
-                if station_name_internal in self.connection.schema_updates_subs:
-                    del self.connection.schema_updates_subs[station_name_internal]
-                if station_name_internal in self.connection.schema_tasks:
-                    del self.connection.schema_tasks[station_name_internal]
+                sub = self.connection.schema_updates_subs.get(internal_station_name)
+                task = self.connection.schema_tasks.get(internal_station_name)
+                if internal_station_name in self.connection.schema_updates_data:
+                    del self.connection.schema_updates_data[internal_station_name]
+                if internal_station_name in self.connection.schema_updates_subs:
+                    del self.connection.schema_updates_subs[internal_station_name]
+                if internal_station_name in self.connection.schema_tasks:
+                    del self.connection.schema_tasks[internal_station_name]
                 if task is not None:
                     task.cancel()
                 if sub is not None:
                     await sub.unsubscribe()
 
-            map_key = station_name_internal + "_" + self.real_name
+            map_key = internal_station_name + "_" + self.real_name
             del self.connection.producers_map[map_key]
 
         except Exception as e:

@@ -17,9 +17,8 @@ class Message:
             await self.message.ack()
         except Exception as e:
             if (
-                "$memphis_pm_id"
-                in self.message.headers & "$memphis_pm_sequence"
-                in self.message.headers
+                "$memphis_pm_id" in self.message.headers
+                and "$memphis_pm_sequence" in self.message.headers
             ):
                 try:
                     msg = {
