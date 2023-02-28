@@ -8,10 +8,10 @@ node ("small-ec2-fleet") {
   try{
     
    stage('Deploy to pypi') {
-     sh 'python3 setup.py sdist'
-     sh 'pip3 install twine'
+     sh 'python3 -m pip install hatch twine'
+     sh 'python3 -m hatch build'
      withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
-     sh '/home/ec2-user/.local/bin/twine upload -u $USR -p $PSW dist/*'
+     sh 'python -m twine upload -u $USR -p $PSW dist/*'
     }
    }
     
@@ -19,18 +19,16 @@ node ("small-ec2-fleet") {
       sh """
 	sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo 
         sudo yum install gh -y
-        sed -i -r "s/version=\'[0-9].[0-9].[0-9]/version=\'\$(cat version.conf)/g" setup.py
-        sed -i -r "s/v[0-9].[0-9].[0-9]/v\$(cat version.conf)/g" setup.py
       """
       withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
         sh """
 	  git reset --hard origin/latest
-          GIT_SSH_COMMAND='ssh -i $check' git checkout -b \$(cat version.conf)
-          GIT_SSH_COMMAND='ssh -i $check' git push --set-upstream origin \$(cat version.conf)
+          GIT_SSH_COMMAND='ssh -i $check' git checkout -B \$(make version)
+          GIT_SSH_COMMAND='ssh -i $check' git push --set-upstream origin \$(make version)
 	"""
       }
       withCredentials([string(credentialsId: 'gh_token', variable: 'GH_TOKEN')]) {
-        sh(script:"""gh release create \$(cat version.conf) --generate-notes""", returnStdout: true)
+        sh(script:"""gh release create \$(make version) --generate-notes""", returnStdout: true)
       }
     }
 

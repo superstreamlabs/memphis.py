@@ -1,3 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "memphis-py"
+dynamic = ["version"]
+description = "A powerful messaging platform for modern developers"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    { name = "Memphis.dev", email = "team@memphis.dev" },
+]
+keywords = [
+    "data",
+    "devtool",
+    "message broker",
+    "streaming",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+]
+dependencies = [
+    "asyncio",
+    "graphql-core",
+    "jsonschema",
+    "nats-py",
+    "protobuf",
+]
+
+[project.urls]
+Homepage = "https://github.com/memphisdev/memphis.py"
+
+[tool.hatch.version]
+path = "version.conf"
+pattern = ''' *([ \'"])?v?(?P<version>.+?)\1'''
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/memphis",
+]
+
 [tool.isort]
 profile = "black"
 known_third_party = ["memphis"]
