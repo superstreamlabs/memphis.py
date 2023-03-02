@@ -5,6 +5,7 @@ import json
 
 from memphis.exceptions import MemphisError
 from memphis.utils import default_error_handler, get_internal_name
+from memphis.message import Message
 
 
 class Consumer:
@@ -157,7 +158,7 @@ class Consumer:
                 )
 
             except Exception as e:
-                callback(e)
+                callback(MemphisError(str(e)))
 
     async def destroy(self):
         """Destroy the consumer."""

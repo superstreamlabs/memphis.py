@@ -13,6 +13,8 @@ from memphis.exceptions import MemphisError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
 
+schemaVFailAlertType = "schema_validation_fail_alert"
+
 
 class Producer:
     def __init__(
