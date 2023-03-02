@@ -33,10 +33,9 @@ from memphis.consumer import Consumer
 from memphis.exceptions import MemphisConnectError, MemphisError, MemphisHeaderError
 from memphis.headers import Headers
 from memphis.producer import Producer
+from memphis.station import Station
 from memphis.types import Retention, Storage
-from memphis.utils import get_internal_name
-
-schemaVFailAlertType = "schema_validation_fail_alert"
+from memphis.utils import get_internal_name, random_bytes
 
 
 class Memphis:
@@ -198,9 +197,9 @@ class Memphis:
 
             createStationReq = {
                 "name": name,
-                "retention_type": retention_type,
+                "retention_type": retention_type.value,
                 "retention_value": retention_value,
-                "storage_type": storage_type,
+                "storage_type": storage_type.value,
                 "replicas": replicas,
                 "idempotency_window_in_ms": idempotency_window_ms,
                 "schema_name": schema_name,
