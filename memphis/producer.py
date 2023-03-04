@@ -254,6 +254,19 @@ class Producer:
                             )
                 raise MemphisError(str(e)) from e
 
+    def produce_sync(
+        self,
+        message,
+        ack_wait_sec: int = 15,
+        headers: Union[Headers, None] = None,
+        async_produce: bool = False,
+        msg_id: Union[str, None] = None,
+    ):
+        try:
+            self.connection.sync_loop.run_until_complete(self.produce(message=message, ack_wait_sec=ack_wait_sec, headers=headers, async_produce=async_produce, msg_id=msg_id))
+        except asyncio.CancelledError:
+            return
+
     async def destroy(self):
         """Destroy the producer."""
         try:
@@ -298,3 +311,9 @@ class Producer:
 
         except Exception as e:
             raise Exception(e)
+
+    def destroy_sync(self):
+        try:
+            self.connection.sync_loop.run_until_complete(self.destroy())
+        except asyncio.CancelledError:
+            return

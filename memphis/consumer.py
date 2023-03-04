@@ -44,6 +44,7 @@ class Consumer:
         self.dls_current_index = 0
         self.dls_callback_func = None
         self.t_dls = asyncio.create_task(self.__consume_dls())
+        self.t_consume = None
 
     def set_context(self, context):
         """Set a context (dict) that will be passed to each message handler call."""
@@ -148,6 +149,13 @@ class Consumer:
         else:
             return messages
 
+    def fetch_sync(self, batch_size: int = 10):
+        try:
+            messages = self.connection.sync_loop.run_until_complete(self.fetch(batch_size=batch_size))
+            return messages
+        except asyncio.CancelledError:
+            return
+
     async def __ping_consumer(self, callback):
         while True:
             try:
@@ -188,3 +196,9 @@ class Consumer:
             del self.connection.consumers_map[map_key]
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def destroy_sync(self):
+        try:
+            self.connection.sync_loop.run_until_complete(self.destroy())
+        except asyncio.CancelledError:
+            return

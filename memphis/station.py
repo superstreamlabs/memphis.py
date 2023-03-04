@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 from memphis.exceptions import MemphisError
@@ -51,3 +52,9 @@ class Station:
 
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def destroy_sync(self):
+        try:
+            self.connection.sync_loop.run_until_complete(self.destroy())
+        except asyncio.CancelledError:
+            return

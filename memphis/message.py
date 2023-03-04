@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 
 import json
 
@@ -34,6 +35,9 @@ class Message:
             else:
                 raise MemphisConnectError(str(e)) from e
             return
+        
+    def ack_sync(self):
+        self.connection.sync_loop.run_until_complete(self.ack())
 
     def get_data(self):
         """Receive the message."""

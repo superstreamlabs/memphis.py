@@ -54,6 +54,7 @@ class Memphis:
         self.configuration_tasks = {}
         self.producers_map = dict()
         self.consumers_map = dict()
+        self.sync_loop = None
 
     async def get_msgs_update_configurations(self, iterable: Iterable):
         try:
@@ -166,6 +167,26 @@ class Memphis:
         msgToSend = json.dumps(msg).encode("utf-8")
         await self.broker_manager.publish("$memphis_notifications", msgToSend)
 
+    def connect_sync(
+        self,
+        host: str,
+        username: str,
+        connection_token: str,
+        port: int = 6666,
+        reconnect: bool = True,
+        max_reconnect: int = 10,
+        reconnect_interval_ms: int = 1500,
+        timeout_ms: int = 15000,
+        cert_file: str = "",
+        key_file: str = "",
+        ca_file: str = "",
+    ):
+        try:
+            self.sync_loop = asyncio.get_event_loop()
+            self.sync_loop.run_until_complete(self.connect(host=host, username=username, connection_token=connection_token, port=port, reconnect=reconnect, max_reconnect=max_reconnect, reconnect_interval_ms=reconnect_interval_ms, timeout_ms=timeout_ms, cert_file=cert_file, key_file=key_file, ca_file=ca_file))
+        except asyncio.CancelledError:
+            return
+
     async def station(
         self,
         name: str,
@@ -227,6 +248,25 @@ class Memphis:
                 return Station(self, name.lower())
             else:
                 raise MemphisError(str(e)) from e
+    
+    def station_sync(
+        self,
+        name: str,
+        retention_type: Retention = Retention.MAX_MESSAGE_AGE_SECONDS,
+        retention_value: int = 604800,
+        storage_type: Storage = Storage.DISK,
+        replicas: int = 1,
+        idempotency_window_ms: int = 120000,
+        schema_name: str = "",
+        send_poison_msg_to_dls: bool = True,
+        send_schema_failed_msg_to_dls: bool = True,
+        tiered_storage_enabled: bool = False,
+    ):
+        try:
+            station = self.sync_loop.run_until_complete(self.station(name=name, retention_type=retention_type, retention_value=retention_value, storage_type=storage_type, replicas=replicas, idempotency_window_ms=idempotency_window_ms, schema_name=schema_name, send_poison_msg_to_dls=send_poison_msg_to_dls, send_schema_failed_msg_to_dls=send_schema_failed_msg_to_dls, tiered_storage_enabled=tiered_storage_enabled))
+            return station
+        except asyncio.CancelledError:
+            return
 
     async def attach_schema(self, name, stationName):
         """Attaches a schema to an existing station.
@@ -251,6 +291,12 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
+    def attach_schema_sync(self, name, stationName):
+        try:
+            self.sync_loop.run_until_complete(self.attach_schema(name=name, stationName=stationName))
+        except asyncio.CancelledError:
+            return
+
     async def detach_schema(self, stationName):
         """Detaches a schema from station.
         Args:
@@ -272,6 +318,12 @@ class Memphis:
                 raise MemphisError(err_msg)
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def detach_schema_sync(self, stationName):
+        try:
+            self.sync_loop.run_until_complete(self.detach_schema(stationName=stationName))
+        except asyncio.CancelledError:
+            return
 
     async def close(self):
         """Close Memphis connection."""
@@ -304,6 +356,12 @@ class Memphis:
                     consumer.dls_messages.clear()
                 self.consumers_map.clear()
         except:
+            return
+
+    def close_sync(self):
+        try:
+            self.sync_loop.run_until_complete(self.close())
+        except asyncio.CancelledError:
             return
 
     def __generateRandomSuffix(self, name: str) -> str:
@@ -398,6 +456,16 @@ class Memphis:
 
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def producer_sync(
+        self,
+        station_name: str,
+        producer_name: str,
+        generate_random_suffix: bool = False,
+    ):
+        producer= self.sync_loop.run_until_complete(self.producer(station_name=station_name, producer_name=producer_name, generate_random_suffix=generate_random_suffix))
+        # producer= asyncio.run(self.producer(station_name=station_name, producer_name=producer_name, generate_random_suffix=generate_random_suffix))
+        return producer
 
     async def get_msg_schema_updates(self, internal_station_name, iterable):
         async for msg in iterable:
@@ -557,6 +625,24 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
+    def consumer_sync(
+        self,
+        station_name: str,
+        consumer_name: str,
+        consumer_group: str = "",
+        pull_interval_ms: int = 1000,
+        batch_size: int = 10,
+        batch_max_time_to_wait_ms: int = 5000,
+        max_ack_time_ms: int = 30000,
+        max_msg_deliveries: int = 10,
+        generate_random_suffix: bool = False,
+        start_consume_from_sequence: int = 1,
+        last_messages: int = -1,
+    ):
+        consumer = self.sync_loop.run_until_complete(self.consumer(station_name=station_name, consumer_name=consumer_name, consumer_group=consumer_group, pull_interval_ms=pull_interval_ms, batch_size=batch_size, batch_max_time_to_wait_ms=batch_max_time_to_wait_ms, max_ack_time_ms=max_ack_time_ms, max_msg_deliveries=max_msg_deliveries, generate_random_suffix=generate_random_suffix, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages))
+        # consumer = asyncio.run(self.consumer(station_name=station_name, consumer_name=consumer_name, consumer_group=consumer_group, pull_interval_ms=pull_interval_ms, batch_size=batch_size, batch_max_time_to_wait_ms=batch_max_time_to_wait_ms, max_ack_time_ms=max_ack_time_ms, max_msg_deliveries=max_msg_deliveries, generate_random_suffix=generate_random_suffix, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages))
+        return consumer
+
     async def produce(
         self,
         station_name: str,
@@ -602,6 +688,20 @@ class Memphis:
             )
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def produce_sync(
+        self,
+        station_name: str,
+        producer_name: str,
+        message,
+        generate_random_suffix: bool = False,
+        ack_wait_sec: int = 15,
+        headers: Union[Headers, None] = None,
+        async_produce: bool = False,
+        msg_id: Union[str, None] = None,
+    ):
+        self.sync_loop.run_until_complete(self.produce(station_name=station_name, producer_name=producer_name, message=message, generate_random_suffix=generate_random_suffix, ack_wait_sec=ack_wait_sec, headers=headers))
+        # asyncio.run(self.produce(station_name=station_name, producer_name=producer_name, message=message, generate_random_suffix=generate_random_suffix, ack_wait_sec=ack_wait_sec, headers=headers))
 
     async def fetch_messages(
         self,
@@ -658,6 +758,23 @@ class Memphis:
             return messages
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def fetch_messages_sync(
+        self,
+        station_name: str,
+        consumer_name: str,
+        consumer_group: str = "",
+        batch_size: int = 10,
+        batch_max_time_to_wait_ms: int = 5000,
+        max_ack_time_ms: int = 30000,
+        max_msg_deliveries: int = 10,
+        generate_random_suffix: bool = False,
+        start_consume_from_sequence: int = 1,
+        last_messages: int = -1,
+    ):
+        messages = self.sync_loop.run_until_complete(self.fetch_messages(station_name=station_name, consumer_name=consumer_name, consumer_group=consumer_group, batch_size=batch_size,batch_max_time_to_wait_ms=batch_max_time_to_wait_ms, max_ack_time_ms=max_ack_time_ms, max_msg_deliveries=max_msg_deliveries, generate_random_suffix=generate_random_suffix, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages))
+        # messages = asyncio.run(self.fetch_messages(station_name=station_name, consumer_name=consumer_name, consumer_group=consumer_group, batch_size=batch_size,batch_max_time_to_wait_ms=batch_max_time_to_wait_ms, max_ack_time_ms=max_ack_time_ms, max_msg_deliveries=max_msg_deliveries, generate_random_suffix=generate_random_suffix, start_consume_from_sequence=start_consume_from_sequence, last_messages=last_messages))
+        return messages
 
     def is_connected(self):
         return self.broker_manager.is_connected
