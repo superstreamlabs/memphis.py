@@ -183,9 +183,9 @@ class Memphis:
         try:
             self.sync_loop.run_until_complete(self.connect(host=host, username=username, connection_token=connection_token, port=port, reconnect=reconnect, max_reconnect=max_reconnect, reconnect_interval_ms=reconnect_interval_ms, timeout_ms=timeout_ms, cert_file=cert_file, key_file=key_file, ca_file=ca_file))
         except asyncio.CancelledError:
-            return
+            pass
         except Exception as e:
-            raise MemphisError(str(e)) from e
+            raise MemphisConnectError(str(e)) from e
 
     async def station(
         self,
