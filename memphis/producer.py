@@ -314,7 +314,7 @@ class Producer:
         except Exception as e:
             raise Exception(e)
     
-    async def destroy_without_asyncio(self):
+    async def _destroy_without_asyncio(self):
         """Destroy the producer."""
         try:
             destroyProducerReq = {
@@ -358,7 +358,7 @@ class Producer:
     def destroy_sync(self):
         try:
             internal_station_name = get_internal_name(self.station_name)
-            self.loop.run_until_complete(self.destroy_without_asyncio())
+            self.loop.run_until_complete(self._destroy_without_asyncio())
             task = self.connection.schema_tasks.get(internal_station_name)
             if task is not None:
                     task.cancel()

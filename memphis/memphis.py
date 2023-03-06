@@ -364,7 +364,7 @@ class Memphis:
         except:
             return
 
-    async def close_without_asyncio(self):
+    async def _close_without_asyncio(self):
         """Close Memphis connection."""
         try:
             if self.is_connection_active:
@@ -395,7 +395,7 @@ class Memphis:
 
     def close_sync(self):
         try:
-            self.sync_loop.run_until_complete(self.close_without_asyncio())
+            self.sync_loop.run_until_complete(self._close_without_asyncio())
             if asyncio.get_running_loop() is not None:
                 loop = asyncio.get_event_loop()
                 tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]

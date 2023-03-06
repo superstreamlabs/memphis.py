@@ -53,7 +53,7 @@ class Station:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    async def destroy_without_asyncio(self):
+    async def _destroy_without_asyncio(self):
         """Destroy the station."""
         try:
             nameReq = {"station_name": self.name, "username": self.connection.username}
@@ -96,7 +96,7 @@ class Station:
 
     def destroy_sync(self):
         try:
-            self.connection.sync_loop.run_until_complete(self.destroy_without_asyncio())
+            self.connection.sync_loop.run_until_complete(self._destroy_without_asyncio())
             internal_station_name = get_internal_name(self.name)
             task = self.connection.schema_tasks.get(internal_station_name)
             if task is not None:

@@ -36,8 +36,6 @@ class Consumer:
         self.ping_consumer_invterval_ms = 30000
         if error_callback is None:
             error_callback = default_error_handler
-        self.t_ping = None
-        self.t_dls = None
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
         self.t_dls = asyncio.create_task(self.__consume_dls())
         self.start_consume_from_sequence = start_consume_from_sequence
@@ -203,7 +201,7 @@ class Consumer:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    async def destroy_without_asyncio(self):
+    async def _destroy_without_asyncio(self):
         """Destroy the consumer."""
         self.pull_interval_ms = None
         try:
@@ -231,7 +229,7 @@ class Consumer:
 
     def destroy_sync(self):
         try:
-            self.connection.sync_loop.run_until_complete(self.destroy_without_asyncio())
+            self.connection.sync_loop.run_until_complete(self._destroy_without_asyncio())
             if self.t_consume is not None:
                 self.t_consume.cancel()
             if self.t_dls is not None:
