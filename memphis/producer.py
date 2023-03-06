@@ -266,6 +266,8 @@ class Producer:
             self.connection.sync_loop.run_until_complete(self.produce(message=message, ack_wait_sec=ack_wait_sec, headers=headers, async_produce=async_produce, msg_id=msg_id))
         except asyncio.CancelledError:
             return
+        except Exception as e:
+            print("produce_sync: " + str(e))
 
     async def destroy(self):
         """Destroy the producer."""
@@ -311,9 +313,58 @@ class Producer:
 
         except Exception as e:
             raise Exception(e)
+    
+    async def destroy_without_asyncio(self):
+        """Destroy the producer."""
+        try:
+            destroyProducerReq = {
+                "name": self.producer_name,
+                "station_name": self.station_name,
+                "username": self.connection.username,
+            }
+
+            producer_name = json.dumps(destroyProducerReq).encode("utf-8")
+            res = await self.connection.broker_manager.request(
+                "$memphis_producer_destructions", producer_name, timeout=5
+            )
+            error = res.data.decode("utf-8")
+            if error != "" and not "not exist" in error:
+                raise Exception(error)
+
+            internal_station_name = get_internal_name(self.station_name)
+            producer_number = (
+                self.connection.producers_per_station.get(internal_station_name) - 1
+            )
+            self.connection.producers_per_station[
+                internal_station_name
+            ] = producer_number
+
+            if producer_number == 0:
+                sub = self.connection.schema_updates_subs.get(internal_station_name)
+                if internal_station_name in self.connection.schema_updates_data:
+                    del self.connection.schema_updates_data[internal_station_name]
+                if internal_station_name in self.connection.schema_updates_subs:
+                    del self.connection.schema_updates_subs[internal_station_name]
+                if sub is not None:
+                    await sub.unsubscribe()
+
+            map_key = internal_station_name + "_" + self.real_name
+            del self.connection.producers_map[map_key]
+            await asyncio.sleep(0.1)
+
+        except Exception as e:
+            raise Exception(e)
 
     def destroy_sync(self):
         try:
-            self.connection.sync_loop.run_until_complete(self.destroy())
+            internal_station_name = get_internal_name(self.station_name)
+            self.loop.run_until_complete(self.destroy_without_asyncio())
+            task = self.connection.schema_tasks.get(internal_station_name)
+            if task is not None:
+                    task.cancel()
+            if internal_station_name in self.connection.schema_tasks:
+                    del self.connection.schema_tasks[internal_station_name]
         except asyncio.CancelledError:
-            return
+            pass
+        except Exception as e:
+            print("destroy_sync: " + str(e))

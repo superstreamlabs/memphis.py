@@ -53,8 +53,55 @@ class Station:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
+    async def destroy_without_asyncio(self):
+        """Destroy the station."""
+        try:
+            nameReq = {"station_name": self.name, "username": self.connection.username}
+            station_name = json.dumps(nameReq, indent=2).encode("utf-8")
+            res = await self.connection.broker_manager.request(
+                "$memphis_station_destructions", station_name, timeout=5
+            )
+            error = res.data.decode("utf-8")
+            if error != "" and not "not exist" in error:
+                raise MemphisError(error)
+
+            internal_station_name = get_internal_name(self.name)
+            sub = self.connection.schema_updates_subs.get(internal_station_name)
+            if internal_station_name in self.connection.schema_updates_data:
+                del self.connection.schema_updates_data[internal_station_name]
+            if internal_station_name in self.connection.schema_updates_subs:
+                del self.connection.schema_updates_subs[internal_station_name]
+            if internal_station_name in self.connection.producers_per_station:
+                del self.connection.producers_per_station[internal_station_name]
+            if internal_station_name in self.connection.schema_tasks:
+                del self.connection.schema_tasks[internal_station_name]
+            if sub is not None:
+                await sub.unsubscribe()
+
+            self.connection.producers_map = {
+                k: v
+                for k, v in self.connection.producers_map.items()
+                if self.name not in k
+            }
+
+            self.connection.consumers_map = {
+                k: v
+                for k, v in self.connection.consumers_map.items()
+                if self.name not in k
+            }
+
+        except Exception as e:
+            raise MemphisError(str(e)) from e
+
+
     def destroy_sync(self):
         try:
-            self.connection.sync_loop.run_until_complete(self.destroy())
+            self.connection.sync_loop.run_until_complete(self.destroy_without_asyncio())
+            internal_station_name = get_internal_name(self.name)
+            task = self.connection.schema_tasks.get(internal_station_name)
+            if task is not None:
+                task.cancel()
         except asyncio.CancelledError:
-            return
+            pass
+        except Exception as e:
+            print("destroy_sync: " + str(e))

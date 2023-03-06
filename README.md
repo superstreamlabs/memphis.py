@@ -92,6 +92,17 @@ if __name__ == '__main__':
 
 Once connected, the entire functionalities offered by Memphis are available.
 
+### Connecting to Memphis - Sync Function
+
+```python
+memphis = Memphis()
+memphis.connect_sync(
+  host="localhost",
+  username="root",
+  connection_token="memphis",
+)
+```
+
 ### Disconnecting from Memphis
 
 To disconnect from Memphis, call `close()` on the memphis object.
@@ -100,12 +111,33 @@ To disconnect from Memphis, call `close()` on the memphis object.
 await memphis.close()
 ```
 
+### Disconnecting from Memphis - Sync Function
+```python
+memphis.close_sync()
+```
+
 ### Creating a Station
 
 _If a station already exists nothing happens, the new configuration will not be applied_
 
 ```python
-station = memphis.station(
+station = await memphis.station(
+  name="<station-name>",
+  schema_name="<schema-name>",
+  retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
+  retention_value=604800, # defaults to 604800
+  storage_type=Storage.DISK, # Storage.DISK/Storage.MEMORY. Defaults to DISK
+  replicas=1, # defaults to 1
+  idempotency_window_ms=120000, # defaults to 2 minutes
+  send_poison_msg_to_dls=True, # defaults to true
+  send_schema_failed_msg_to_dls=True, # defaults to true
+  tiered_storage_enabled=False # defaults to false
+)
+```
+
+### Creating a Station - Sync Function
+```python
+station = memphis.station_sync(
   name="<station-name>",
   schema_name="<schema-name>",
   retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
@@ -171,10 +203,22 @@ station.destroy()
 await memphis.attach_schema("<schema-name>", "<station-name>")
 ```
 
+### Attaching a Schema to an Existing Station - Sync Function
+
+```python
+await memphis.attach_schema_sync("<schema-name>", "<station-name>")
+```
+
 ### Detaching a Schema from Station
 
 ```python
 await memphis.detach_schema("<station-name>")
+```
+
+### Detaching a Schema from Station - Sync Function
+
+```python
+await memphis.detach_schema_sync("<station-name>")
 ```
 
 
@@ -197,6 +241,12 @@ of whether there are messages in flight for the client.
 producer = await memphis.producer(station_name="<station-name>", producer_name="<producer-name>", generate_random_suffix=False)
 ```
 
+### Creating a Producer - Sync Function
+
+```python
+producer = memphis.producer_sync(station_name="<station-name>", producer_name="<producer-name>", generate_random_suffix=False)
+```
+
 ### Producing a message
 Without creating a producer.
 In cases where extra performance is needed the recommended way is to create a producer first
@@ -216,6 +266,26 @@ await memphis.produce(station_name='test_station_py', producer_name='prod_py',
 Creating a producer first
 ```python
 await prod.produce(
+  message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+  ack_wait_sec=15) # defaults to 15
+```
+
+### Producing a message - Sync Function
+Without creating a producer.
+```python
+memphis.produce_sync(station_name='test_station_py', producer_name='prod_py',
+  message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema) 
+  generate_random_suffix=False, #defaults to false
+  ack_wait_sec=15, # defaults to 15
+  headers=headers, # default to {}
+  async_produce=False, #defaults to false
+  msg_id="123"
+)
+```
+
+Creating a producer first
+```python
+prod.produce(
   message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
   ack_wait_sec=15) # defaults to 15
 ```
@@ -253,13 +323,37 @@ await producer.produce(
 ### Destroying a Producer
 
 ```python
-producer.destroy()
+await producer.destroy()
+```
+
+### Destroying a Producer - Sync Function
+
+```python
+producer.destroy_sync()
 ```
 
 ### Creating a Consumer
 
 ```python
 consumer = await memphis.consumer(
+  station_name="<station-name>",
+  consumer_name="<consumer-name>",
+  consumer_group="<group-name>", # defaults to the consumer name
+  pull_interval_ms=1000, # defaults to 1000
+  batch_size=10, # defaults to 10
+  batch_max_time_to_wait_ms=5000, # defaults to 5000
+  max_ack_time_ms=30000, # defaults to 30000
+  max_msg_deliveries=10, # defaults to 10
+  generate_random_suffix=False
+  start_consume_from_sequence=1 # start consuming from a specific sequence. defaults to 1
+  last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station)
+)
+```
+
+### Creating a Consumer - Sync Funnction
+
+```python
+consumer = memphis.consumer_sync(
   station_name="<station-name>",
   consumer_name="<consumer-name>",
   consumer_group="<group-name>", # defaults to the consumer name
@@ -311,9 +405,30 @@ msgs = await memphis.fetch_messages(
 )
 ```
 
+### Fetch a single batch of messages - Sync Function
+```python
+msgs = await memphis.fetch_messages_sync(
+  station_name="<station-name>",
+  consumer_name="<consumer-name>",
+  consumer_group="<group-name>", # defaults to the consumer name
+  batch_size=10, # defaults to 10
+  batch_max_time_to_wait_ms=5000, # defaults to 5000
+  max_ack_time_ms=30000, # defaults to 30000
+  max_msg_deliveries=10, # defaults to 10
+  generate_random_suffix=False
+  start_consume_from_sequence=1 # start consuming from a specific sequence. defaults to 1
+  last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station))
+)
+```
+
 ### Fetch a single batch of messages after creating a consumer
 ```python
 msgs = await consumer.fetch(batch_size=10) # defaults to 10
+```
+
+### Fetch a single batch of messages after creating a consumer - Sync Function
+```python
+msgs = consumer.fetch_messages(batch_size=10) # defaults to 10
 ```
 
 
@@ -323,6 +438,11 @@ Acknowledge a message indicates the Memphis server to not re-send the same messa
 
 ```python
 await message.ack()
+```
+
+### Acknowledge a message - Sync Function
+```python
+message.ack_sync()
 ```
 
 ### Get headers 
@@ -342,7 +462,13 @@ sequence_number = msg.get_sequence_number()
 ### Destroying a Consumer
 
 ```python
-consumer.destroy()
+await consumer.destroy()
+```
+
+### Destroying a Consumer - Sync Function
+
+```python
+consumer.destroy_sync()
 ```
 
 

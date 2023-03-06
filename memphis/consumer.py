@@ -36,14 +36,16 @@ class Consumer:
         self.ping_consumer_invterval_ms = 30000
         if error_callback is None:
             error_callback = default_error_handler
+        self.t_ping = None
+        self.t_dls = None
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
+        self.t_dls = asyncio.create_task(self.__consume_dls())
         self.start_consume_from_sequence = start_consume_from_sequence
         self.last_messages = last_messages
         self.context = {}
         self.dls_messages = []
         self.dls_current_index = 0
         self.dls_callback_func = None
-        self.t_dls = asyncio.create_task(self.__consume_dls())
         self.t_consume = None
 
     def set_context(self, context):
@@ -155,6 +157,8 @@ class Consumer:
             return messages
         except asyncio.CancelledError:
             return
+        except Exception as e:
+            print("fetch_sync: " + str(e)) 
 
     async def __ping_consumer(self, callback):
         while True:
@@ -194,11 +198,50 @@ class Consumer:
             internal_station_name = get_internal_name(self.station_name)
             map_key = internal_station_name + "_" + self.consumer_name.lower()
             del self.connection.consumers_map[map_key]
+        except asyncio.CancelledError:
+            return
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    def destroy_sync(self):
+    async def destroy_without_asyncio(self):
+        """Destroy the consumer."""
+        self.pull_interval_ms = None
         try:
-            self.connection.sync_loop.run_until_complete(self.destroy())
+            destroyConsumerReq = {
+                "name": self.consumer_name,
+                "station_name": self.station_name,
+                "username": self.connection.username,
+            }
+            consumer_name = json.dumps(destroyConsumerReq, indent=2).encode("utf-8")
+            res = await self.connection.broker_manager.request(
+                "$memphis_consumer_destructions", consumer_name, timeout=5
+            )
+            error = res.data.decode("utf-8")
+            if error != "" and not "not exist" in error:
+                raise MemphisError(error)
+            self.dls_messages.clear()
+            internal_station_name = get_internal_name(self.station_name)
+            map_key = internal_station_name + "_" + self.consumer_name.lower()
+            del self.connection.consumers_map[map_key]
         except asyncio.CancelledError:
             return
+        except Exception as e:
+            raise MemphisError(str(e)) from e
+
+
+    def destroy_sync(self):
+        try:
+            self.connection.sync_loop.run_until_complete(self.destroy_without_asyncio())
+            if self.t_consume is not None:
+                self.t_consume.cancel()
+            if self.t_dls is not None:
+                self.t_dls.cancel()
+            if self.t_ping is not None:
+                self.t_ping.cancel()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            if "loop is closed" in str(e):
+                print("consumer destroyed")
+            else:
+                print("consumer destroy_sync: " + str(e)) 

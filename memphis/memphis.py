@@ -54,7 +54,7 @@ class Memphis:
         self.configuration_tasks = {}
         self.producers_map = dict()
         self.consumers_map = dict()
-        self.sync_loop = None
+        self.sync_loop = asyncio.get_event_loop()
 
     async def get_msgs_update_configurations(self, iterable: Iterable):
         try:
@@ -76,8 +76,7 @@ class Memphis:
                 "$memphis_sdk_configurations_updates"
             )
             self.update_configurations_sub = sub
-            loop = asyncio.get_event_loop()
-            task = loop.create_task(
+            task = self.sync_loop.create_task(
                 self.get_msgs_update_configurations(
                     self.update_configurations_sub.messages
                 )
@@ -182,10 +181,11 @@ class Memphis:
         ca_file: str = "",
     ):
         try:
-            self.sync_loop = asyncio.get_event_loop()
             self.sync_loop.run_until_complete(self.connect(host=host, username=username, connection_token=connection_token, port=port, reconnect=reconnect, max_reconnect=max_reconnect, reconnect_interval_ms=reconnect_interval_ms, timeout_ms=timeout_ms, cert_file=cert_file, key_file=key_file, ca_file=ca_file))
         except asyncio.CancelledError:
             return
+        except Exception as e:
+            print("connect_sync: " + str(e))
 
     async def station(
         self,
@@ -267,6 +267,8 @@ class Memphis:
             return station
         except asyncio.CancelledError:
             return
+        except Exception as e:
+            print("station_sync: " + str(e))
 
     async def attach_schema(self, name, stationName):
         """Attaches a schema to an existing station.
@@ -296,6 +298,8 @@ class Memphis:
             self.sync_loop.run_until_complete(self.attach_schema(name=name, stationName=stationName))
         except asyncio.CancelledError:
             return
+        except Exception as e:
+            print("attach_schema_sync: " + str(e))
 
     async def detach_schema(self, stationName):
         """Detaches a schema from station.
@@ -324,6 +328,8 @@ class Memphis:
             self.sync_loop.run_until_complete(self.detach_schema(stationName=stationName))
         except asyncio.CancelledError:
             return
+        except Exception as e:
+            print("detach_schema_sync: " + str(e))
 
     async def close(self):
         """Close Memphis connection."""
@@ -358,11 +364,53 @@ class Memphis:
         except:
             return
 
+    async def close_without_asyncio(self):
+        """Close Memphis connection."""
+        try:
+            if self.is_connection_active:
+                await self.broker_manager.close()
+                self.connection_id = None
+                self.is_connection_active = False
+                keys_schema_updates_subs = self.schema_updates_subs.keys()
+                for key in keys_schema_updates_subs:
+                    sub = self.schema_updates_subs.get(key)
+                    if key in self.schema_updates_data:
+                        del self.schema_updates_data[key]
+                    if key in self.schema_updates_subs:
+                        del self.schema_updates_subs[key]
+                    if key in self.producers_per_station:
+                        del self.producers_per_station[key]
+                    if sub is not None:
+                        await sub.unsubscribe()
+                if self.update_configurations_sub is not None:
+                    await self.update_configurations_sub.unsubscribe()
+                self.producers_map.clear()
+                for consumer in self.consumers_map:
+                    consumer.dls_messages.clear()
+                self.consumers_map.clear()
+                await asyncio.sleep(0.1)
+        except:
+            return
+
+
     def close_sync(self):
         try:
-            self.sync_loop.run_until_complete(self.close())
+            self.sync_loop.run_until_complete(self.close_without_asyncio())
+            if asyncio.get_running_loop() is not None:
+                loop = asyncio.get_event_loop()
+                tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+                for task in tasks:
+                    task.cancel()
+                try:
+                    loop.run_until_complete(task)
+                except asyncio.CancelledError:
+                    pass
+            time.sleep(0.1)
         except asyncio.CancelledError:
-            return
+            pass
+        except Exception as e:
+            print("close_sync: " + str(e)) 
+        
 
     def __generateRandomSuffix(self, name: str) -> str:
         return name + "_" + random_bytes(8)
