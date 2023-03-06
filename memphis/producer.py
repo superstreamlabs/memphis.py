@@ -267,7 +267,7 @@ class Producer:
         except asyncio.CancelledError:
             return
         except Exception as e:
-            print("produce_sync: " + str(e))
+            raise MemphisError(str(e)) from e
 
     async def destroy(self):
         """Destroy the producer."""
@@ -367,4 +367,4 @@ class Producer:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            print("destroy_sync: " + str(e))
+            raise MemphisError(str(e)) from e

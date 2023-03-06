@@ -185,7 +185,7 @@ class Memphis:
         except asyncio.CancelledError:
             return
         except Exception as e:
-            print("connect_sync: " + str(e))
+            raise MemphisError(str(e)) from e
 
     async def station(
         self,
@@ -268,7 +268,7 @@ class Memphis:
         except asyncio.CancelledError:
             return
         except Exception as e:
-            print("station_sync: " + str(e))
+            raise MemphisError(str(e)) from e
 
     async def attach_schema(self, name, stationName):
         """Attaches a schema to an existing station.
@@ -299,7 +299,7 @@ class Memphis:
         except asyncio.CancelledError:
             return
         except Exception as e:
-            print("attach_schema_sync: " + str(e))
+            raise MemphisError(str(e)) from e
 
     async def detach_schema(self, stationName):
         """Detaches a schema from station.
@@ -329,7 +329,7 @@ class Memphis:
         except asyncio.CancelledError:
             return
         except Exception as e:
-            print("detach_schema_sync: " + str(e))
+            raise MemphisError(str(e)) from e
 
     async def close(self):
         """Close Memphis connection."""
@@ -409,7 +409,7 @@ class Memphis:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            print("close_sync: " + str(e)) 
+            raise MemphisError(str(e)) from e
         
 
     def __generateRandomSuffix(self, name: str) -> str:

@@ -104,4 +104,4 @@ class Station:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            print("destroy_sync: " + str(e))
+            raise MemphisError(str(e)) from e

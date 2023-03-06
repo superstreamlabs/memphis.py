@@ -156,7 +156,7 @@ class Consumer:
         except asyncio.CancelledError:
             return
         except Exception as e:
-            print("fetch_sync: " + str(e)) 
+            raise MemphisError(str(e)) from e
 
     async def __ping_consumer(self, callback):
         while True:
@@ -239,7 +239,5 @@ class Consumer:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            if "loop is closed" in str(e):
-                print("consumer destroyed")
-            else:
-                print("consumer destroy_sync: " + str(e)) 
+            if not "loop is closed" in str(e):
+                raise MemphisError(str(e)) from e

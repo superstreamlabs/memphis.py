@@ -97,10 +97,19 @@ Once connected, the entire functionalities offered by Memphis are available.
 ```python
 memphis = Memphis()
 memphis.connect_sync(
-  host="localhost",
-  username="root",
-  connection_token="memphis",
-)
+      host="<memphis-host>",
+      username="<application-type username>",
+      connection_token="<broker-token>",
+      port="<port>", # defaults to 6666
+      reconnect=True, # defaults to True
+      max_reconnect=3, # defaults to 3
+      reconnect_interval_ms=1500, # defaults to 1500
+      timeout_ms=1500, # defaults to 1500
+      # for TLS connection:
+      key_file='<key-client.pem>', 
+      cert_file='<cert-client.pem>', 
+      ca_file='<rootCA.pem>'
+      )
 ```
 
 ### Disconnecting from Memphis
