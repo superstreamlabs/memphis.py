@@ -448,7 +448,7 @@ msgs = await consumer.fetch(batch_size=10) # defaults to 10
 
 ### Fetch a single batch of messages after creating a consumer - Sync Function
 ```python
-msgs = consumer.fetch_messages(batch_size=10) # defaults to 10
+msgs = consumer.fetch_messages_sync(batch_size=10) # defaults to 10
 ```
 
 
