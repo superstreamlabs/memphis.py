@@ -101,7 +101,5 @@ class Station:
             task = self.connection.schema_tasks.get(internal_station_name)
             if task is not None:
                 task.cancel()
-        except asyncio.CancelledError:
-            pass
         except Exception as e:
             raise MemphisError(str(e)) from e

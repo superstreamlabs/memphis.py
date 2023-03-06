@@ -152,6 +152,8 @@ class Consumer:
     def fetch_sync(self, batch_size: int = 10):
         try:
             messages = self.connection.sync_loop.run_until_complete(self.fetch(batch_size=batch_size))
+            if messages is None:
+                return []
             return messages
         except asyncio.CancelledError:
             return
@@ -236,8 +238,6 @@ class Consumer:
                 self.t_dls.cancel()
             if self.t_ping is not None:
                 self.t_ping.cancel()
-        except asyncio.CancelledError:
-            pass
         except Exception as e:
             if not "loop is closed" in str(e):
                 raise MemphisError(str(e)) from e

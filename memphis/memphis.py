@@ -409,10 +409,9 @@ class Memphis:
                 except asyncio.CancelledError:
                     pass
             time.sleep(0.1)
-        except asyncio.CancelledError:
-            pass
         except Exception as e:
-            raise MemphisError(str(e)) from e
+            if not "no running event loop" in str(e):
+                raise MemphisError(str(e)) from e
         
 
     def __generateRandomSuffix(self, name: str) -> str:

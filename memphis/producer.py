@@ -364,7 +364,5 @@ class Producer:
                     task.cancel()
             if internal_station_name in self.connection.schema_tasks:
                     del self.connection.schema_tasks[internal_station_name]
-        except asyncio.CancelledError:
-            pass
         except Exception as e:
             raise MemphisError(str(e)) from e
