@@ -67,8 +67,8 @@ class Memphis:
                         "update"
                     ]
                 elif data["type"] == "remove_station":
-                    self.un_set_cached_producer_station(data['station_name'])
-                    self.un_set_cached_consumer_station(data['station_name'])
+                    self.unset_cached_producer_station(data['station_name'])
+                    self.unset_cached_consumer_station(data['station_name'])
         except Exception as err:
             raise MemphisError(err)
 
@@ -665,24 +665,25 @@ class Memphis:
     def is_connected(self):
         return self.broker_manager.is_connected
     
-    def un_set_cached_producer_station(self, station_name_data):
+    def unset_cached_producer_station(self, station_name):
         try:
-            internal_station_name = get_internal_name(station_name_data)
-            for station_name in list(self.producers_map):
-                producer = self.producers_map[station_name]
+            internal_station_name = get_internal_name(station_name)
+            for key in list(self.producers_map):
+                producer = self.producers_map[key]
                 if producer.internal_station_name == internal_station_name:
-                    del self.producers_map[station_name]
+                    del self.producers_map[key]
         except Exception as e:
             raise e
     
-    def un_set_cached_consumer_station(self, station_name_data):
+
+    def unset_cached_consumer_station(self, station_name):
         try:
-            internal_station_name = get_internal_name(station_name_data)
-            for station_name in list(self.consumers_map):
-                consumer = self.consumers_map[station_name]
+            internal_station_name = get_internal_name(station_name)
+            for key in list(self.consumers_map):
+                consumer = self.consumers_map[key]
                 consumer_station_name_internal = get_internal_name(consumer.station_name)
                 if consumer_station_name_internal == internal_station_name:
-                    del self.consumers_map[station_name]
+                    del self.consumers_map[key]
         except Exception as e:
             raise e
 
