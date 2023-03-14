@@ -339,7 +339,7 @@ await message.ack()
 ### Get headers 
 Get headers per message
 
-``python
+```python
 headers = message.get_headers()
 ```
 
