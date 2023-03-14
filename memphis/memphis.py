@@ -19,6 +19,7 @@ import random
 import ssl
 import time
 from threading import Timer
+import threading
 from typing import Callable, Iterable, Union
 import uuid
 
@@ -55,6 +56,8 @@ class Memphis:
         self.configuration_tasks = {}
         self.producers_map = dict()
         self.consumers_map = dict()
+        self.cached_messages = []
+        self.loading_thread = None
 
     async def get_msgs_sdk_clients_updates(self, iterable: Iterable):
         try:
@@ -616,6 +619,7 @@ class Memphis:
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
+        prefetch: bool = False,
     ):
         """Consume a batch of messages.
         Args:.
@@ -629,6 +633,7 @@ class Memphis:
             generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
+            prefetch: false by default, if true then fetch messages from local cache (if exists) and load more messages into the cache.
         Returns:
             list: Message
         """
@@ -653,7 +658,13 @@ class Memphis:
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            messages = await consumer.fetch(batch_size)
+            if prefetch and self.cached_messages:
+                messages = self.cached_messages
+                self.cached_messages = []
+            else:
+                messages = await consumer.fetch(batch_size)
+            if prefetch:
+                self.load_messages_to_cache(self, batch_size, consumer)
             if messages == None:
                 messages = []
             return messages
@@ -672,7 +683,6 @@ class Memphis:
                     del self.producers_map[key]
         except Exception as e:
             raise e
-    
 
     def unset_cached_consumer_station(self, station_name):
         try:
@@ -685,3 +695,11 @@ class Memphis:
         except Exception as e:
             raise e
 
+    def load_messages_to_cache(self, batch_size, consumer):
+        if not self.loading_thread or not self.loading_thread.is_alive():
+            self.loading_thread = threading.Thread(target=self.__load_messages(batch_size, consumer))
+            self.loading_thread.start()
+
+    def __load_messages(self, batch_size, consumer):
+        new_messages = await consumer.fetch(batch_size)
+        self.cached_messages.extend(new_messages)
