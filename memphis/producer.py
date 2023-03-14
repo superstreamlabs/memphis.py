@@ -170,7 +170,7 @@ class Producer:
                             headers=headers,
                         )
                     )
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(1) # TODO - check why we need sleep in here
                 except Exception as e:
                     raise MemphisError(e)
             else:
