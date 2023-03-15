@@ -224,9 +224,9 @@ await memphis.produce(station_name='test_station_py', producer_name='prod_py',
 ```
 
 
-Creating a producer first
+With creating a producer
 ```python
-await prod.produce(
+await producer.produce(
   message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
   ack_wait_sec=15) # defaults to 15
 ```
