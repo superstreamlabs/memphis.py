@@ -69,7 +69,7 @@ async def main():
     await memphis.connect(
       host="<memphis-host>",
       username="<application-type username>",
-      connection_token="<broker-token>",
+      connection_token="<broker-token>", # you will get it on application type user creation
       port="<port>", # defaults to 6666
       reconnect=True, # defaults to True
       max_reconnect=3, # defaults to 3
