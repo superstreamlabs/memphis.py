@@ -38,12 +38,12 @@
 <img src="https://img.shields.io/github/last-commit/memphisdev/memphis-broker?color=61dfc6&label=last%20commit">
 </p>
 
-**[Memphis](https://memphis.dev)** is a next-generation message broker.<br>
+**[Memphis](https://memphis.dev)** is a next-generation alternative to traditional message brokers.<br><br>
 A simple, robust, and durable cloud-native message broker wrapped with<br>
-an entire ecosystem that enables fast and reliable development of next-generation event-driven use cases.<br><br>
-Memphis enables building modern applications that require large volumes of streamed and enriched data,<br>
-modern protocols, zero ops, rapid development, extreme cost reduction,<br>
-and a significantly lower amount of dev time for data-oriented developers and data engineers.
+an entire ecosystem that enables cost-effective, fast, and reliable development of modern queue-based use cases.<br><br>
+Memphis enables the building of modern queue-based applications that require<br>
+large volumes of streamed and enriched data, modern protocols, zero ops, rapid development,<br>
+extreme cost reduction, and a significantly lower amount of dev time for data-oriented developers and data engineers.
 
 ## Installation
 
@@ -55,7 +55,7 @@ $ pip3 install memphis-py
 
 ```python
 from memphis import Memphis, Headers
-from memphis import retention_types, storage_types
+from memphis.types import Retention, Storage
 ```
 
 ### Connecting to Memphis
@@ -69,7 +69,7 @@ async def main():
     await memphis.connect(
       host="<memphis-host>",
       username="<application-type username>",
-      connection_token="<broker-token>",
+      connection_token="<broker-token>", # you will get it on application type user creation
       port="<port>", # defaults to 6666
       reconnect=True, # defaults to True
       max_reconnect=3, # defaults to 3
@@ -108,9 +108,9 @@ _If a station already exists nothing happens, the new configuration will not be 
 station = memphis.station(
   name="<station-name>",
   schema_name="<schema-name>",
-  retention_type=retention_types.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
+  retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
-  storage_type=storage_types.DISK, # storage_types.DISK/storage_types.MEMORY. Defaults to DISK
+  storage_type=Storage.DISK, # Storage.DISK/Storage.MEMORY. Defaults to DISK
   replicas=1, # defaults to 1
   idempotency_window_ms=120000, # defaults to 2 minutes
   send_poison_msg_to_dls=True, # defaults to true
@@ -124,35 +124,46 @@ station = memphis.station(
 Memphis currently supports the following types of retention:
 
 ```python
-memphis.retention_types.MAX_MESSAGE_AGE_SECONDS
+memphis.types.Retention.MAX_MESSAGE_AGE_SECONDS
 ```
 
 Means that every message persists for the value set in retention value field (in seconds)
 
 ```python
-memphis.retention_types.MESSAGES
+memphis.types.Retention.MESSAGES
 ```
 
 Means that after max amount of saved messages (set in retention value), the oldest messages will be deleted
 
 ```python
-memphis.retention_types.BYTES
+memphis.types.Retention.BYTES
 ```
 
 Means that after max amount of saved bytes (set in retention value), the oldest messages will be deleted
+
+
+### Retention Values
+
+The `retention values` are directly related to the `retention types` mentioned above, where the values vary according to the type of retention chosen.
+
+All retention values are of type `int` but with different representations as follows:
+
+`memphis.types.Retention.MAX_MESSAGE_AGE_SECONDS` is represented **in seconds**, `memphis.types.Retention.MESSAGES` in a **number of messages** and finally `memphis.types.Retention.BYTES` in a **number of bytes**.
+
+After these limits are reached oldest messages will be deleted.
 
 ### Storage types
 
 Memphis currently supports the following types of messages storage:
 
 ```python
-memphis.storage_types.DISK
+memphis.types.Storage.DISK
 ```
 
 Means that messages persist on disk
 
 ```python
-memphis.storage_types.MEMORY
+memphis.types.Storage.MEMORY
 ```
 
 Means that messages persist on the main memory
@@ -213,9 +224,9 @@ await memphis.produce(station_name='test_station_py', producer_name='prod_py',
 ```
 
 
-Creating a producer first
+With creating a producer
 ```python
-await prod.produce(
+await producer.produce(
   message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
   ack_wait_sec=15) # defaults to 15
 ```
@@ -295,6 +306,28 @@ async def msg_handler(msgs, error, context):
 consumer.consume(msg_handler)
 ```
 
+### Fetch a single batch of messages
+```python
+msgs = await memphis.fetch_messages(
+  station_name="<station-name>",
+  consumer_name="<consumer-name>",
+  consumer_group="<group-name>", # defaults to the consumer name
+  batch_size=10, # defaults to 10
+  batch_max_time_to_wait_ms=5000, # defaults to 5000
+  max_ack_time_ms=30000, # defaults to 30000
+  max_msg_deliveries=10, # defaults to 10
+  generate_random_suffix=False
+  start_consume_from_sequence=1 # start consuming from a specific sequence. defaults to 1
+  last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station))
+)
+```
+
+### Fetch a single batch of messages after creating a consumer
+```python
+msgs = await consumer.fetch(batch_size=10) # defaults to 10
+```
+
+
 ### Acknowledge a message
 
 Acknowledge a message indicates the Memphis server to not re-send the same message again to the same consumer / consumers group
@@ -306,7 +339,7 @@ await message.ack()
 ### Get headers 
 Get headers per message
 
-``python
+```python
 headers = message.get_headers()
 ```
 

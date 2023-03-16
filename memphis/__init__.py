@@ -11,14 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import memphis.retention_types
-import memphis.storage_types
-from memphis.memphis import (
-    Headers,
-    Memphis,
+from memphis.exceptions import (
     MemphisConnectError,
     MemphisError,
     MemphisHeaderError,
     MemphisSchemaError,
 )
+from memphis.headers import Headers
+from memphis.memphis import Memphis
