@@ -535,6 +535,7 @@ class Memphis:
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
+        max_cached_messages: int = 1000,
     ):
         """Creates a consumer.
         Args:.
@@ -549,6 +550,7 @@ class Memphis:
             generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
+            max_cached_messages: the maximum number of messages allowed to be loaded into the internal cache buffer.
         Returns:
             object: consumer
         """
@@ -614,6 +616,7 @@ class Memphis:
                 max_msg_deliveries,
                 start_consume_from_sequence=start_consume_from_sequence,
                 last_messages=last_messages,
+                max_cached_messages=max_cached_messages,
             )
             self.consumers_map[map_key] = consumer
             return consumer
@@ -679,6 +682,7 @@ class Memphis:
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
         prefetch: bool = False,
+        max_cached_messages: int = 1000
     ):
         """Consume a batch of messages.
         Args:.
@@ -720,14 +724,24 @@ class Memphis:
                     generate_random_suffix=generate_random_suffix,
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
+                    max_cached_messages=max_cached_messages
                 )
             if prefetch and self.cached_messages:
-                messages = self.cached_messages
-                self.cached_messages = []
+                if len(self.cached_messages) >= batch_size:
+                    messages = self.cached_messages[:batch_size]
+                    self.cached_messages = self.cached_messages[batch_size:]
+                else:
+                    pulled_messages_size = len(self.cached_messages)
+                    messages = self.cached_messages
+                    self.cached_messages = []
+                    additional_messages = await consumer.fetch(batch_size - pulled_messages_size)
+                    messages = messages + additional_messages
             else:
                 messages = await consumer.fetch(batch_size)
             if prefetch:
-                self.load_messages_to_cache(self, batch_size, consumer)
+                cache_size = len(self.cached_messages)
+                load_batch_size = max(batch_size * 2 + cache_size, consumer.max_cached_messages - cache_size)
+                self.load_messages_to_cache(load_batch_size, consumer)
             if messages == None:
                 messages = []
             return messages
