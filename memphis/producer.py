@@ -115,7 +115,8 @@ class Producer:
                 document_ast=msg,
             )
             if len(validate_res) > 0:
-                raise Exception("Schema validation has failed: " + str(validate_res))
+                raise Exception(
+                    "Schema validation has failed: " + str(validate_res))
             return message
         except Exception as e:
             if "Syntax Error" in str(e):
@@ -170,7 +171,8 @@ class Producer:
                             headers=headers,
                         )
                     )
-                    await asyncio.sleep(1) # TODO - check why we need sleep in here
+                    # TODO - check why we need sleep in here
+                    await asyncio.sleep(1)
                 except Exception as e:
                     raise MemphisError(e)
             else:
@@ -190,10 +192,12 @@ class Producer:
                     e
                 ) or "Unsupported message type" in str(e):
                     msgToSend = ""
-                    if isinstance(message, bytearray):
-                        msgToSend = str(message, "utf-8")
-                    elif hasattr(message, "SerializeToString"):
+                    if hasattr(message, "SerializeToString"):
                         msgToSend = message.SerializeToString().decode("utf-8")
+                    elif isinstance(message, bytearray):
+                        msgToSend = str(message, "utf-8")
+                    else:
+                        msgToSend = str(message)
                     if self.connection.station_schemaverse_to_dls[
                         self.internal_station_name
                     ]:
@@ -229,6 +233,7 @@ class Producer:
                                 "data": msgHex,
                                 "headers": headers,
                             },
+                            "validation_error": str(e),
                         }
                         buf = json.dumps(buf).encode("utf-8")
                         await self.connection.broker_connection.publish(
@@ -273,14 +278,16 @@ class Producer:
 
             internal_station_name = get_internal_name(self.station_name)
             producer_number = (
-                self.connection.producers_per_station.get(internal_station_name) - 1
+                self.connection.producers_per_station.get(
+                    internal_station_name) - 1
             )
             self.connection.producers_per_station[
                 internal_station_name
             ] = producer_number
 
             if producer_number == 0:
-                sub = self.connection.schema_updates_subs.get(internal_station_name)
+                sub = self.connection.schema_updates_subs.get(
+                    internal_station_name)
                 task = self.connection.schema_tasks.get(internal_station_name)
                 if internal_station_name in self.connection.schema_updates_data:
                     del self.connection.schema_updates_data[internal_station_name]
