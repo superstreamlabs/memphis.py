@@ -20,6 +20,7 @@ import ssl
 import time
 from threading import Timer
 from typing import Callable, Iterable, Union
+import uuid
 
 import graphql
 import nats as broker
@@ -124,7 +125,7 @@ class Memphis:
         self.max_reconnect = 9 if max_reconnect > 9 else max_reconnect
         self.reconnect_interval_ms = reconnect_interval_ms
         self.timeout_ms = timeout_ms
-        self.connection_id = self.__generateConnectionID()
+        self.connection_id = str(uuid.uuid4())
         try:
             if cert_file != "" or key_file != "" or ca_file != "":
                 if cert_file == "":
