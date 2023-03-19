@@ -313,9 +313,6 @@ class Memphis:
     def __generateRandomSuffix(self, name: str) -> str:
         return name + "_" + random_bytes(8)
 
-    def __generateConnectionID(self):
-        return random_bytes(24)
-
     def __normalize_host(self, host):
         if host.startswith("http://"):
             return host.split("http://")[1]
