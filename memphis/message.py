@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import json
 
-from memphis.exceptions import MemphisConnectError
+from memphis.exceptions import MemphisConnectError, MemphisError
+
+# constants
+NAK = "-NAK"
 
 
 class Message:
-    def __init__(self, message, connection, cg_name):
+    def __init__(self, message, connection, cg_name, consumer):
         self.message = message
         self.connection = connection
         self.cg_name = cg_name
+        self.consumer = consumer
 
     async def ack(self):
         """Ack a message is done processing."""
@@ -55,3 +59,24 @@ class Message:
             return self.message.metadata.sequence.stream
         except:
             return
+
+    def get_num_delivered(self):
+        """Get number of times message is delivered."""
+        try:
+            return self.message.metadata.num_delivered
+        except Exception as e:
+            raise MemphisError(
+                "num_delivered is undefined in message metadata")
+
+    async def redeliver_after(self, duration):
+        """Negatively ack and redeliver the message after delay"""
+        try:
+            num_delivered = self.get_num_delivered()
+            if self.consumer == None:
+                raise MemphisError("memphis: Consumer is None")
+            if num_delivered >= self.consumer.max_msg_deliveries:
+                raise MemphisError("memphis: Max Delivery limit is reached")
+            data = bytes(NAK+str(duration), "utf-8")
+            await self.message.respond(data)
+        except Exception as e:
+            raise MemphisError(str(e)) from e
