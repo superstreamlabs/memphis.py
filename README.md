@@ -336,6 +336,14 @@ Acknowledge a message indicates the Memphis server to not re-send the same messa
 await message.ack()
 ```
 
+### Delay the message after a given duration
+
+Delay the message and tell Memphis server to re-send the same message again to the same consumer group
+
+```python
+await message.delay(delay_in_seconds)
+```
+
 ### Get headers 
 Get headers per message
 
