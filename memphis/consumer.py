@@ -67,8 +67,7 @@ class Consumer:
                     msgs = await self.psub.fetch(self.batch_size)
                     for msg in msgs:
                         memphis_messages.append(
-                            Message(msg, self.connection,
-                                    self.consumer_group, self)
+                            Message(msg, self.connection, self.consumer_group)
                         )
                     await callback(memphis_messages, None, self.context)
                     await asyncio.sleep(self.pull_interval_ms / 1000)
@@ -99,14 +98,12 @@ class Consumer:
                 if index_to_insert >= 10000:
                     index_to_insert %= 10000
                 self.dls_messages.insert(
-                    index_to_insert, Message(
-                        msg, self.connection, self.consumer_group, self)
+                    index_to_insert, Message(msg, self.connection, self.consumer_group)
                 )
                 self.dls_current_index += 1
                 if self.dls_callback_func != None:
                     await self.dls_callback_func(
-                        [Message(msg, self.connection,
-                                 self.consumer_group, self)],
+                        [Message(msg, self.connection, self.consumer_group)],
                         None,
                         self.context,
                     )
@@ -143,8 +140,7 @@ class Consumer:
                 )
                 msgs = await self.psub.fetch(batch_size)
                 for msg in msgs:
-                    messages.append(
-                        Message(msg, self.connection, self.consumer_group, self))
+                    messages.append(Message(msg, self.connection, self.consumer_group))
                 return messages
             except Exception as e:
                 if not "timeout" in str(e):

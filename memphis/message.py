@@ -2,18 +2,14 @@ from __future__ import annotations
 
 import json
 
-from memphis.exceptions import MemphisConnectError, MemphisError
-
-# constants
-NAK = "-NAK"
+from memphis.exceptions import MemphisConnectError
 
 
 class Message:
-    def __init__(self, message, connection, cg_name, consumer):
+    def __init__(self, message, connection, cg_name):
         self.message = message
         self.connection = connection
         self.cg_name = cg_name
-        self.consumer = consumer
 
     async def ack(self):
         """Ack a message is done processing."""
@@ -60,23 +56,26 @@ class Message:
         except:
             return
 
-    def get_num_delivered(self):
-        """Get number of times message is delivered."""
+    async def delay(self, delay):
+        """Delay and redeliver the message after delay seconds"""
         try:
-            return self.message.metadata.num_delivered
+            await self.message.nak(delay=delay)
         except Exception as e:
-            raise MemphisError(
-                "num_delivered is undefined in message metadata")
-
-    async def redeliver_after(self, duration):
-        """Negatively ack and redeliver the message after delay"""
-        try:
-            num_delivered = self.get_num_delivered()
-            if self.consumer == None:
-                raise MemphisError("memphis: Consumer is None")
-            if num_delivered >= self.consumer.max_msg_deliveries:
-                raise MemphisError("memphis: Max Delivery limit is reached")
-            data = bytes(NAK+str(duration), "utf-8")
-            await self.message.respond(data)
-        except Exception as e:
-            raise MemphisError(str(e)) from e
+            if (
+                "$memphis_pm_id" in self.message.headers
+                and "$memphis_pm_sequence" in self.message.headers
+            ):
+                try:
+                    msg = {
+                        "id": self.message.headers["$memphis_pm_id"],
+                        "sequence": self.message.headers["$memphis_pm_sequence"],
+                    }
+                    msgToAck = json.dumps(msg).encode("utf-8")
+                    await self.connection.broker_manager.publish(
+                        "$memphis_pm_acks", msgToAck
+                    )
+                except Exception as er:
+                    raise MemphisConnectError(str(er)) from er
+            else:
+                raise MemphisConnectError(str(e)) from e
+            return
