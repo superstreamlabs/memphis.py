@@ -72,7 +72,7 @@ class Message:
                     }
                     msgToAck = json.dumps(msg).encode("utf-8")
                     await self.connection.broker_manager.publish(
-                        "$memphis_pm_acks", msgToAck
+                        "$memphis_pm_naks", msgToAck
                     )
                 except Exception as er:
                     raise MemphisConnectError(str(er)) from er
