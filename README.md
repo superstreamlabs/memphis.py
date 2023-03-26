@@ -70,6 +70,7 @@ async def main():
       host="<memphis-host>",
       username="<application-type username>",
       connection_token="<broker-token>", # you will get it on application type user creation
+      password="<string>", # depends on how Memphis deployed - default is token-based authentication
       port="<port>", # defaults to 6666
       reconnect=True, # defaults to True
       max_reconnect=3, # defaults to 3
