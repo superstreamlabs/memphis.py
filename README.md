@@ -338,7 +338,7 @@ await message.ack()
 
 ### Delay the message after a given duration
 
-Delay the message and tell Memphis server to re-send the same message again to the same consumer group. A message can only be delivered `consumer.max_msg_deliveries` number of times.
+Delay the message and tell Memphis server to re-send the same message again to the same consumer group. The message will be redelivered only in case `consumer.max_msg_deliveries` is not reached yet.
 
 ```python
 await message.delay(delay_in_seconds)
