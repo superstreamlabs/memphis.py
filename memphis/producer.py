@@ -123,9 +123,6 @@ class Producer:
                 e = "Invalid message format, expected GraphQL"
             raise Exception("Schema validation has failed: " + str(e))
 
-    def get_dls_msg_id(self, station_name: str, producer_name: str, unix_time: str):
-        return station_name + "~" + producer_name + "~0~" + unix_time
-
     async def produce(
         self,
         message,
@@ -202,11 +199,6 @@ class Producer:
                         self.internal_station_name
                     ]:
                         unix_time = int(time.time())
-                        id = self.get_dls_msg_id(
-                            self.internal_station_name,
-                            self.producer_name,
-                            str(unix_time),
-                        )
 
                         memphis_headers = {
                             "$memphis_producedBy": self.producer_name,
@@ -222,13 +214,12 @@ class Producer:
                         msgToSendEncoded = msgToSend.encode("utf-8")
                         msgHex = msgToSendEncoded.hex()
                         buf = {
-                            "_id": id,
                             "station_name": self.internal_station_name,
                             "producer": {
                                 "name": self.producer_name,
                                 "connection_id": self.connection.connection_id,
                             },
-                            "creation_unix": unix_time,
+                            "create_at_unix": unix_time,
                             "message": {
                                 "data": msgHex,
                                 "headers": headers,
@@ -236,13 +227,7 @@ class Producer:
                             "validation_error": str(e),
                         }
                         buf = json.dumps(buf).encode("utf-8")
-                        await self.connection.broker_connection.publish(
-                            "$memphis-"
-                            + self.internal_station_name
-                            + "-dls.schema."
-                            + id,
-                            buf,
-                        )
+                        await self.connection.broker_connection.publish("$memphis_schemaverse_dls", buf,)
                         if self.connection.cluster_configurations.get(
                             "send_notification"
                         ):
