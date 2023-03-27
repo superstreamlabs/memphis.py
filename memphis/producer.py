@@ -219,7 +219,7 @@ class Producer:
                                 "name": self.producer_name,
                                 "connection_id": self.connection.connection_id,
                             },
-                            "create_at_unix": unix_time,
+                            "creation_unix": unix_time,
                             "message": {
                                 "data": msgHex,
                                 "headers": headers,
@@ -227,7 +227,7 @@ class Producer:
                             "validation_error": str(e),
                         }
                         buf = json.dumps(buf).encode("utf-8")
-                        await self.connection.broker_connection.publish("$memphis_schemaverse_dls", buf,)
+                        await self.connection.broker_manager.publish("$memphis_schemaverse_dls", buf)
                         if self.connection.cluster_configurations.get(
                             "send_notification"
                         ):
