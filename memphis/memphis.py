@@ -108,7 +108,8 @@ class Memphis:
         Args:
             host (str): memphis host.
             username (str): user of type root/application.
-            connection_token (str): broker token.
+            connection_token (str): connection token.
+            password (str): depends on how Memphis deployed - default is connection token-based authentication.
             port (int, optional): port. Defaults to 6666.
             reconnect (bool, optional): whether to do reconnect while connection is lost. Defaults to True.
             max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
@@ -130,7 +131,7 @@ class Memphis:
         self.connection_id = str(uuid.uuid4())
         try:
             if self.connection_token != "" and self.password != "":
-                raise MemphisConnectError("You have to connect with only one of the following methods: connection token / password")
+                raise MemphisConnectError("You have to connect with one of the following methods: connection token / password")
             if self.connection_token == "" and self.password == "":
                 raise MemphisConnectError("You have to connect with one of the following methods: connection token / password")
             
