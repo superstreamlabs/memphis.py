@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from memphis.exceptions import MemphisConnectError
+from memphis.exceptions import MemphisConnectError, MemphisError
 
 
 class Message:
@@ -55,3 +55,16 @@ class Message:
             return self.message.metadata.sequence.stream
         except:
             return
+
+    async def delay(self, delay):
+        """Delay and resend the message after delay seconds"""
+        if (
+            "$memphis_pm_id" in self.message.headers
+            and "$memphis_pm_sequence" in self.message.headers
+        ):
+            raise MemphisError("cannot delay DLS message")
+        else:
+            try:
+                await self.message.nak(delay=delay)
+            except Exception as e:
+                raise MemphisError(str(e)) from e
