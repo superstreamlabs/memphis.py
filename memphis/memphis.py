@@ -93,7 +93,8 @@ class Memphis:
         self,
         host: str,
         username: str,
-        connection_token: str,
+        connection_token: str = "",
+        password: str = "",
         port: int = 6666,
         reconnect: bool = True,
         max_reconnect: int = 10,
@@ -107,7 +108,8 @@ class Memphis:
         Args:
             host (str): memphis host.
             username (str): user of type root/application.
-            connection_token (str): broker token.
+            connection_token (str): connection token.
+            password (str): depends on how Memphis deployed - default is connection token-based authentication.
             port (int, optional): port. Defaults to 6666.
             reconnect (bool, optional): whether to do reconnect while connection is lost. Defaults to True.
             max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
@@ -120,6 +122,7 @@ class Memphis:
         self.host = self.__normalize_host(host)
         self.username = username
         self.connection_token = connection_token
+        self.password = password
         self.port = port
         self.reconnect = reconnect
         self.max_reconnect = 9 if max_reconnect > 9 else max_reconnect
@@ -127,6 +130,19 @@ class Memphis:
         self.timeout_ms = timeout_ms
         self.connection_id = str(uuid.uuid4())
         try:
+            if self.connection_token != "" and self.password != "":
+                raise MemphisConnectError("You have to connect with one of the following methods: connection token / password")
+            if self.connection_token == "" and self.password == "":
+                raise MemphisConnectError("You have to connect with one of the following methods: connection token / password")
+            
+            connection_opts = {
+                "servers": self.host + ":" + str(self.port),
+                "allow_reconnect": self.reconnect,
+                "reconnect_time_wait": self.reconnect_interval_ms / 1000,
+                "connect_timeout": self.timeout_ms / 1000,
+                "max_reconnect_attempts": self.max_reconnect,
+                "name": self.connection_id + "::" + self.username,
+            }
             if cert_file != "" or key_file != "" or ca_file != "":
                 if cert_file == "":
                     raise MemphisConnectError("Must provide a TLS cert file")
@@ -137,33 +153,20 @@ class Memphis:
                 ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
                 ssl_ctx.load_verify_locations(ca_file)
                 ssl_ctx.load_cert_chain(certfile=cert_file, keyfile=key_file)
-                self.broker_manager = await broker.connect(
-                    servers=self.host + ":" + str(self.port),
-                    allow_reconnect=self.reconnect,
-                    reconnect_time_wait=self.reconnect_interval_ms / 1000,
-                    connect_timeout=self.timeout_ms / 1000,
-                    max_reconnect_attempts=self.max_reconnect,
-                    token=self.connection_token,
-                    name=self.connection_id + "::" + self.username,
-                    tls=ssl_ctx,
-                    tls_hostname=self.host,
-                )
+                connection_opts["tls"] = ssl_ctx
+                connection_opts["tls_hostname"] = self.host
+            if self.connection_token != "":
+                connection_opts["token"]=self.connection_token
             else:
-                self.broker_manager = await broker.connect(
-                    servers=self.host + ":" + str(self.port),
-                    allow_reconnect=self.reconnect,
-                    reconnect_time_wait=self.reconnect_interval_ms / 1000,
-                    connect_timeout=self.timeout_ms / 1000,
-                    max_reconnect_attempts=self.max_reconnect,
-                    token=self.connection_token,
-                    name=self.connection_id + "::" + self.username,
-                )
+                connection_opts["user"]=self.username
+                connection_opts["password"]=self.password
 
+            self.broker_manager = await broker.connect(**connection_opts)
             await self.sdk_client_updates_listener()
             self.broker_connection = self.broker_manager.jetstream()
             self.is_connection_active = True
         except Exception as e:
-            raise MemphisConnectError(str(e)) from e
+            raise MemphisError(str(e))
 
     async def send_notification(self, title, msg, failedMsg, type):
         msg = {"title": title, "msg": msg, "type": type, "code": failedMsg}
