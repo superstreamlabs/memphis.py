@@ -18,12 +18,12 @@ class Message:
         except Exception as e:
             if (
                 "$memphis_pm_id" in self.message.headers
-                and "$memphis_pm_sequence" in self.message.headers
+                and "$memphis_pm_cg_name" in self.message.headers
             ):
                 try:
                     msg = {
-                        "id": self.message.headers["$memphis_pm_id"],
-                        "sequence": self.message.headers["$memphis_pm_sequence"],
+                        "id": int(self.message.headers["$memphis_pm_id"]),
+                        "cg_name": self.message.headers["$memphis_pm_cg_name"],
                     }
                     msgToAck = json.dumps(msg).encode("utf-8")
                     await self.connection.broker_manager.publish(
@@ -60,7 +60,7 @@ class Message:
         """Delay and resend the message after delay seconds"""
         if (
             "$memphis_pm_id" in self.message.headers
-            and "$memphis_pm_sequence" in self.message.headers
+            and "$memphis_pm_cg_name" in self.message.headers
         ):
             raise MemphisError("cannot delay DLS message")
         else:
