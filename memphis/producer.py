@@ -198,8 +198,6 @@ class Producer:
                     if self.connection.station_schemaverse_to_dls[
                         self.internal_station_name
                     ]:
-                        unix_time = int(time.time())
-
                         memphis_headers = {
                             "$memphis_producedBy": self.producer_name,
                             "$memphis_connectionId": self.connection.connection_id,
@@ -219,7 +217,6 @@ class Producer:
                                 "name": self.producer_name,
                                 "connection_id": self.connection.connection_id,
                             },
-                            "creation_unix": unix_time,
                             "message": {
                                 "data": msgHex,
                                 "headers": headers,
