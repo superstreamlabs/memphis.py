@@ -25,7 +25,6 @@ class Consumer:
         error_callback=None,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
-        max_cached_messages: int = 1000,
     ):
         self.connection = connection
         self.station_name = station_name.lower()
@@ -47,7 +46,6 @@ class Consumer:
         self.dls_current_index = 0
         self.dls_callback_func = None
         self.t_dls = asyncio.create_task(self.__consume_dls())
-        self.max_cached_messages = max_cached_messages
 
     def set_context(self, context):
         """Set a context (dict) that will be passed to each message handler call."""

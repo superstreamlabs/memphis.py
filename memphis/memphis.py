@@ -535,7 +535,6 @@ class Memphis:
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
-        max_cached_messages: int = 1000,
     ):
         """Creates a consumer.
         Args:.
@@ -550,7 +549,6 @@ class Memphis:
             generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
-            max_cached_messages: the maximum number of messages allowed to be loaded into the internal cache buffer.
         Returns:
             object: consumer
         """
@@ -616,7 +614,6 @@ class Memphis:
                 max_msg_deliveries,
                 start_consume_from_sequence=start_consume_from_sequence,
                 last_messages=last_messages,
-                max_cached_messages=max_cached_messages,
             )
             self.consumers_map[map_key] = consumer
             return consumer
@@ -697,6 +694,7 @@ class Memphis:
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
             prefetch: false by default, if true then fetch messages from local cache (if exists) and load more messages into the cache.
+            max_cached_messages: the maximum number of messages allowed to be loaded into the internal cache buffer.
         Returns:
             list: Message
         """
@@ -724,24 +722,24 @@ class Memphis:
                     generate_random_suffix=generate_random_suffix,
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
-                    max_cached_messages=max_cached_messages
                 )
-            station_cached_messages = self.cached_messages.get(station_name, [])
-            if prefetch and station_cached_messages:
-                if len(station_cached_messages) >= batch_size:
-                    messages = station_cached_messages[:batch_size]
-                    self.cached_messages[station_name] = station_cached_messages[batch_size:]
+            station_cached_messages = self.cached_messages.get(station_name, dict())
+            consumer_station_cached_messages = station_cached_messages.get(consumer, [])
+            if prefetch and consumer_station_cached_messages:
+                if len(consumer_station_cached_messages) >= batch_size:
+                    messages = consumer_station_cached_messages[:batch_size]
+                    self.cached_messages[station_name][consumer] = consumer_station_cached_messages[batch_size:]
                 else:
-                    pulled_messages_size = len(station_cached_messages)
-                    messages = station_cached_messages
-                    self.cached_messages[station_name] = []
+                    pulled_messages_size = len(consumer_station_cached_messages)
+                    messages = consumer_station_cached_messages
+                    self.cached_messages[station_name][consumer] = []
                     additional_messages = await consumer.fetch(batch_size - pulled_messages_size)
                     messages = messages + additional_messages
             else:
                 messages = await consumer.fetch(batch_size)
             if prefetch:
-                cache_size = len(station_cached_messages)
-                load_batch_size = max(batch_size * 2 + cache_size, consumer.max_cached_messages - cache_size)
+                cache_size = len(consumer_station_cached_messages)
+                load_batch_size = max(batch_size * 2, consumer.max_cached_messages - cache_size)
                 self.load_messages_to_cache(load_batch_size, consumer, station_name)
             if messages == None:
                 messages = []
@@ -827,19 +825,4 @@ class Memphis:
                     del self.consumers_map[key]
         except Exception as e:
             raise e
-<<<<<<< HEAD
-=======
 
-    def load_messages_to_cache(self, batch_size, consumer, station_name):
-        if not self.loading_thread or not self.loading_thread.is_alive():
-            self.loading_thread = threading.Thread(target=self.__load_messages(batch_size, consumer, station_name))
-            self.loading_thread.start()
-
-    def __load_messages(self, batch_size, consumer, station_name):
-        new_messages = await consumer.fetch(batch_size)
-<<<<<<< HEAD
-        self.cached_messages.extend(new_messages)
->>>>>>> da74957 (Add prefetch mechanism to consumer)
-=======
-        self.cached_messages.get(station_name, []).extend(new_messages)
->>>>>>> 606abec (fix local cache to be divided into stations)
