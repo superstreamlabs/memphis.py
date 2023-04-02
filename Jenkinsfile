@@ -19,8 +19,8 @@ node ("small-ec2-fleet") {
       sh """
 	sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo 
         sudo yum install gh -y
-        sed -i -r "s/version=\'[0-9].[0-9].[0-9]/version=\'\$(cat version.conf)/g" setup.py
-        sed -i -r "s/v[0-9].[0-9].[0-9]/v\$(cat version.conf)/g" setup.py
+        sed -i -r "s/version=\\"[0-9].[0-9].[0-9]/version=\\"\$(cat version.conf)/g" setup.py
+        sed -i -r "s/[0-9].[0-9].[0-9].tar.gz/\$(cat version.conf).tar.gz/g" setup.py
       """
       withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
         sh """
