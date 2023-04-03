@@ -40,6 +40,7 @@ from memphis.utils import get_internal_name, random_bytes
 
 
 class Memphis:
+    MAX_BATCH_SIZE = 5000
     def __init__(self):
         self.is_connection_active = False
         self.schema_updates_data = {}
@@ -499,6 +500,8 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
+            if batch_size > self.MAX_BATCH_SIZE:
+                raise MemphisError(f"Batch size parameter should be with value of {self.MAX_BATCH_SIZE} maximum!")
             real_name = consumer_name.lower()
             if generate_random_suffix:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
@@ -639,6 +642,8 @@ class Memphis:
             consumer = None
             if not self.is_connection_active:
                 raise MemphisError("Cant fetch messages without being connected!")
+            if batch_size > self.MAX_BATCH_SIZE:
+                raise MemphisError(f"Batch size parameter should be with value of {self.MAX_BATCH_SIZE} maximum!")
             internal_station_name = get_internal_name(station_name)
             consumer_map_key = internal_station_name + "_" + consumer_name.lower()
             if consumer_map_key in self.consumers_map:

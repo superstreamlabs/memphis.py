@@ -9,6 +9,7 @@ from memphis.message import Message
 
 
 class Consumer:
+    MAX_BATCH_SIZE = 5000
     def __init__(
         self,
         connection,
@@ -108,14 +109,17 @@ class Consumer:
                         self.context,
                     )
         except Exception as e:
-            await self.dls_callback_func([], MemphisError(str(e)), self.context)
-            return
+            if self.dls_callback_func != None:
+                await self.dls_callback_func([], MemphisError(str(e)), self.context)
+                return
 
     async def fetch(self, batch_size: int = 10):
         """Fetch a batch of messages."""
         messages = []
         if self.connection.is_connection_active:
             try:
+                if batch_size > self.MAX_BATCH_SIZE:
+                    raise MemphisError(f"Batch size parameter should be with value of {self.MAX_BATCH_SIZE} maximum!")
                 self.batch_size = batch_size
                 if len(self.dls_messages) > 0:
                     if len(self.dls_messages) <= batch_size:
