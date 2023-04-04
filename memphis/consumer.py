@@ -119,7 +119,7 @@ class Consumer:
         if self.connection.is_connection_active:
             try:
                 if batch_size > self.MAX_BATCH_SIZE:
-                    raise MemphisError(f"Batch size parameter should be with value of {self.MAX_BATCH_SIZE} maximum!")
+                    raise MemphisError(f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
                 self.batch_size = batch_size
                 if len(self.dls_messages) > 0:
                     if len(self.dls_messages) <= batch_size:

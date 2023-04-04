@@ -501,7 +501,7 @@ class Memphis:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
             if batch_size > self.MAX_BATCH_SIZE:
-                raise MemphisError(f"Batch size parameter should be with value of {self.MAX_BATCH_SIZE} maximum!")
+                raise MemphisError(f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
             real_name = consumer_name.lower()
             if generate_random_suffix:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
@@ -643,7 +643,7 @@ class Memphis:
             if not self.is_connection_active:
                 raise MemphisError("Cant fetch messages without being connected!")
             if batch_size > self.MAX_BATCH_SIZE:
-                raise MemphisError(f"Batch size parameter should be with value of {self.MAX_BATCH_SIZE} maximum!")
+                raise MemphisError(f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
             internal_station_name = get_internal_name(station_name)
             consumer_map_key = internal_station_name + "_" + consumer_name.lower()
             if consumer_map_key in self.consumers_map:
