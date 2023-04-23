@@ -94,6 +94,7 @@ class Memphis:
         self,
         host: str,
         username: str,
+        account_id: int = 1,
         connection_token: str = "",
         password: str = "",
         port: int = 6666,
@@ -109,6 +110,7 @@ class Memphis:
         Args:
             host (str): memphis host.
             username (str): user of type root/application.
+            account_id (int): You can find it on the profile page in the Memphis UI. This field should be sent only on the cloud version of Memphis, otherwise it will be ignored
             connection_token (str): connection token.
             password (str): depends on how Memphis deployed - default is connection token-based authentication.
             port (int, optional): port. Defaults to 6666.
@@ -122,6 +124,7 @@ class Memphis:
         """
         self.host = self.__normalize_host(host)
         self.username = username
+        self.account_id = account_id
         self.connection_token = connection_token
         self.password = password
         self.port = port
@@ -159,7 +162,7 @@ class Memphis:
             if self.connection_token != "":
                 connection_opts["token"]=self.connection_token
             else:
-                connection_opts["user"]=self.username
+                connection_opts["user"]=self.username + "$" + str(self.account_id)
                 connection_opts["password"]=self.password
 
             self.broker_manager = await broker.connect(**connection_opts)
