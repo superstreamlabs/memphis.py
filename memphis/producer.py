@@ -52,6 +52,9 @@ class Producer:
             message = str(msg.loc.source.body)
             message = message.encode("utf-8")
             return message
+        elif hasattr(message, "SerializeToString"):
+            msgToSend = message.SerializeToString()
+            return msgToSend
         elif not isinstance(message, bytearray) and not isinstance(message, dict):
             raise MemphisSchemaError("Unsupported message type")
         else:
@@ -78,6 +81,13 @@ class Producer:
                 msgToSend = message.SerializeToString()
                 proto_msg.ParseFromString(msgToSend)
                 proto_msg.SerializeToString()
+                try:
+                    proto_msg.ParseFromString(msgToSend)
+                    proto_msg.SerializeToString()
+                except Exception as e:
+                    if "parsing message" in str(e):
+                        e = "Error parsing protobuf message"
+                    raise MemphisSchemaError(str(e))
                 return msgToSend
 
             else:
