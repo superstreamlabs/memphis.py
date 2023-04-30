@@ -31,7 +31,7 @@ from graphql import parse as parse_graphql
 from graphql import validate as validate_graphql
 from jsonschema import validate
 from memphis.consumer import Consumer
-from memphis.exceptions import MemphisConnectError, MemphisError, MemphisHeaderError
+from memphis.exceptions import MemphisConnectError, MemphisError, MemphisHeaderError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.producer import Producer
 from memphis.station import Station
@@ -41,6 +41,7 @@ from memphis.utils import get_internal_name, random_bytes
 
 class Memphis:
     MAX_BATCH_SIZE = 5000
+    MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
     def __init__(self):
         self.is_connection_active = False
         self.schema_updates_data = {}
@@ -105,6 +106,7 @@ class Memphis:
         cert_file: str = "",
         key_file: str = "",
         ca_file: str = "",
+        account_name : str = MEMPHIS_GLOBAL_ACCOUNT_NAME
     ):
         """Creates connection with Memphis.
         Args:
@@ -121,6 +123,7 @@ class Memphis:
             key_file (string): path to tls key file.
             cert_file (string): path to tls cert file.
             ca_file (string): path to tls ca file.
+            account_name (string): tenant name. Defaults to $memphis.
         """
         self.host = self.__normalize_host(host)
         self.username = username
@@ -133,6 +136,7 @@ class Memphis:
         self.reconnect_interval_ms = reconnect_interval_ms
         self.timeout_ms = timeout_ms
         self.connection_id = str(uuid.uuid4())
+        self.account_name = account_name
         try:
             if self.connection_token != "" and self.password != "":
                 raise MemphisConnectError("You have to connect with one of the following methods: connection token / password")

@@ -226,7 +226,7 @@ class Producer:
                                 "$memphis_connectionId": self.connection.connection_id,
                             }
 
-                            if headers != {}:
+                            if headers != {} and not headers == None:
                                 headers = headers.headers
                                 headers.update(memphis_headers)
                             else:
@@ -246,6 +246,7 @@ class Producer:
                                     "headers": headers,
                                 },
                                 "validation_error": str(e),
+                                "account_name": self.connection.account_name
                             }
                             buf = json.dumps(buf).encode("utf-8")
                             await self.connection.broker_manager.publish("$memphis_schemaverse_dls", buf)
