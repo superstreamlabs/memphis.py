@@ -246,7 +246,7 @@ class Producer:
                                     "headers": headers,
                                 },
                                 "validation_error": str(e),
-                                "account_name": self.connection.account_name
+                                "tenant_name": self.connection.tenant_name
                             }
                             buf = json.dumps(buf).encode("utf-8")
                             await self.connection.broker_manager.publish("$memphis_schemaverse_dls", buf)

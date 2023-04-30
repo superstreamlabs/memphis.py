@@ -41,7 +41,6 @@ from memphis.utils import get_internal_name, random_bytes
 
 class Memphis:
     MAX_BATCH_SIZE = 5000
-    MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
     def __init__(self):
         self.is_connection_active = False
         self.schema_updates_data = {}
@@ -90,6 +89,27 @@ class Memphis:
             self.configuration_tasks = task
         except Exception as err:
             raise MemphisError(err)
+    
+    async def get_tenant_name(self, account_id):
+        try:
+            getTenantNameReq = {
+                    "tenant_id": account_id
+                    }
+            get_tenant_id_req_bytes = json.dumps(getTenantNameReq, indent=2).encode("utf-8")
+            err_msg = await self.broker_manager.request(
+                    "$memphis_get_tenant_name", get_tenant_id_req_bytes, timeout=5
+                )
+            tenant_name_response = err_msg.data.decode("utf-8")
+            tenant_name_response = json.loads(tenant_name_response)
+
+            if tenant_name_response['error'] != "":
+                raise MemphisError(tenant_name_response['error'])
+            
+            return tenant_name_response["tenant_name"]
+            
+        except Exception as err:
+            raise MemphisError(err)
+
 
     async def connect(
         self,
@@ -106,7 +126,6 @@ class Memphis:
         cert_file: str = "",
         key_file: str = "",
         ca_file: str = "",
-        account_name : str = MEMPHIS_GLOBAL_ACCOUNT_NAME
     ):
         """Creates connection with Memphis.
         Args:
@@ -123,7 +142,6 @@ class Memphis:
             key_file (string): path to tls key file.
             cert_file (string): path to tls cert file.
             ca_file (string): path to tls ca file.
-            account_name (string): tenant name. Defaults to $memphis.
         """
         self.host = self.__normalize_host(host)
         self.username = username
@@ -136,7 +154,6 @@ class Memphis:
         self.reconnect_interval_ms = reconnect_interval_ms
         self.timeout_ms = timeout_ms
         self.connection_id = str(uuid.uuid4())
-        self.account_name = account_name
         try:
             if self.connection_token != "" and self.password != "":
                 raise MemphisConnectError("You have to connect with one of the following methods: connection token / password")
@@ -173,6 +190,7 @@ class Memphis:
             await self.sdk_client_updates_listener()
             self.broker_connection = self.broker_manager.jetstream()
             self.is_connection_active = True
+            self.tenant_name = await self.get_tenant_name(self.account_id)
         except Exception as e:
             raise MemphisError(str(e))
 

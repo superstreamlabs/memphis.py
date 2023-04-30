@@ -76,8 +76,7 @@ async def main():
       # for TLS connection:
       key_file='<key-client.pem>', 
       cert_file='<cert-client.pem>', 
-      ca_file='<rootCA.pem>',
-      account_name="<string>", # tenant name. defaults to $memphis
+      ca_file='<rootCA.pem>'
       )
     ...
   except Exception as e:
