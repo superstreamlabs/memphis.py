@@ -108,7 +108,10 @@ class Memphis:
             return tenant_name_response["tenant_name"]
             
         except Exception as err:
-            raise MemphisError(err)
+            if err.__class__.__name__ ==  'NoRespondersError':
+                return ""
+            else:
+                raise MemphisError(err)
 
 
     async def connect(
