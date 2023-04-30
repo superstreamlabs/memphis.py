@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 
 from memphis.exceptions import MemphisError
 from memphis.utils import default_error_handler, get_internal_name
@@ -46,6 +47,8 @@ class Consumer:
         self.dls_current_index = 0
         self.dls_callback_func = None
         self.t_dls = asyncio.create_task(self.__consume_dls())
+        self.cached_messages = []
+        self.loading_thread = None
 
     def set_context(self, context):
         """Set a context (dict) that will be passed to each message handler call."""
@@ -114,9 +117,21 @@ class Consumer:
                 await self.dls_callback_func([], MemphisError(str(e)), self.context)
                 return
 
-    async def fetch(self, batch_size: int = 10):
+    async def fetch(self, batch_size: int = 10, prefetch: bool = False):
         """Fetch a batch of messages."""
         messages = []
+
+        if prefetch and self.cached_messages:
+            if len(self.cached_messages) >= batch_size:
+                messages = self.cached_messages[:batch_size]
+                self.cached_messages = self.cached_messages[batch_size:]
+            else:
+                pulled_messages_size = len(self.cached_messages)
+                messages = self.cached_messages
+                self.cached_messages = []
+            self.load_messages_to_cache(batch_size * 2 - pulled_messages_size)
+            return messages
+
         if self.connection.is_connection_active:
             try:
                 if batch_size > self.MAX_BATCH_SIZE:
@@ -195,3 +210,12 @@ class Consumer:
             del self.connection.consumers_map[map_key]
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def load_messages_to_cache(self, batch_size):
+        if not self.loading_thread or not self.loading_thread.is_alive():
+            self.loading_thread = threading.Thread(target=self.__load_messages(batch_size))
+            self.loading_thread.start()
+
+    def __load_messages(self, batch_size):
+        new_messages = await self.fetch(batch_size)
+        self.cached_messages.extend(new_messages)

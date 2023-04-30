@@ -679,7 +679,6 @@ class Memphis:
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
         prefetch: bool = False,
-        max_cached_messages: int = 1000
     ):
         """Consume a batch of messages.
         Args:.
@@ -694,7 +693,6 @@ class Memphis:
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
             prefetch: false by default, if true then fetch messages from local cache (if exists) and load more messages into the cache.
-            max_cached_messages: the maximum number of messages allowed to be loaded into the internal cache buffer.
         Returns:
             list: Message
         """
@@ -723,24 +721,7 @@ class Memphis:
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            station_cached_messages = self.cached_messages.get(station_name, dict())
-            consumer_station_cached_messages = station_cached_messages.get(consumer, [])
-            if prefetch and consumer_station_cached_messages:
-                if len(consumer_station_cached_messages) >= batch_size:
-                    messages = consumer_station_cached_messages[:batch_size]
-                    self.cached_messages[station_name][consumer] = consumer_station_cached_messages[batch_size:]
-                else:
-                    pulled_messages_size = len(consumer_station_cached_messages)
-                    messages = consumer_station_cached_messages
-                    self.cached_messages[station_name][consumer] = []
-                    additional_messages = await consumer.fetch(batch_size - pulled_messages_size)
-                    messages = messages + additional_messages
-            else:
-                messages = await consumer.fetch(batch_size)
-            if prefetch:
-                cache_size = len(consumer_station_cached_messages)
-                load_batch_size = max(batch_size * 2, consumer.max_cached_messages - cache_size)
-                self.load_messages_to_cache(load_batch_size, consumer, station_name)
+            messages = await consumer.fetch(batch_size, prefetch=prefetch)
             if messages == None:
                 messages = []
             return messages

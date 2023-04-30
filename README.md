@@ -329,7 +329,6 @@ msgs = await memphis.fetch_messages(
   generate_random_suffix=False
   start_consume_from_sequence=1 # start consuming from a specific sequence. defaults to 1
   last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station))
-  max_cached_messages = 1000 # maximum size of messages in local cache, defaults to 1000
 )
 ```
 
