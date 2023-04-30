@@ -21,6 +21,7 @@ import time
 from threading import Timer
 from typing import Callable, Iterable, Union
 import uuid
+import base64
 
 import graphql
 import nats as broker
@@ -427,7 +428,7 @@ class Memphis:
                 "message_struct_name"
             ]
             desc_set = descriptor_pb2.FileDescriptorSet()
-            descriptor_bytes = str.encode(descriptor)
+            descriptor_bytes = base64.b64decode(descriptor)
             desc_set.ParseFromString(descriptor_bytes)
             pool = descriptor_pool.DescriptorPool()
             pool.Add(desc_set.file[0])
