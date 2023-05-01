@@ -41,6 +41,7 @@ from memphis.utils import get_internal_name, random_bytes
 
 class Memphis:
     MAX_BATCH_SIZE = 5000
+    MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
     def __init__(self):
         self.is_connection_active = False
         self.schema_updates_data = {}
@@ -108,8 +109,9 @@ class Memphis:
             return tenant_name_response["tenant_name"]
             
         except Exception as err:
+            # for backward compatibility
             if err.__class__.__name__ ==  'NoRespondersError':
-                return ""
+                return self.MEMPHIS_GLOBAL_ACCOUNT_NAME
             else:
                 raise MemphisError(err)
 
