@@ -32,7 +32,7 @@ from graphql import parse as parse_graphql
 from graphql import validate as validate_graphql
 from jsonschema import validate
 from memphis.consumer import Consumer
-from memphis.exceptions import MemphisConnectError, MemphisError, MemphisHeaderError
+from memphis.exceptions import MemphisConnectError, MemphisError, MemphisHeaderError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.producer import Producer
 from memphis.station import Station
@@ -42,6 +42,7 @@ from memphis.utils import get_internal_name, random_bytes
 
 class Memphis:
     MAX_BATCH_SIZE = 5000
+    MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
     def __init__(self):
         self.is_connection_active = False
         self.schema_updates_data = {}
@@ -90,6 +91,31 @@ class Memphis:
             self.configuration_tasks = task
         except Exception as err:
             raise MemphisError(err)
+    
+    async def get_tenant_name(self, account_id):
+        try:
+            getTenantNameReq = {
+                    "tenant_id": account_id
+                    }
+            get_tenant_id_req_bytes = json.dumps(getTenantNameReq, indent=2).encode("utf-8")
+            err_msg = await self.broker_manager.request(
+                    "$memphis_get_tenant_name", get_tenant_id_req_bytes, timeout=5
+                )
+            tenant_name_response = err_msg.data.decode("utf-8")
+            tenant_name_response = json.loads(tenant_name_response)
+
+            if tenant_name_response['error'] != "":
+                raise MemphisError(tenant_name_response['error'])
+            
+            return tenant_name_response["tenant_name"]
+            
+        except Exception as err:
+            # for backward compatibility
+            if err.__class__.__name__ ==  'NoRespondersError':
+                return self.MEMPHIS_GLOBAL_ACCOUNT_NAME
+            else:
+                raise MemphisError(err)
+
 
     async def connect(
         self,
@@ -170,6 +196,7 @@ class Memphis:
             await self.sdk_client_updates_listener()
             self.broker_connection = self.broker_manager.jetstream()
             self.is_connection_active = True
+            self.tenant_name = await self.get_tenant_name(self.account_id)
         except Exception as e:
             raise MemphisError(str(e))
 
