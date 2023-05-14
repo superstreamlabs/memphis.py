@@ -128,7 +128,7 @@ class Memphis:
         reconnect: bool = True,
         max_reconnect: int = 10,
         reconnect_interval_ms: int = 1500,
-        timeout_ms: int = 15000,
+        timeout_ms: int = 2000,
         cert_file: str = "",
         key_file: str = "",
         ca_file: str = "",
