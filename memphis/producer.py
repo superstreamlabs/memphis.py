@@ -170,7 +170,7 @@ class Producer:
                 "$memphis_connectionId": self.connection.connection_id,
             }
 
-            if msg_id is not None:
+            if msg_id is not None and msg_id != "":
                 memphis_headers["msg-id"] = msg_id
 
             if headers is not None:
