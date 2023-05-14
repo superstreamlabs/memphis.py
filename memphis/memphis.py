@@ -248,6 +248,7 @@ class Memphis:
                 },
                 "username": self.username,
                 "tiered_storage_enabled": tiered_storage_enabled,
+                "tenant_name": self.tenant_name
             }
             create_station_req_bytes = json.dumps(createStationReq, indent=2).encode(
                 "utf-8"
@@ -278,7 +279,7 @@ class Memphis:
         try:
             if name == "" or stationName == "":
                 raise MemphisError("name and station name can not be empty")
-            msg = {"name": name, "station_name": stationName, "username": self.username}
+            msg = {"name": name, "station_name": stationName, "username": self.username, "tenant_name": self.tenant_name}
             msgToSend = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
                 "$memphis_schema_attachments", msgToSend, timeout=5
@@ -300,7 +301,7 @@ class Memphis:
         try:
             if stationName == "":
                 raise MemphisError("station name is missing")
-            msg = {"station_name": stationName, "username": self.username}
+            msg = {"station_name": stationName, "username": self.username, "tenant_name": self.tenant_name}
             msgToSend = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
                 "$memphis_schema_detachments", msgToSend, timeout=5
@@ -385,6 +386,7 @@ class Memphis:
                 "producer_type": "application",
                 "req_version": 1,
                 "username": self.username,
+                "tenant_name": self.tenant_name
             }
             create_producer_req_bytes = json.dumps(createProducerReq, indent=2).encode(
                 "utf-8"
@@ -417,7 +419,7 @@ class Memphis:
                 if self.schema_updates_data[internal_station_name]["type"] == "json":
                     schema = self.schema_updates_data[internal_station_name][
                         "active_version"
-                    ]["schema_content"]
+    ]["schema_content"]
                     self.json_schemas[internal_station_name] = json.loads(schema)
                 elif (
                     self.schema_updates_data[internal_station_name]["type"] == "graphql"
@@ -562,6 +564,7 @@ class Memphis:
                 "last_messages": last_messages,
                 "req_version": 1,
                 "username": self.username,
+                "tenant_name": self.tenant_name
             }
 
             create_consumer_req_bytes = json.dumps(createConsumerReq, indent=2).encode(

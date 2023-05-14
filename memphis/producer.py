@@ -273,6 +273,7 @@ class Producer:
                 "name": self.producer_name,
                 "station_name": self.station_name,
                 "username": self.connection.username,
+                "tenant_name": self.connection.tenant_name
             }
 
             producer_name = json.dumps(destroyProducerReq).encode("utf-8")

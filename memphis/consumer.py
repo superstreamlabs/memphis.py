@@ -45,6 +45,7 @@ class Consumer:
         self.dls_current_index = 0
         self.dls_callback_func = None
         self.t_dls = asyncio.create_task(self.__consume_dls())
+        self.t_consume = None
 
     def set_context(self, context):
         """Set a context (dict) that will be passed to each message handler call."""
@@ -178,6 +179,7 @@ class Consumer:
                 "name": self.consumer_name,
                 "station_name": self.station_name,
                 "username": self.connection.username,
+                "tenant_name": self.connection.tenant_name
             }
             consumer_name = json.dumps(destroyConsumerReq, indent=2).encode("utf-8")
             res = await self.connection.broker_manager.request(
