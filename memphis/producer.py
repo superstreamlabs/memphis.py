@@ -9,6 +9,7 @@ import graphql
 from graphql import parse as parse_graphql
 from graphql import validate as validate_graphql
 from jsonschema import validate
+import google.protobuf.json_format as protobuf_json_format
 from memphis.exceptions import MemphisError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
@@ -89,7 +90,13 @@ class Producer:
                         e = "Error parsing protobuf message"
                     raise MemphisSchemaError(str(e))
                 return msgToSend
-
+            elif isinstance(message, dict):
+                try:
+                    protobuf_json_format.ParseDict(message, proto_msg)
+                    msgToSend = proto_msg.SerializeToString()
+                    return msgToSend
+                except Exception as e:
+                    raise MemphisSchemaError(str(e))
             else:
                 raise MemphisSchemaError("Unsupported message type")
 
