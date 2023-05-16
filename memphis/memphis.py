@@ -116,6 +116,26 @@ class Memphis:
             else:
                 raise MemphisError(err)
 
+    async def get_broker_manager_connection(self, connection_opts):
+        if "user" in connection_opts:
+            ping_connection_opts = connection_opts
+            ping_connection_opts["allow_reconnect"] = False
+            try:
+                conn = await broker.connect(**ping_connection_opts)
+                await conn.close()
+            except Exception as ex:
+                if "authorization violation" in str(ex).lower():
+                    try:
+                        ping_connection_opts["user"] = self.username
+                        conn = await broker.connect(**ping_connection_opts)
+                        await conn.close()
+                        connection_opts["user"] = self.username
+                    except Exception as ex1:
+                            raise ex1
+                else:
+                    raise ex
+        
+        return await broker.connect(**connection_opts)
 
     async def connect(
         self,
@@ -192,7 +212,7 @@ class Memphis:
                 connection_opts["user"]=self.username + "$" + str(self.account_id)
                 connection_opts["password"]=self.password
 
-            self.broker_manager = await broker.connect(**connection_opts)
+            self.broker_manager = await self.get_broker_manager_connection(connection_opts)
             await self.sdk_client_updates_listener()
             self.broker_connection = self.broker_manager.jetstream()
             self.is_connection_active = True
