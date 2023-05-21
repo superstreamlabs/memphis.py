@@ -92,50 +92,6 @@ class Memphis:
         except Exception as err:
             raise MemphisError(err)
     
-    async def get_tenant_name(self, account_id):
-        try:
-            getTenantNameReq = {
-                    "tenant_id": account_id
-                    }
-            get_tenant_id_req_bytes = json.dumps(getTenantNameReq, indent=2).encode("utf-8")
-            err_msg = await self.broker_manager.request(
-                    "$memphis_get_tenant_name", get_tenant_id_req_bytes, timeout=5
-                )
-            tenant_name_response = err_msg.data.decode("utf-8")
-            tenant_name_response = json.loads(tenant_name_response)
-
-            if tenant_name_response['error'] != "":
-                raise MemphisError(tenant_name_response['error'])
-            
-            return tenant_name_response["tenant_name"]
-            
-        except Exception as err:
-            # for backward compatibility
-            if err.__class__.__name__ ==  'NoRespondersError':
-                return self.MEMPHIS_GLOBAL_ACCOUNT_NAME
-            else:
-                raise MemphisError(err)
-
-    async def get_broker_manager_connection(self, connection_opts):
-        if "user" in connection_opts:
-            ping_connection_opts = connection_opts
-            ping_connection_opts["allow_reconnect"] = False
-            try:
-                conn = await broker.connect(**ping_connection_opts)
-                await conn.close()
-            except Exception as ex:
-                if "authorization violation" in str(ex).lower():
-                    try:
-                        ping_connection_opts["user"] = self.username
-                        conn = await broker.connect(**ping_connection_opts)
-                        await conn.close()
-                        connection_opts["user"] = self.username
-                    except Exception as ex1:
-                            raise ex1
-                else:
-                    raise ex
-        
-        return await broker.connect(**connection_opts)
 
     async def connect(
         self,
@@ -216,7 +172,6 @@ class Memphis:
             await self.sdk_client_updates_listener()
             self.broker_connection = self.broker_manager.jetstream()
             self.is_connection_active = True
-            self.tenant_name = await self.get_tenant_name(self.account_id)
         except Exception as e:
             raise MemphisError(str(e))
 
@@ -267,8 +222,7 @@ class Memphis:
                     "Schemaverse": send_schema_failed_msg_to_dls,
                 },
                 "username": self.username,
-                "tiered_storage_enabled": tiered_storage_enabled,
-                "tenant_name": self.tenant_name
+                "tiered_storage_enabled": tiered_storage_enabled
             }
             create_station_req_bytes = json.dumps(createStationReq, indent=2).encode(
                 "utf-8"
@@ -299,7 +253,7 @@ class Memphis:
         try:
             if name == "" or stationName == "":
                 raise MemphisError("name and station name can not be empty")
-            msg = {"name": name, "station_name": stationName, "username": self.username, "tenant_name": self.tenant_name}
+            msg = {"name": name, "station_name": stationName, "username": self.username}
             msgToSend = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
                 "$memphis_schema_attachments", msgToSend, timeout=5
@@ -321,7 +275,7 @@ class Memphis:
         try:
             if stationName == "":
                 raise MemphisError("station name is missing")
-            msg = {"station_name": stationName, "username": self.username, "tenant_name": self.tenant_name}
+            msg = {"station_name": stationName, "username": self.username}
             msgToSend = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
                 "$memphis_schema_detachments", msgToSend, timeout=5
@@ -405,8 +359,7 @@ class Memphis:
                 "connection_id": self.connection_id,
                 "producer_type": "application",
                 "req_version": 1,
-                "username": self.username,
-                "tenant_name": self.tenant_name
+                "username": self.username
             }
             create_producer_req_bytes = json.dumps(createProducerReq, indent=2).encode(
                 "utf-8"
@@ -583,8 +536,7 @@ class Memphis:
                 "start_consume_from_sequence": start_consume_from_sequence,
                 "last_messages": last_messages,
                 "req_version": 1,
-                "username": self.username,
-                "tenant_name": self.tenant_name
+                "username": self.username
             }
 
             create_consumer_req_bytes = json.dumps(createConsumerReq, indent=2).encode(

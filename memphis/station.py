@@ -12,7 +12,7 @@ class Station:
     async def destroy(self):
         """Destroy the station."""
         try:
-            nameReq = {"station_name": self.name, "username": self.connection.username, "tenant_name": self.connection.tenant_name}
+            nameReq = {"station_name": self.name, "username": self.connection.username}
             station_name = json.dumps(nameReq, indent=2).encode("utf-8")
             res = await self.connection.broker_manager.request(
                 "$memphis_station_destructions", station_name, timeout=5

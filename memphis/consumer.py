@@ -178,8 +178,7 @@ class Consumer:
             destroyConsumerReq = {
                 "name": self.consumer_name,
                 "station_name": self.station_name,
-                "username": self.connection.username,
-                "tenant_name": self.connection.tenant_name
+                "username": self.connection.username
             }
             consumer_name = json.dumps(destroyConsumerReq, indent=2).encode("utf-8")
             res = await self.connection.broker_manager.request(
