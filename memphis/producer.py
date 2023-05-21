@@ -252,8 +252,7 @@ class Producer:
                                     "data": msgHex,
                                     "headers": headers,
                                 },
-                                "validation_error": str(e),
-                                "tenant_name": self.connection.tenant_name
+                                "validation_error": str(e)
                             }
                             buf = json.dumps(buf).encode("utf-8")
                             await self.connection.broker_manager.publish("$memphis_schemaverse_dls", buf)
@@ -279,8 +278,7 @@ class Producer:
             destroyProducerReq = {
                 "name": self.producer_name,
                 "station_name": self.station_name,
-                "username": self.connection.username,
-                "tenant_name": self.connection.tenant_name
+                "username": self.connection.username
             }
 
             producer_name = json.dumps(destroyProducerReq).encode("utf-8")
