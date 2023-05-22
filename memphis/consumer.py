@@ -43,6 +43,7 @@ class Consumer:
         self.context = {}
         self.dls_messages = []
         self.dls_current_index = 0
+        self.t_consume = None
         self.dls_callback_func = None
         self.t_dls = asyncio.create_task(self.__consume_dls())
         self.t_consume = None

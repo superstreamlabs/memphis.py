@@ -511,6 +511,7 @@ class Memphis:
             real_name = consumer_name.lower()
             if generate_random_suffix:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
+                real_name += "_" + consumer_name.split("_")[-1]
             cg = consumer_name if not consumer_group else consumer_group
 
             if start_consume_from_sequence <= 0:
