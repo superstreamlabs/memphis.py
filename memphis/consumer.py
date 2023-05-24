@@ -47,6 +47,7 @@ class Consumer:
         self.dls_current_index = 0
         self.dls_callback_func = None
         self.t_dls = asyncio.create_task(self.__consume_dls())
+        self.t_consume = None
         self.cached_messages = []
         self.loading_thread = None
 
