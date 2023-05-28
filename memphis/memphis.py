@@ -257,7 +257,6 @@ class Memphis:
         except Exception as e:
             if str(e).find("already exist") != -1:
                 return Station(self, name.lower())
-            
             raise MemphisError(str(e)) from e
 
     async def attach_schema(self, name, station_name):
@@ -347,7 +346,6 @@ class Memphis:
             return host.split("http://")[1]
         if host.startswith("https://"):
             return host.split("https://")[1]
-        
         return host
 
     async def producer(

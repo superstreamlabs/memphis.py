@@ -63,7 +63,6 @@ class Message:
             and "$memphis_pm_cg_name" in self.message.headers
         ):
             raise MemphisError("cannot delay DLS message")
-        
         try:
             await self.message.nak(delay=delay)
         except Exception as e:

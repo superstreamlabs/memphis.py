@@ -83,7 +83,6 @@ class Consumer:
                 except Exception as e:
                     if self.connection.is_connection_active:
                         raise MemphisError(str(e)) from e
-                    
                     return
             else:
                 break
