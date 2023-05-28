@@ -6,12 +6,11 @@ from memphis import Memphis, MemphisConnectError, MemphisError, MemphisHeaderErr
 
 
 async def main():
-    async def msg_handler(msgs, error, context):
+    async def msg_handler(msgs, error, _):
         try:
             for msg in msgs:
                 print("message: ", msg.get_data())
                 await msg.ack()
-                headers = msg.get_headers()
             if error:
                 print(error)
         except (MemphisError, MemphisConnectError, MemphisHeaderError) as e:

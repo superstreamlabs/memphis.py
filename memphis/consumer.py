@@ -193,3 +193,4 @@ class Consumer:
             del self.connection.consumers_map[map_key]
         except Exception as e:
             raise MemphisError(str(e)) from e
+        
