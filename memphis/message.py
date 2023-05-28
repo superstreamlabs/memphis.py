@@ -25,12 +25,12 @@ class Message:
                         "id": int(self.message.headers["$memphis_pm_id"]),
                         "cg_name": self.message.headers["$memphis_pm_cg_name"],
                     }
-                    msgToAck = json.dumps(msg).encode("utf-8")
+                    msg_to_ack = json.dumps(msg).encode("utf-8")
                     await self.connection.broker_manager.publish(
-                        "$memphis_pm_acks", msgToAck
+                        "$memphis_pm_acks", msg_to_ack
                     )
-                except Exception as er:
-                    raise MemphisConnectError(str(er)) from er
+                except Exception as e_1:
+                    raise MemphisConnectError(str(e_1))
             else:
                 raise MemphisConnectError(str(e)) from e
             return
@@ -39,21 +39,21 @@ class Message:
         """Receive the message."""
         try:
             return bytearray(self.message.data)
-        except:
+        except Exception:
             return
 
     def get_headers(self):
         """Receive the headers."""
         try:
             return self.message.headers
-        except:
+        except Exception:
             return
 
     def get_sequence_number(self):
         """Get message sequence number."""
         try:
             return self.message.metadata.sequence.stream
-        except:
+        except Exception:
             return
 
     async def delay(self, delay):
@@ -63,8 +63,8 @@ class Message:
             and "$memphis_pm_cg_name" in self.message.headers
         ):
             raise MemphisError("cannot delay DLS message")
-        else:
-            try:
-                await self.message.nak(delay=delay)
-            except Exception as e:
-                raise MemphisError(str(e)) from e
+        
+        try:
+            await self.message.nak(delay=delay)
+        except Exception as e:
+            raise MemphisError(str(e)) from e

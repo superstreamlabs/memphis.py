@@ -15,24 +15,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-import random
 import ssl
-import time
-from threading import Timer
-from typing import Callable, Iterable, Union
+from typing import Iterable, Union
 import uuid
 import base64
 
-import graphql
 import nats as broker
 from google.protobuf import descriptor_pb2, descriptor_pool
 from google.protobuf.message_factory import MessageFactory
 from graphql import build_schema as build_graphql_schema
-from graphql import parse as parse_graphql
-from graphql import validate as validate_graphql
-from jsonschema import validate
 from memphis.consumer import Consumer
-from memphis.exceptions import MemphisConnectError, MemphisError, MemphisHeaderError, MemphisSchemaError
+from memphis.exceptions import MemphisConnectError, MemphisError
 from memphis.headers import Headers
 from memphis.producer import Producer
 from memphis.station import Station
@@ -57,8 +50,8 @@ class Memphis:
         self.station_schemaverse_to_dls = {}
         self.update_configurations_sub = {}
         self.configuration_tasks = {}
-        self.producers_map = dict()
-        self.consumers_map = dict()
+        self.producers_map = {}
+        self.consumers_map = {}
 
     async def get_msgs_sdk_clients_updates(self, iterable: Iterable):
         try:
@@ -100,17 +93,17 @@ class Memphis:
             try:
                 conn = await broker.connect(**ping_connection_opts)
                 await conn.close()
-            except Exception as ex:
-                if "authorization violation" in str(ex).lower():
+            except Exception as e:
+                if "authorization violation" in str(e).lower():
                     try:
                         ping_connection_opts["user"] = self.username
                         conn = await broker.connect(**ping_connection_opts)
                         await conn.close()
                         connection_opts["user"] = self.username
-                    except Exception as ex1:
-                        raise ex1
+                    except Exception as e_1:
+                        raise e_1
                 else:
-                    raise ex
+                    raise e
 
         return await broker.connect(**connection_opts)
 
@@ -200,10 +193,10 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e))
 
-    async def send_notification(self, title, msg, failedMsg, type):
-        msg = {"title": title, "msg": msg, "type": type, "code": failedMsg}
-        msgToSend = json.dumps(msg).encode("utf-8")
-        await self.broker_manager.publish("$memphis_notifications", msgToSend)
+    async def send_notification(self, title, msg, failed_msg, not_type):
+        msg = {"title": title, "msg": msg, "type": not_type, "code": failed_msg}
+        msg_to_send = json.dumps(msg).encode("utf-8")
+        await self.broker_manager.publish("$memphis_notifications", msg_to_send)
 
     async def station(
         self,
@@ -234,7 +227,7 @@ class Memphis:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
 
-            createStationReq = {
+            create_station_req = {
                 "name": name,
                 "retention_type": retention_type.value,
                 "retention_value": retention_value,
@@ -249,7 +242,7 @@ class Memphis:
                 "username": self.username,
                 "tiered_storage_enabled": tiered_storage_enabled
             }
-            create_station_req_bytes = json.dumps(createStationReq, indent=2).encode(
+            create_station_req_bytes = json.dumps(create_station_req, indent=2).encode(
                 "utf-8"
             )
             err_msg = await self.broker_manager.request(
@@ -264,25 +257,25 @@ class Memphis:
         except Exception as e:
             if str(e).find("already exist") != -1:
                 return Station(self, name.lower())
-            else:
-                raise MemphisError(str(e)) from e
+            
+            raise MemphisError(str(e)) from e
 
-    async def attach_schema(self, name, stationName):
+    async def attach_schema(self, name, station_name):
         """Attaches a schema to an existing station.
         Args:
             name (str): schema name.
-            stationName (str): station name.
+            station_name (str): station name.
         Raises:
             Exception: _description_
         """
         try:
-            if name == "" or stationName == "":
+            if name == "" or station_name == "":
                 raise MemphisError("name and station name can not be empty")
-            msg = {"name": name, "station_name": stationName,
+            msg = {"name": name, "station_name": station_name,
                    "username": self.username}
-            msgToSend = json.dumps(msg).encode("utf-8")
+            msg_to_send = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
-                "$memphis_schema_attachments", msgToSend, timeout=5
+                "$memphis_schema_attachments", msg_to_send, timeout=5
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -291,20 +284,20 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    async def detach_schema(self, stationName):
+    async def detach_schema(self, station_name):
         """Detaches a schema from station.
         Args:
-            stationName (str): station name.
+            station_name (str): station name.
         Raises:
             Exception: _description_
         """
         try:
-            if stationName == "":
+            if station_name == "":
                 raise MemphisError("station name is missing")
-            msg = {"station_name": stationName, "username": self.username}
-            msgToSend = json.dumps(msg).encode("utf-8")
+            msg = {"station_name": station_name, "username": self.username}
+            msg_to_send = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
-                "$memphis_schema_detachments", msgToSend, timeout=5
+                "$memphis_schema_detachments", msg_to_send, timeout=5
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -343,19 +336,19 @@ class Memphis:
                 for consumer in self.consumers_map:
                     consumer.dls_messages.clear()
                 self.consumers_map.clear()
-        except:
+        except Exception:
             return
 
-    def __generateRandomSuffix(self, name: str) -> str:
+    def __generate_random_suffix(self, name: str) -> str:
         return name + "_" + random_bytes(8)
 
     def __normalize_host(self, host):
         if host.startswith("http://"):
             return host.split("http://")[1]
-        elif host.startswith("https://"):
+        if host.startswith("https://"):
             return host.split("https://")[1]
-        else:
-            return host
+        
+        return host
 
     async def producer(
         self,
@@ -378,8 +371,8 @@ class Memphis:
                 raise MemphisError("Connection is dead")
             real_name = producer_name.lower()
             if generate_random_suffix:
-                producer_name = self.__generateRandomSuffix(producer_name)
-            createProducerReq = {
+                producer_name = self.__generate_random_suffix(producer_name)
+            create_producer_req = {
                 "name": producer_name,
                 "station_name": station_name,
                 "connection_id": self.connection_id,
@@ -387,7 +380,7 @@ class Memphis:
                 "req_version": 1,
                 "username": self.username
             }
-            create_producer_req_bytes = json.dumps(createProducerReq, indent=2).encode(
+            create_producer_req_bytes = json.dumps(create_producer_req, indent=2).encode(
                 "utf-8"
             )
             create_res = await self.broker_manager.request(
@@ -538,7 +531,7 @@ class Memphis:
                     f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
             real_name = consumer_name.lower()
             if generate_random_suffix:
-                consumer_name = self.__generateRandomSuffix(consumer_name)
+                consumer_name = self.__generate_random_suffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
 
             if start_consume_from_sequence <= 0:
@@ -553,7 +546,7 @@ class Memphis:
                 raise MemphisError(
                     "Consumer creation options can't contain both start_consume_from_sequence and last_messages"
                 )
-            createConsumerReq = {
+            create_consumer_req = {
                 "name": consumer_name,
                 "station_name": station_name,
                 "connection_id": self.connection_id,
@@ -567,7 +560,7 @@ class Memphis:
                 "username": self.username
             }
 
-            create_consumer_req_bytes = json.dumps(createConsumerReq, indent=2).encode(
+            create_consumer_req_bytes = json.dumps(create_consumer_req, indent=2).encode(
                 "utf-8"
             )
             err_msg = await self.broker_manager.request(

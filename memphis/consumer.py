@@ -10,6 +10,7 @@ from memphis.message import Message
 
 class Consumer:
     MAX_BATCH_SIZE = 5000
+
     def __init__(
         self,
         connection,
@@ -82,8 +83,8 @@ class Consumer:
                 except Exception as e:
                     if self.connection.is_connection_active:
                         raise MemphisError(str(e)) from e
-                    else:
-                        return
+                    
+                    return
             else:
                 break
 
@@ -100,7 +101,8 @@ class Consumer:
                 if index_to_insert >= 10000:
                     index_to_insert %= 10000
                 self.dls_messages.insert(
-                    index_to_insert, Message(msg, self.connection, self.consumer_group)
+                    index_to_insert, Message(
+                        msg, self.connection, self.consumer_group)
                 )
                 self.dls_current_index += 1
                 if self.dls_callback_func != None:
@@ -120,7 +122,8 @@ class Consumer:
         if self.connection.is_connection_active:
             try:
                 if batch_size > self.MAX_BATCH_SIZE:
-                    raise MemphisError(f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
+                    raise MemphisError(
+                        f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
                 self.batch_size = batch_size
                 if len(self.dls_messages) > 0:
                     if len(self.dls_messages) <= batch_size:
@@ -133,22 +136,22 @@ class Consumer:
                         self.dls_current_index -= len(messages)
                     return messages
 
-                durableName = ""
+                durable_name = ""
                 if self.consumer_group != "":
-                    durableName = get_internal_name(self.consumer_group)
+                    durable_name = get_internal_name(self.consumer_group)
                 else:
-                    durableName = get_internal_name(self.consumer_name)
+                    durable_name = get_internal_name(self.consumer_name)
                 subject = get_internal_name(self.station_name)
-                consumer_group = get_internal_name(self.consumer_group)
                 self.psub = await self.connection.broker_connection.pull_subscribe(
-                    subject + ".final", durable=durableName
+                    subject + ".final", durable=durable_name
                 )
                 msgs = await self.psub.fetch(batch_size)
                 for msg in msgs:
-                    messages.append(Message(msg, self.connection, self.consumer_group))
+                    messages.append(
+                        Message(msg, self.connection, self.consumer_group))
                 return messages
             except Exception as e:
-                if not "timeout" in str(e):
+                if "timeout" not in str(e):
                     raise MemphisError(str(e)) from e
         else:
             return messages
@@ -175,12 +178,13 @@ class Consumer:
             self.t_ping.cancel()
         self.pull_interval_ms = None
         try:
-            destroyConsumerReq = {
+            destroy_consumer_req = {
                 "name": self.consumer_name,
                 "station_name": self.station_name,
                 "username": self.connection.username
             }
-            consumer_name = json.dumps(destroyConsumerReq, indent=2).encode("utf-8")
+            consumer_name = json.dumps(
+                destroy_consumer_req, indent=2).encode("utf-8")
             res = await self.connection.broker_manager.request(
                 "$memphis_consumer_destructions", consumer_name, timeout=5
             )
@@ -193,4 +197,3 @@ class Consumer:
             del self.connection.consumers_map[map_key]
         except Exception as e:
             raise MemphisError(str(e)) from e
-        

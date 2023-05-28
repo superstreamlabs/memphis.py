@@ -14,7 +14,7 @@ from memphis.exceptions import MemphisError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
 
-schemaVFailAlertType = "schema_validation_fail_alert"
+schemaverse_fail_alert_type = "schema_validation_fail_alert"
 
 
 class Producer:
@@ -36,15 +36,15 @@ class Producer:
             if schema_type == "protobuf":
                 message = self.validate_protobuf(message)
                 return message
-            elif schema_type == "json":
+            if schema_type == "json":
                 message = self.validate_json_schema(message)
                 return message
-            elif schema_type == "graphql":
+            if schema_type == "graphql":
                 message = self.validate_graphql(message)
                 return message
-            elif hasattr(message, "SerializeToString"):
-                msgToSend = message.SerializeToString()
-                return msgToSend
+            if hasattr(message, "SerializeToString"):
+                msg_to_send = message.SerializeToString()
+                return msg_to_send
         elif isinstance(message, str):
             message = message.encode("utf-8")
             return message
@@ -54,8 +54,8 @@ class Producer:
             message = message.encode("utf-8")
             return message
         elif hasattr(message, "SerializeToString"):
-            msgToSend = message.SerializeToString()
-            return msgToSend
+            msg_to_send = message.SerializeToString()
+            return msg_to_send
         elif not isinstance(message, bytearray) and not isinstance(message, dict):
             raise MemphisSchemaError("Unsupported message type")
         else:
@@ -65,36 +65,36 @@ class Producer:
 
     def validate_protobuf(self, message):
         proto_msg = self.connection.proto_msgs[self.internal_station_name]
-        msgToSend = ""
+        msg_to_send = ""
         try:
             if isinstance(message, bytearray):
-                msgToSend = bytes(message)
+                msg_to_send = bytes(message)
                 try:
-                    proto_msg.ParseFromString(msgToSend)
+                    proto_msg.ParseFromString(msg_to_send)
                     proto_msg.SerializeToString()
-                    msgToSend = msgToSend.decode("utf-8")
+                    msg_to_send = msg_to_send.decode("utf-8")
                 except Exception as e:
                     if "parsing message" in str(e):
                         e = "Invalid message format, expecting protobuf"
                     raise MemphisSchemaError(str(e))
                 return message
-            elif hasattr(message, "SerializeToString"):
-                msgToSend = message.SerializeToString()
-                proto_msg.ParseFromString(msgToSend)
+            if hasattr(message, "SerializeToString"):
+                msg_to_send = message.SerializeToString()
+                proto_msg.ParseFromString(msg_to_send)
                 proto_msg.SerializeToString()
                 try:
-                    proto_msg.ParseFromString(msgToSend)
+                    proto_msg.ParseFromString(msg_to_send)
                     proto_msg.SerializeToString()
                 except Exception as e:
                     if "parsing message" in str(e):
                         e = "Error parsing protobuf message"
                     raise MemphisSchemaError(str(e))
-                return msgToSend
+                return msg_to_send
             elif isinstance(message, dict):
                 try:
                     protobuf_json_format.ParseDict(message, proto_msg)
-                    msgToSend = proto_msg.SerializeToString()
-                    return msgToSend
+                    msg_to_send = proto_msg.SerializeToString()
+                    return msg_to_send
                 except Exception as e:
                     raise MemphisSchemaError(str(e))
             else:
@@ -216,13 +216,13 @@ class Producer:
                     e
                 ) or "Unsupported message type" in str(e):
                     if self.connection.schema_updates_data[self.internal_station_name] != {}:
-                        msgToSend = ""
+                        msg_to_send = ""
                         if hasattr(message, "SerializeToString"):
-                            msgToSend = message.SerializeToString().decode("utf-8")
+                            msg_to_send = message.SerializeToString().decode("utf-8")
                         elif isinstance(message, bytearray):
-                            msgToSend = str(message, "utf-8")
+                            msg_to_send = str(message, "utf-8")
                         else:
-                            msgToSend = str(message)
+                            msg_to_send = str(message)
                         if self.connection.station_schemaverse_to_dls[
                             self.internal_station_name
                         ]:
@@ -239,8 +239,8 @@ class Producer:
                             else:
                                 headers = memphis_headers
 
-                            msgToSendEncoded = msgToSend.encode("utf-8")
-                            msgHex = msgToSendEncoded.hex()
+                            msg_to_send_encoded = msg_to_send.encode("utf-8")
+                            msg_hex = msg_to_send_encoded.hex()
                             buf = {
                                 "station_name": self.internal_station_name,
                                 "producer": {
@@ -249,7 +249,7 @@ class Producer:
                                 },
                                 "creation_unix": unix_time,
                                 "message": {
-                                    "data": msgHex,
+                                    "data": msg_hex,
                                     "headers": headers,
                                 },
                                 "validation_error": str(e)
@@ -267,21 +267,21 @@ class Producer:
                                     + self.producer_name
                                     + "\nError:"
                                     + str(e),
-                                    msgToSend,
-                                    schemaVFailAlertType,
+                                    msg_to_send,
+                                    schemaverse_fail_alert_type,
                                 )
                 raise MemphisError(str(e)) from e
 
     async def destroy(self):
         """Destroy the producer."""
         try:
-            destroyProducerReq = {
+            destroy_producer_req = {
                 "name": self.producer_name,
                 "station_name": self.station_name,
                 "username": self.connection.username
             }
 
-            producer_name = json.dumps(destroyProducerReq).encode("utf-8")
+            producer_name = json.dumps(destroy_producer_req).encode("utf-8")
             res = await self.connection.broker_manager.request(
                 "$memphis_producer_destructions", producer_name, timeout=5
             )
