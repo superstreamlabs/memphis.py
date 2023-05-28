@@ -21,4 +21,4 @@ jobs:
         python setup.py install
     - name: Analysing the code with pylint
       run: |
-        pylint $(git ls-files '*.py') --disable=C0111
+        pylint $(git ls-files '*.py') --disable=C0111 --good-names "('i','e')"
