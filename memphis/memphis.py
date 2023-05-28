@@ -43,6 +43,7 @@ from memphis.utils import get_internal_name, random_bytes
 class Memphis:
     MAX_BATCH_SIZE = 5000
     MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
+
     def __init__(self):
         self.is_connection_active = False
         self.schema_updates_data = {}
@@ -91,7 +92,27 @@ class Memphis:
             self.configuration_tasks = task
         except Exception as err:
             raise MemphisError(err)
-    
+
+    async def get_broker_manager_connection(self, connection_opts):
+        if "user" in connection_opts:
+            ping_connection_opts = connection_opts
+            ping_connection_opts["allow_reconnect"] = False
+            try:
+                conn = await broker.connect(**ping_connection_opts)
+                await conn.close()
+            except Exception as ex:
+                if "authorization violation" in str(ex).lower():
+                    try:
+                        ping_connection_opts["user"] = self.username
+                        conn = await broker.connect(**ping_connection_opts)
+                        await conn.close()
+                        connection_opts["user"] = self.username
+                    except Exception as ex1:
+                        raise ex1
+                else:
+                    raise ex
+
+        return await broker.connect(**connection_opts)
 
     async def connect(
         self,
@@ -138,10 +159,12 @@ class Memphis:
         self.connection_id = str(uuid.uuid4())
         try:
             if self.connection_token != "" and self.password != "":
-                raise MemphisConnectError("You have to connect with one of the following methods: connection token / password")
+                raise MemphisConnectError(
+                    "You have to connect with one of the following methods: connection token / password")
             if self.connection_token == "" and self.password == "":
-                raise MemphisConnectError("You have to connect with one of the following methods: connection token / password")
-            
+                raise MemphisConnectError(
+                    "You have to connect with one of the following methods: connection token / password")
+
             connection_opts = {
                 "servers": self.host + ":" + str(self.port),
                 "allow_reconnect": self.reconnect,
@@ -157,16 +180,18 @@ class Memphis:
                     raise MemphisConnectError("Must provide a TLS key file")
                 if ca_file == "":
                     raise MemphisConnectError("Must provide a TLS ca file")
-                ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+                ssl_ctx = ssl.create_default_context(
+                    purpose=ssl.Purpose.SERVER_AUTH)
                 ssl_ctx.load_verify_locations(ca_file)
                 ssl_ctx.load_cert_chain(certfile=cert_file, keyfile=key_file)
                 connection_opts["tls"] = ssl_ctx
                 connection_opts["tls_hostname"] = self.host
             if self.connection_token != "":
-                connection_opts["token"]=self.connection_token
+                connection_opts["token"] = self.connection_token
             else:
-                connection_opts["user"]=self.username + "$" + str(self.account_id)
-                connection_opts["password"]=self.password
+                connection_opts["user"] = self.username + \
+                    "$" + str(self.account_id)
+                connection_opts["password"] = self.password
 
             self.broker_manager = await self.get_broker_manager_connection(connection_opts)
             await self.sdk_client_updates_listener()
@@ -253,7 +278,8 @@ class Memphis:
         try:
             if name == "" or stationName == "":
                 raise MemphisError("name and station name can not be empty")
-            msg = {"name": name, "station_name": stationName, "username": self.username}
+            msg = {"name": name, "station_name": stationName,
+                   "username": self.username}
             msgToSend = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
                 "$memphis_schema_attachments", msgToSend, timeout=5
@@ -392,8 +418,9 @@ class Memphis:
                 if self.schema_updates_data[internal_station_name]["type"] == "json":
                     schema = self.schema_updates_data[internal_station_name][
                         "active_version"
-    ]["schema_content"]
-                    self.json_schemas[internal_station_name] = json.loads(schema)
+                    ]["schema_content"]
+                    self.json_schemas[internal_station_name] = json.loads(
+                        schema)
                 elif (
                     self.schema_updates_data[internal_station_name]["type"] == "graphql"
                 ):
@@ -507,7 +534,8 @@ class Memphis:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
             if batch_size > self.MAX_BATCH_SIZE:
-                raise MemphisError(f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
+                raise MemphisError(
+                    f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
             real_name = consumer_name.lower()
             if generate_random_suffix:
                 consumer_name = self.__generateRandomSuffix(consumer_name)
@@ -647,9 +675,11 @@ class Memphis:
         try:
             consumer = None
             if not self.is_connection_active:
-                raise MemphisError("Cant fetch messages without being connected!")
+                raise MemphisError(
+                    "Cant fetch messages without being connected!")
             if batch_size > self.MAX_BATCH_SIZE:
-                raise MemphisError(f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
+                raise MemphisError(
+                    f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
             internal_station_name = get_internal_name(station_name)
             consumer_map_key = internal_station_name + "_" + consumer_name.lower()
             if consumer_map_key in self.consumers_map:
@@ -676,7 +706,7 @@ class Memphis:
 
     def is_connected(self):
         return self.broker_manager.is_connected
-    
+
     def unset_cached_producer_station(self, station_name):
         try:
             internal_station_name = get_internal_name(station_name)
@@ -686,16 +716,15 @@ class Memphis:
                     del self.producers_map[key]
         except Exception as e:
             raise e
-    
 
     def unset_cached_consumer_station(self, station_name):
         try:
             internal_station_name = get_internal_name(station_name)
             for key in list(self.consumers_map):
                 consumer = self.consumers_map[key]
-                consumer_station_name_internal = get_internal_name(consumer.station_name)
+                consumer_station_name_internal = get_internal_name(
+                    consumer.station_name)
                 if consumer_station_name_internal == internal_station_name:
                     del self.consumers_map[key]
         except Exception as e:
             raise e
-
