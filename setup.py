@@ -19,7 +19,7 @@ setup(
     url="https://github.com/memphisdev/memphis.py",
     download_url="https://github.com/memphisdev/memphis.py/archive/refs/tags/1.0.2.tar.gz",
     keywords=["message broker", "devtool", "streaming", "data"],
-    install_requires=["asyncio", "nats-py", "protobuf", "jsonschema", "graphql-core", "urllib3==1.26.15"],
+    install_requires=["asyncio", "nats-py", "protobuf", "jsonschema", "graphql-core"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
