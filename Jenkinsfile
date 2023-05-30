@@ -8,8 +8,11 @@ node ("small-ec2-fleet") {
   try{
     
    stage('Deploy to pypi') {
-     sh 'python3 setup.py sdist'
-     sh 'pip3 install twine'
+     sh """
+       python3 setup.py sdist
+       pip3 install twine
+       python3 -m pip install urllib3==1.26.6
+     """
      withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
      sh '/home/ec2-user/.local/bin/twine upload -u $USR -p $PSW dist/*'
     }
