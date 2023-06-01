@@ -28,8 +28,8 @@ node ("small-ec2-fleet") {
 			  """
 			}
 		  sh """
-			  sed -i -r "s/version=\\"[0-9].[0-9].[0-9]/version=\\"\$versionTag/g" setup.py
-        sed -i -r "s/[0-9].[0-9].[0-9].tar.gz/\$versionTag.tar.gz/g" setup.py
+			  sed -i -r "s/version=\\"[0-9].[0-9].[0-9]/version=\\"$versionTag/g" setup.py
+        sed -i -r "s/[0-9].[0-9].[0-9].tar.gz/$versionTag\\.tar.gz/g" setup.py
 				python3 setup.py sdist
 			"""
 			withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
