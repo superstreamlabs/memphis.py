@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import ssl
 from typing import Iterable, Union
@@ -88,8 +89,17 @@ class Memphis:
 
     async def get_broker_manager_connection(self, connection_opts):
         if "user" in connection_opts:
-            ping_connection_opts = connection_opts
+            async def ping_error_cb(e):
+                if "authorization violation" not in (str(e)).lower():
+                    print(MemphisError(str(e)))
+            
+            async def error_cb(e):
+                return
+            
+            ping_connection_opts = copy.deepcopy(connection_opts)
             ping_connection_opts["allow_reconnect"] = False
+            ping_connection_opts["error_cb"] = ping_error_cb
+
             try:
                 conn = await broker.connect(**ping_connection_opts)
                 await conn.close()
@@ -99,6 +109,7 @@ class Memphis:
                         if "localhost" in connection_opts['servers']: # for handling bad quality networks like port fwd
                             await asyncio.sleep(1)
                         ping_connection_opts["user"] = self.username
+                        ping_connection_opts["error_cb"] = error_cb
                         conn = await broker.connect(**ping_connection_opts)
                         await conn.close()
                         connection_opts["user"] = self.username
