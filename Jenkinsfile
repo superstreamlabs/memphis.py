@@ -4,38 +4,59 @@ def repoUrlPrefix = "memphisos"
 
 node ("small-ec2-fleet") {
   git credentialsId: 'main-github', url: gitURL, branch: gitBranch
-  
+	
+  if (env.BRANCH_NAME ==~ /(master)/) { 
+    versionTag = readFile "./version-beta.conf"
+  }
+  else {
+    versionTag = readFile "./version.conf"
+  }
+	
   try{
     
-   stage('Deploy to pypi') {
-     sh """
-       python3 setup.py sdist
-       pip3 install twine
-       python3 -m pip install urllib3==1.26.6
-     """
-     withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
-     sh '/home/ec2-user/.local/bin/twine upload -u $USR -p $PSW dist/*'
-    }
-   }
-    
-    stage('Checkout to version branch'){
+    stage('Install twine') {
       sh """
-	sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo 
-        sudo yum install gh -y
-        sed -i -r "s/version=\\"[0-9].[0-9].[0-9]/version=\\"\$(cat version.conf)/g" setup.py
-        sed -i -r "s/[0-9].[0-9].[0-9].tar.gz/\$(cat version.conf).tar.gz/g" setup.py
+        pip3 install twine
+        python3 -m pip install urllib3==1.26.6
       """
-      withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
-        sh """
-	  git reset --hard origin/latest
-          GIT_SSH_COMMAND='ssh -i $check' git checkout -b \$(cat version.conf)
-          GIT_SSH_COMMAND='ssh -i $check' git push --set-upstream origin \$(cat version.conf)
-	"""
-      }
-      withCredentials([string(credentialsId: 'gh_token', variable: 'GH_TOKEN')]) {
-        sh(script:"""gh release create \$(cat version.conf) --generate-notes""", returnStdout: true)
-      }
     }
+    
+    stage('Deploy to pypi') {
+			if (env.BRANCH_NAME ==~ /(master)/) {
+				sh """
+				  sed -i -r "s/memphis-py/memphis-py-beta/g" setup.py
+			  """
+			}
+		  sh """
+			  sed -i -r "s/version=\\"[0-9].[0-9].[0-9]/version=\\"\$versionTag/g" setup.py
+        sed -i -r "s/[0-9].[0-9].[0-9].tar.gz/\$versionTag.tar.gz/g" setup.py
+				python3 setup.py sdist
+			"""
+			withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
+        sh '/home/ec2-user/.local/bin/twine upload -u $USR -p $PSW dist/*'
+      }
+		}
+	  
+		if (env.BRANCH_NAME ==~ /(latest)/) {
+      stage('Checkout to version branch'){
+        sh """
+	        sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo 
+          sudo yum install gh -y
+        """
+        withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
+          sh """
+	          git reset --hard origin/latest
+            GIT_SSH_COMMAND='ssh -i $check' git checkout -b $versionTag
+            GIT_SSH_COMMAND='ssh -i $check' git push --set-upstream origin $versionTag
+	        """
+        }
+        withCredentials([string(credentialsId: 'gh_token', variable: 'GH_TOKEN')]) {
+          sh """
+					  gh release create $versionTag --generate-notes
+					"""
+        }
+      }
+		}
 
 
     notifySuccessful()
