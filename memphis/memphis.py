@@ -92,10 +92,8 @@ class Memphis:
             async def ping_error_cb(e):
                 if "authorization violation" not in (str(e)).lower():
                     print(MemphisError(str(e)))
-            
             async def error_cb(e):
                 return
-            
             ping_connection_opts = copy.deepcopy(connection_opts)
             ping_connection_opts["allow_reconnect"] = False
             ping_connection_opts["error_cb"] = ping_error_cb
