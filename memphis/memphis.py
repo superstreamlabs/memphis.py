@@ -273,8 +273,14 @@ class Memphis:
                 return Station(self, name.lower())
             raise MemphisError(str(e)) from e
         
-    #attach_schema is depreciated
     async def attach_schema(self, name, station_name):
+        """Attach Schema is Deprecated - Use enforce_schema
+        Args:
+            name (str): schema name.
+            station_name (str): station name.
+        Raises:
+            Exception: _description_
+        """
         await self.enforce_schema(name, station_name)
 
     async def enforce_schema(self, name, station_name):

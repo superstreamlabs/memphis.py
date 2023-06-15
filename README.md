@@ -186,6 +186,12 @@ await memphis.create_schema("<schema-name>", "<schema-type>", "<schema-file-path
 await memphis.enforce_schema("<schema-name>", "<station-name>")
 ```
 
+### Deprecated  - Attaching a Schema 
+
+```python
+await memphis.attach_schema("<schema-name>", "<station-name>")
+```
+
 ### Detaching a Schema from Station
 
 ```python
