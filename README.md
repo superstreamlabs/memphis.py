@@ -174,10 +174,16 @@ Destroying a station will remove all its resources (producers/consumers)
 station.destroy()
 ```
 
-### Attaching a Schema to an Existing Station
+### Creating a New Schema 
 
 ```python
-await memphis.attach_schema("<schema-name>", "<station-name>")
+await memphis.create_schema("<schema-name>", "<schema-type>", "<schema-file-path>")
+```
+
+### Enforcing a Schema to an Existing Station
+
+```python
+await memphis.enforce_schema("<schema-name>", "<station-name>")
 ```
 
 ### Detaching a Schema from Station

@@ -714,6 +714,14 @@ class Memphis:
             raise MemphisError(str(e)) from e
         
     async def create_schema(self, schema_name, schema_type, schema_path):
+
+        """Create a New Schema in the Broker.
+        Args:.
+            schema_name (str): the name of the schema.
+            schema_type (str): the type of the schema json / graphql / protobuf.
+            schema_path (str): the path for the schema file
+        """
+
         if schema_type not in {'json', 'graphql', 'protobuf'}:
             raise MemphisError("schema type not supported" + type)
         
