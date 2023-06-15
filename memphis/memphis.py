@@ -20,6 +20,7 @@ import ssl
 from typing import Iterable, Union
 import uuid
 import base64
+import re
 
 import nats as broker
 from google.protobuf import descriptor_pb2, descriptor_pool
@@ -707,6 +708,52 @@ class Memphis:
             return messages
         except Exception as e:
             raise MemphisError(str(e)) from e
+        
+    async def create_schema(self, schema_name, schema_type, schema_path):
+        if schema_type not in {'json', 'graphql', 'protobuf'}:
+            raise MemphisError("schema type not supported" + type)
+        
+        try:
+            await self.schema_name_validation(schema_name)
+        except Exception as e:
+            raise e
+
+
+        schema_content = ""
+        with open(schema_path, "r") as f:
+            schema_content = f.read()
+        
+        create_schema_req = {
+            "name": schema_name,
+            "type": schema_type,
+            "created_by_username": self.username,
+            "schema_content": schema_content,
+            "message_struct_name": ""
+        }
+        
+        create_schema_req_bytes = json.dumps(create_schema_req, indent=2).encode("utf-8")
+
+        create_res = await self.broker_manager.request(
+            "$memphis_schema_creations", create_schema_req_bytes, timeout=5)
+        
+        create_res = create_res.data.decode("utf-8")
+        create_res = json.loads(create_res)
+        if create_res["error"] != "":
+                raise MemphisError(create_res["error"])
+        
+    
+    async def schema_name_validation(self, scheam_name):
+        if len(scheam_name) == 0:
+            raise MemphisError("schema name can not be empty")
+        
+        if len(scheam_name) > 128:
+            raise MemphisError("schema name should be under 128 characters")
+
+        if re.fullmatch(r'^[a-z0-9_.-]*$', scheam_name) is None:
+            raise MemphisError("Only alphanumeric and the '_', '-', '.' characters are allowed in the schema name")
+
+        if scheam_name[0] == "." or scheam_name[0] == "-" or scheam_name[0] == "_" or scheam_name[-1] == "." or scheam_name[-1] == "-" or scheam_name[-1] == "_":
+            raise MemoryError("schema name can not start or end with non alphanumeric character")
 
     def is_connected(self):
         return self.broker_manager.is_connected
