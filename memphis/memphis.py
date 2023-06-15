@@ -272,9 +272,13 @@ class Memphis:
             if str(e).find("already exist") != -1:
                 return Station(self, name.lower())
             raise MemphisError(str(e)) from e
-
+        
+    #attach_schema is depreciated
     async def attach_schema(self, name, station_name):
-        """Attaches a schema to an existing station.
+        await self.enforce_schema(name, station_name)
+
+    async def enforce_schema(self, name, station_name):
+        """Enforce a schema to an existing station.
         Args:
             name (str): schema name.
             station_name (str): station name.
