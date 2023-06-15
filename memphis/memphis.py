@@ -274,7 +274,7 @@ class Memphis:
             raise MemphisError(str(e)) from e
         
     async def attach_schema(self, name, station_name):
-        """Attach Schema is Deprecated - Use enforce_schema
+        """Deprecated - Use enforce_schema instead
         Args:
             name (str): schema name.
             station_name (str): station name.
@@ -284,7 +284,7 @@ class Memphis:
         await self.enforce_schema(name, station_name)
 
     async def enforce_schema(self, name, station_name):
-        """Enforce a schema to an existing station.
+        """Enforce a schema on an existing station.
         Args:
             name (str): schema name.
             station_name (str): station name.
@@ -721,7 +721,7 @@ class Memphis:
         
     async def create_schema(self, schema_name, schema_type, schema_path):
 
-        """Create a New Schema in the Broker.
+        """Creates a new schema.
         Args:.
             schema_name (str): the name of the schema.
             schema_type (str): the type of the schema json / graphql / protobuf.

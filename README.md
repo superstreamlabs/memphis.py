@@ -180,13 +180,13 @@ station.destroy()
 await memphis.create_schema("<schema-name>", "<schema-type>", "<schema-file-path>")
 ```
 
-### Enforcing a Schema to an Existing Station
+### Enforcing a Schema on an Existing Station
 
 ```python
 await memphis.enforce_schema("<schema-name>", "<station-name>")
 ```
 
-### Deprecated  - Attaching a Schema 
+### Deprecated  - Attaching a Schema, use enforce_schema instead
 
 ```python
 await memphis.attach_schema("<schema-name>", "<station-name>")
