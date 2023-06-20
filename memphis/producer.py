@@ -137,7 +137,7 @@ class Producer:
                 message = str(msg.loc.source.body)
                 message = message.encode("utf-8")
             else:
-                raise MemphisError("Unsupported message type")
+                raise Exception("Unsupported message type")
             validate_res = validate_graphql(
                 schema=self.connection.graphql_schemas[self.internal_station_name],
                 document_ast=msg,
@@ -149,7 +149,7 @@ class Producer:
         except Exception as e:
             if "Syntax Error" in str(e):
                 e = "Invalid message format, expected GraphQL"
-            raise Exception("Schema validation has failed: " + str(e))
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     async def produce(
         self,
@@ -206,70 +206,71 @@ class Producer:
                     timeout=ack_wait_sec,
                     headers=headers,
                 )
+        except MemphisSchemaError as e:
+            if self.connection.schema_updates_data[self.internal_station_name] != {}:
+                msg_to_send = ""
+                if hasattr(message, "SerializeToString"):
+                    msg_to_send = message.SerializeToString().decode("utf-8")
+                elif isinstance(message, bytearray):
+                    msg_to_send = str(message, "utf-8")
+                else:
+                    msg_to_send = str(message)
+
+                if self.connection.station_schemaverse_to_dls[
+                    self.internal_station_name
+                ]:
+                    unix_time = int(time.time())
+
+                    memphis_headers = {
+                        "$memphis_producedBy": self.producer_name,
+                        "$memphis_connectionId": self.connection.connection_id,
+                    }
+
+                    if headers != {} and not headers == None:
+                        headers = headers.headers
+                        headers.update(memphis_headers)
+                    else:
+                        headers = memphis_headers
+
+                    msg_to_send_encoded = msg_to_send.encode("utf-8")
+                    msg_hex = msg_to_send_encoded.hex()
+                    buf = {
+                        "station_name": self.internal_station_name,
+                        "producer": {
+                            "name": self.producer_name,
+                            "connection_id": self.connection.connection_id,
+                        },
+                        "creation_unix": unix_time,
+                        "message": {
+                            "data": msg_hex,
+                            "headers": headers,
+                        },
+                        "validation_error": str(e)
+                    }
+                    buf = json.dumps(buf).encode("utf-8")
+                    await self.connection.broker_manager.publish("$memphis_schemaverse_dls", buf)
+
+                if self.connection.cluster_configurations.get(
+                    "send_notification"
+                ):
+                    await self.connection.send_notification(
+                        "Schema validation has failed",
+                        "Station: "
+                        + self.station_name
+                        + "\nProducer: "
+                        + self.producer_name
+                        + "\nError:"
+                        + str(e),
+                        msg_to_send,
+                        schemaverse_fail_alert_type,
+                    )
+            raise e
         except Exception as e:
             if hasattr(e, "status_code") and e.status_code == "503":
                 raise MemphisError(
                     "Produce operation has failed, please check whether Station/Producer still exist"
                 )
             else:
-                if "Schema validation has failed" in str(
-                    e
-                ) or "Unsupported message type" in str(e):
-                    if self.connection.schema_updates_data[self.internal_station_name] != {}:
-                        msg_to_send = ""
-                        if hasattr(message, "SerializeToString"):
-                            msg_to_send = message.SerializeToString().decode("utf-8")
-                        elif isinstance(message, bytearray):
-                            msg_to_send = str(message, "utf-8")
-                        else:
-                            msg_to_send = str(message)
-                        if self.connection.station_schemaverse_to_dls[
-                            self.internal_station_name
-                        ]:
-                            unix_time = int(time.time())
-
-                            memphis_headers = {
-                                "$memphis_producedBy": self.producer_name,
-                                "$memphis_connectionId": self.connection.connection_id,
-                            }
-
-                            if headers != {} and not headers == None:
-                                headers = headers.headers
-                                headers.update(memphis_headers)
-                            else:
-                                headers = memphis_headers
-
-                            msg_to_send_encoded = msg_to_send.encode("utf-8")
-                            msg_hex = msg_to_send_encoded.hex()
-                            buf = {
-                                "station_name": self.internal_station_name,
-                                "producer": {
-                                    "name": self.producer_name,
-                                    "connection_id": self.connection.connection_id,
-                                },
-                                "creation_unix": unix_time,
-                                "message": {
-                                    "data": msg_hex,
-                                    "headers": headers,
-                                },
-                                "validation_error": str(e)
-                            }
-                            buf = json.dumps(buf).encode("utf-8")
-                            await self.connection.broker_manager.publish("$memphis_schemaverse_dls", buf)
-                            if self.connection.cluster_configurations.get(
-                                "send_notification"
-                            ):
-                                await self.connection.send_notification(
-                                    "Schema validation has failed",
-                                    "Station: "
-                                    + self.station_name
-                                    + "\nProducer: "
-                                    + self.producer_name
-                                    + "\nError:"
-                                    + str(e),
-                                    msg_to_send,
-                                    schemaverse_fail_alert_type,
-                                )
                 raise MemphisError(str(e)) from e
 
     async def destroy(self):
