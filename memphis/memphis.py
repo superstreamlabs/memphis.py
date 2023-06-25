@@ -762,16 +762,16 @@ class Memphis:
 
     async def schema_name_validation(self, schema_name):
         if len(schema_name) == 0:
-            raise MemphisError("schema name can not be empty")
+            raise MemphisError("Schema name cannot be empty")
 
         if len(schema_name) > 128:
-            raise MemphisError("schema name should be under 128 characters")
+            raise MemphisError("Schema name should be under 128 characters")
 
         if re.fullmatch(r'^[a-z0-9_.-]*$', schema_name) is None:
             raise MemphisError("Only alphanumeric and the '_', '-', '.' characters are allowed in the schema name")
 
         if not schema_name[0].isalnum() or not schema_name[-1].isalnum():
-            raise MemphisError("schema name cannot start with a non-alphanumeric character")
+            raise MemphisError("Schema name cannot start or end with a non-alphanumeric character")
 
     def is_connected(self):
         return self.broker_manager.is_connected
