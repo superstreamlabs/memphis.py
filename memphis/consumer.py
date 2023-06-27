@@ -35,7 +35,7 @@ class Consumer:
         self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms
         self.max_ack_time_ms = max_ack_time_ms
         self.max_msg_deliveries = max_msg_deliveries
-        self.ping_consumer_invterval_ms = 30000
+        self.ping_consumer_interval_ms = 30000
         if error_callback is None:
             error_callback = default_error_handler
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
@@ -116,7 +116,13 @@ class Consumer:
                 return
 
     async def fetch(self, batch_size: int = 10):
-        """Fetch a batch of messages."""
+        """
+        Fetch a batch of messages.
+
+        If the connection is not active or no messages
+        are recieved before timing out, an empty list
+        is returned.
+        """
         messages = []
         if self.connection.is_connection_active:
             try:
@@ -158,7 +164,7 @@ class Consumer:
     async def __ping_consumer(self, callback):
         while True:
             try:
-                await asyncio.sleep(self.ping_consumer_invterval_ms / 1000)
+                await asyncio.sleep(self.ping_consumer_interval_ms / 1000)
                 consumer_group = get_internal_name(self.consumer_group)
                 await self.connection.broker_connection.consumer_info(
                     self.station_name, consumer_group, timeout=30
