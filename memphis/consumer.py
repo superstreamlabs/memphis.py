@@ -150,10 +150,10 @@ class Consumer:
                         Message(msg, self.connection, self.consumer_group))
                 return messages
             except Exception as e:
-                if "timeout" not in str(e):
+                if "timeout" not in str(e).lower():
                     raise MemphisError(str(e)) from e
-        else:
-            return messages
+
+        return messages
 
     async def __ping_consumer(self, callback):
         while True:
