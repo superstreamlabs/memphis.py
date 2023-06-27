@@ -119,9 +119,41 @@ class Consumer:
         """
         Fetch a batch of messages.
 
-        If the connection is not active or no messages
-        are recieved before timing out, an empty list
-        is returned.
+        Returns a list of Message objects. If the connection is
+        not active or no messages are recieved before timing out,
+        an empty list is returned.
+
+        Example:
+
+            import asyncio
+            
+            from memphis import Memphis
+
+            async def main(/, host, username, password, station):
+                memphis = Memphis()
+                await memphis.connect(host=host,
+                                      username=username,
+                                      password=password)
+            
+                consumer = await memphis.consumer(station_name=station,
+                                                  consumer_name="test-consumer",
+                                                  consumer_group="test-consumer-group")
+            
+                while True:
+                    batch = await consumer.fetch()
+                    print("Recieved {} messages".format(len(batch)))
+                    for msg in batch:
+                        serialized_record = msg.get_data()
+                        print("Message:", serialized_record)
+            
+                await memphis.close()
+
+            if __name__ == '__main__':
+                asyncio.run(main(host=host,
+                                 username=username,
+                                 password=password,
+                                 station=station))
+        
         """
         messages = []
         if self.connection.is_connection_active:
