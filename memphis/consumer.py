@@ -217,6 +217,6 @@ class Consumer:
             self.loading_thread = threading.Thread(target=self.__load_messages(batch_size))
             self.loading_thread.start()
 
-    def __load_messages(self, batch_size):
+    async def __load_messages(self, batch_size):
         new_messages = await self.fetch(batch_size)
         self.cached_messages.extend(new_messages)

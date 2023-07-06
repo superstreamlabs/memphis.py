@@ -17,14 +17,13 @@ import asyncio
 import copy
 import json
 import ssl
-<<<<<<< HEAD
+from __future__ import annotations
+
+import asyncio
+import copy
+import json
+import ssl
 from typing import Iterable, Union
-=======
-import time
-from threading import Timer
-import threading
-from typing import Callable, Iterable, Union
->>>>>>> da74957 (Add prefetch mechanism to consumer)
 import uuid
 import base64
 import re
@@ -59,8 +58,8 @@ class Memphis:
         self.station_schemaverse_to_dls = {}
         self.update_configurations_sub = {}
         self.configuration_tasks = {}
-        self.producers_map = dict()
-        self.consumers_map = dict()
+        self.producers_map = {}
+        self.consumers_map = {}
 
     async def get_msgs_sdk_clients_updates(self, iterable: Iterable):
         try:
