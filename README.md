@@ -65,10 +65,10 @@ async def main():
     await memphis.connect(
       host="<memphis-host>",
       username="<application-type username>",
-      account_id="<account_id>", # You can find it on the profile page in the Memphis UI. This field should be sent only on the cloud version of Memphis, otherwise it will be ignored
+      account_id=<account_id>, # You can find it on the profile page in the Memphis UI. This field should be sent only on the cloud version of Memphis, otherwise it will be ignored
       connection_token="<broker-token>", # you will get it on application type user creation
       password="<string>", # depends on how Memphis deployed - default is connection token-based authentication
-      port="<port>", # defaults to 6666
+      port=<port>, # defaults to 6666
       reconnect=True, # defaults to True
       max_reconnect=3, # defaults to 3
       reconnect_interval_ms=1500, # defaults to 1500

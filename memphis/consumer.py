@@ -35,7 +35,7 @@ class Consumer:
         self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms
         self.max_ack_time_ms = max_ack_time_ms
         self.max_msg_deliveries = max_msg_deliveries
-        self.ping_consumer_invterval_ms = 30000
+        self.ping_consumer_interval_ms = 30000
         if error_callback is None:
             error_callback = default_error_handler
         self.t_ping = asyncio.create_task(self.__ping_consumer(error_callback))
@@ -116,7 +116,45 @@ class Consumer:
                 return
 
     async def fetch(self, batch_size: int = 10):
-        """Fetch a batch of messages."""
+        """
+        Fetch a batch of messages.
+
+        Returns a list of Message objects. If the connection is
+        not active or no messages are recieved before timing out,
+        an empty list is returned.
+
+        Example:
+
+            import asyncio
+            
+            from memphis import Memphis
+
+            async def main(/, host, username, password, station):
+                memphis = Memphis()
+                await memphis.connect(host=host,
+                                      username=username,
+                                      password=password)
+            
+                consumer = await memphis.consumer(station_name=station,
+                                                  consumer_name="test-consumer",
+                                                  consumer_group="test-consumer-group")
+            
+                while True:
+                    batch = await consumer.fetch()
+                    print("Recieved {} messages".format(len(batch)))
+                    for msg in batch:
+                        serialized_record = msg.get_data()
+                        print("Message:", serialized_record)
+            
+                await memphis.close()
+
+            if __name__ == '__main__':
+                asyncio.run(main(host=host,
+                                 username=username,
+                                 password=password,
+                                 station=station))
+        
+        """
         messages = []
         if self.connection.is_connection_active:
             try:
@@ -150,15 +188,15 @@ class Consumer:
                         Message(msg, self.connection, self.consumer_group))
                 return messages
             except Exception as e:
-                if "timeout" not in str(e):
+                if "timeout" not in str(e).lower():
                     raise MemphisError(str(e)) from e
-        else:
-            return messages
+
+        return messages
 
     async def __ping_consumer(self, callback):
         while True:
             try:
-                await asyncio.sleep(self.ping_consumer_invterval_ms / 1000)
+                await asyncio.sleep(self.ping_consumer_interval_ms / 1000)
                 consumer_group = get_internal_name(self.consumer_group)
                 await self.connection.broker_connection.consumer_info(
                     self.station_name, consumer_group, timeout=30
@@ -180,7 +218,9 @@ class Consumer:
             destroy_consumer_req = {
                 "name": self.consumer_name,
                 "station_name": self.station_name,
-                "username": self.connection.username
+                "username": self.connection.username,
+                "connection_id": self.connection.connection_id,
+                "req_version": 1,
             }
             consumer_name = json.dumps(
                 destroy_consumer_req, indent=2).encode("utf-8")
