@@ -279,7 +279,9 @@ class Producer:
             destroy_producer_req = {
                 "name": self.producer_name,
                 "station_name": self.station_name,
-                "username": self.connection.username
+                "username": self.connection.username,
+                "connection_id": self.connection.connection_id,
+                "req_version": 1,
             }
 
             producer_name = json.dumps(destroy_producer_req).encode("utf-8")

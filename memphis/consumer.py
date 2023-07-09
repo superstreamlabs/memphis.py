@@ -218,7 +218,9 @@ class Consumer:
             destroy_consumer_req = {
                 "name": self.consumer_name,
                 "station_name": self.station_name,
-                "username": self.connection.username
+                "username": self.connection.username,
+                "connection_id": self.connection.connection_id,
+                "req_version": 1,
             }
             consumer_name = json.dumps(
                 destroy_consumer_req, indent=2).encode("utf-8")
