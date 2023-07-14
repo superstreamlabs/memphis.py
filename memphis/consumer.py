@@ -54,8 +54,6 @@ class Consumer:
 
     def consume(self, callback):
         """
-        Consume events.
-
         This method starts consuming events from the specified station and invokes the provided callback function for each batch of messages received.
 
         Parameters:
@@ -80,17 +78,14 @@ class Consumer:
             async def main():
                 memphis = Memphis()
                 await memphis.connect(host='localhost', username='user', password='pass')
-                consumer = await memphis.consumer(station_name='my_station', consumer_name='my_consumer', consumer_group='my_group')
+                callback = await memphis.consumer(station_name='my_station', consumer_name='my_consumer', consumer_group='my_group')
                 consumer.set_context({'key': 'value'})
                 consumer.consume(callback=message_handler)
 
                 # Keep the event loop running
                 while True:
                     await asyncio.sleep(1)
-
             asyncio.run(main())
-    
-
         """
         self.dls_callback_func = callback
         self.t_consume = asyncio.create_task(self.__consume(callback))
