@@ -78,9 +78,9 @@ class Consumer:
             async def main():
                 memphis = Memphis()
                 await memphis.connect(host='localhost', username='user', password='pass')
-                callback = await memphis.consumer(station_name='my_station', consumer_name='my_consumer', consumer_group='my_group')
+                consumer = await memphis.consumer(station_name='my_station', consumer_name='my_consumer', consumer_group='my_group')
                 consumer.set_context({'key': 'value'})
-                consumer.consume(callback=message_handler)
+                consumer.consume(message_handler)
 
                 # Keep the event loop running
                 while True:
