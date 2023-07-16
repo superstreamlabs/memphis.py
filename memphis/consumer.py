@@ -132,7 +132,7 @@ class Consumer:
             
             from memphis import Memphis
 
-            async def main(/, host, username, password, station):
+            async def main(host, username, password, station):
                 memphis = Memphis()
                 await memphis.connect(host=host,
                                       username=username,
@@ -152,10 +152,10 @@ class Consumer:
                 await memphis.close()
 
             if __name__ == '__main__':
-                asyncio.run(main(host=host,
-                                 username=username,
-                                 password=password,
-                                 station=station))
+                asyncio.run(main(host,
+                                 username,
+                                 password,
+                                 station))
         
         """
         messages = []
@@ -236,7 +236,9 @@ class Consumer:
             destroy_consumer_req = {
                 "name": self.consumer_name,
                 "station_name": self.station_name,
-                "username": self.connection.username
+                "username": self.connection.username,
+                "connection_id": self.connection.connection_id,
+                "req_version": 1,
             }
             consumer_name = json.dumps(
                 destroy_consumer_req, indent=2).encode("utf-8")

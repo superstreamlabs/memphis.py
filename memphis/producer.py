@@ -265,13 +265,12 @@ class Producer:
                         schemaverse_fail_alert_type,
                     )
             raise e
-        except Exception as e:
+        except Exception as e: # pylint: disable-next=no-member
             if hasattr(e, "status_code") and e.status_code == "503":
                 raise MemphisError(
                     "Produce operation has failed, please check whether Station/Producer still exist"
                 )
-            else:
-                raise MemphisError(str(e)) from e
+            raise MemphisError(str(e)) from e
 
     async def destroy(self):
         """Destroy the producer."""
@@ -279,7 +278,9 @@ class Producer:
             destroy_producer_req = {
                 "name": self.producer_name,
                 "station_name": self.station_name,
-                "username": self.connection.username
+                "username": self.connection.username,
+                "connection_id": self.connection.connection_id,
+                "req_version": 1,
             }
 
             producer_name = json.dumps(destroy_producer_req).encode("utf-8")
