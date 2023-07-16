@@ -13,19 +13,19 @@ class Consumer:
     MAX_BATCH_SIZE = 5000
 
     def __init__(
-        self,
-        connection,
-        station_name: str,
-        consumer_name,
-        consumer_group,
-        pull_interval_ms: int,
-        batch_size: int,
-        batch_max_time_to_wait_ms: int,
-        max_ack_time_ms: int,
-        max_msg_deliveries: int = 10,
-        error_callback=None,
-        start_consume_from_sequence: int = 1,
-        last_messages: int = -1,
+            self,
+            connection,
+            station_name: str,
+            consumer_name,
+            consumer_group,
+            pull_interval_ms: int,
+            batch_size: int,
+            batch_max_time_to_wait_ms: int,
+            max_ack_time_ms: int,
+            max_msg_deliveries: int = 10,
+            error_callback=None,
+            start_consume_from_sequence: int = 1,
+            last_messages: int = -1,
     ):
         self.connection = connection
         self.station_name = station_name.lower()
@@ -160,15 +160,18 @@ class Consumer:
         """
         messages = []
 
-        if prefetch and self.cached_messages:
+        if prefetch:
             if len(self.cached_messages) >= batch_size:
                 messages = self.cached_messages[:batch_size]
                 self.cached_messages = self.cached_messages[batch_size:]
-            else:
-                pulled_messages_size = len(self.cached_messages)
+                number_of_messages_to_prefetch = batch_size * 2 - batch_size  # calculated for clarity
+            elif self.cached_messages:
+                number_of_messages_to_prefetch = batch_size * 2 - len(self.cached_messages)
                 messages = self.cached_messages
                 self.cached_messages = []
-            self.load_messages_to_cache(batch_size * 2 - pulled_messages_size)
+            else:
+                number_of_messages_to_prefetch = batch_size * 2
+            self.load_messages_to_cache(number_of_messages_to_prefetch)
             return messages
 
         if self.connection.is_connection_active:
