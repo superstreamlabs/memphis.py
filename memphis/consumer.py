@@ -165,14 +165,12 @@ class Consumer:
                 messages = self.cached_messages[:batch_size]
                 self.cached_messages = self.cached_messages[batch_size:]
                 number_of_messages_to_prefetch = batch_size * 2 - batch_size  # calculated for clarity
-            elif self.cached_messages:
-                number_of_messages_to_prefetch = batch_size * 2 - len(self.cached_messages)
-                messages = self.cached_messages
-                self.cached_messages = []
-            else:
-                number_of_messages_to_prefetch = batch_size * 2
-            self.load_messages_to_cache(number_of_messages_to_prefetch)
-            return messages
+                self.load_messages_to_cache(number_of_messages_to_prefetch)
+                return messages
+            # else:
+            messages = self.cached_messages
+            batch_size -= len(self.cached_messages)
+            self.cached_messages = []
 
         if self.connection.is_connection_active:
             try:
@@ -209,6 +207,9 @@ class Consumer:
                 if "timeout" not in str(e).lower():
                     raise MemphisError(str(e)) from e
 
+        if prefetch:
+            number_of_messages_to_prefetch = batch_size * 2
+            self.load_messages_to_cache(number_of_messages_to_prefetch)
         return messages
 
     async def __ping_consumer(self, callback):
