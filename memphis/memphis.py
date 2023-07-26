@@ -99,6 +99,11 @@ class Memphis:
             ping_connection_opts["allow_reconnect"] = False
             ping_connection_opts["error_cb"] = ping_error_cb
 
+            # Newer versions of Memphis take a user of the form
+            # "{username}${account_id}".  For older versions, the user was
+            # simply the username.  The user is created using the new style
+            # in Memphis.connect(). If connecting with the new-style user
+            # fails, try the old style.
             try:
                 conn = await broker.connect(**ping_connection_opts)
                 await conn.close()
