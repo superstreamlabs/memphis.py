@@ -13,6 +13,7 @@ import google.protobuf.json_format as protobuf_json_format
 from memphis.exceptions import MemphisError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
+import fastavro
 
 schemaverse_fail_alert_type = "schema_validation_fail_alert"
 
@@ -41,6 +42,9 @@ class Producer:
                 return message
             if schema_type == "graphql":
                 message = self.validate_graphql(message)
+                return message
+            if schema_type == "avro":
+                message = self.validate_avro_schema(message)
                 return message
             if hasattr(message, "SerializeToString"):
                 msg_to_send = message.SerializeToString()
@@ -150,6 +154,27 @@ class Producer:
             if "Syntax Error" in str(e):
                 e = "Invalid message format, expected GraphQL"
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
+        
+    def validate_avro_schema(self, message):
+        try:
+            if isinstance(message, bytearray):
+                try:
+                    message_obj = json.loads(message)
+                except Exception as e:
+                    raise Exception("Expecting Avro format: " + str(e))
+            elif isinstance(message, dict):
+                message_obj = message
+                message = bytearray(json.dumps(message_obj).encode("utf-8"))
+            else:
+                raise Exception("Unsupported message type")
+            
+            fastavro.validate(
+                message_obj,
+                self.connection.avro_schemas[self.internal_station_name],
+            )
+            return message
+        except fastavro.validation.ValidationError as e:
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
     async def produce(
         self,
@@ -161,7 +186,7 @@ class Producer:
     ):
         """Produces a message into a station.
         Args:
-            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema) or bytearray/dict (schema validated station - avro schema)
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
