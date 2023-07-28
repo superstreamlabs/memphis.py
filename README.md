@@ -1,7 +1,6 @@
 <div align="center">
   
   ![Banner- Memphis dev streaming  (2)](https://github.com/memphisdev/memphis.py/assets/107035359/6787500c-d806-4f22-96aa-a182d4c24dfa)
-
   
 </div>
 
@@ -9,7 +8,7 @@
 
   <h4>
 
-**[Memphis](https://memphis.dev)** is a next-generation alternative to traditional message brokers.
+**[Memphis](https://memphis.dev)** is an intelligent, frictionless message broker.<br>Made to enable developers to build real-time and streaming apps fast.
 
   </h4>
   
@@ -24,7 +23,7 @@
 </div>
  
  <p align="center">
-  <a href="https://memphis.dev/docs/">Docs</a> - <a href="https://twitter.com/Memphis_Dev">Twitter</a> - <a href="https://www.youtube.com/channel/UCVdMDLCSxXOqtgrBaRUHKKg">YouTube</a>
+  <a href="https://memphis.dev/pricing/">Cloud</a> - <a href="https://memphis.dev/docs/">Docs</a> - <a href="https://twitter.com/Memphis_Dev">Twitter</a> - <a href="https://www.youtube.com/channel/UCVdMDLCSxXOqtgrBaRUHKKg">YouTube</a>
 </p>
 
 <p align="center">
@@ -36,11 +35,10 @@
 <img src="https://img.shields.io/github/last-commit/memphisdev/memphis?color=61dfc6&label=last%20commit">
 </p>
 
-A simple, robust, and durable cloud-native message broker wrapped with<br>
-an entire ecosystem that enables cost-effective, fast, and reliable development of modern queue-based use cases.<br><br>
-Memphis enables the building of modern queue-based applications that require<br>
-large volumes of streamed and enriched data, modern protocols, zero ops, rapid development,<br>
-extreme cost reduction, and a significantly lower amount of dev time for data-oriented developers and data engineers.
+Memphis.dev is more than a broker. It's a new streaming stack.<br><br>
+It accelerates the development of real-time applications that require<br>
+high throughput, low latency, small footprint, and multiple protocols,<br>with minimum platform operations, and all the observability you can think of.<br><br>
+Highly resilient, distributed architecture, cloud-native, and run on any Kubernetes,<br>on any cloud without zookeeper, bookeeper, or JVM.
 
 ## Installation
 
