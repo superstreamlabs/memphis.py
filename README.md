@@ -253,7 +253,7 @@ await producer.produce(
 ```
 
 ### Async produce
-Meaning your application won't wait for broker acknowledgement - use only in case you are tolerant for data loss
+For better performance. The client won't block requests while waiting for an acknowledgment.
 
 ```python
 await producer.produce(
