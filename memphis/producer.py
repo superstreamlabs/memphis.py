@@ -10,10 +10,10 @@ from graphql import parse as parse_graphql
 from graphql import validate as validate_graphql
 from jsonschema import validate
 import google.protobuf.json_format as protobuf_json_format
+import fastavro
 from memphis.exceptions import MemphisError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
-import fastavro
 
 schemaverse_fail_alert_type = "schema_validation_fail_alert"
 
@@ -154,7 +154,7 @@ class Producer:
             if "Syntax Error" in str(e):
                 e = "Invalid message format, expected GraphQL"
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
-        
+
     def validate_avro_schema(self, message):
         try:
             if isinstance(message, bytearray):
@@ -167,7 +167,7 @@ class Producer:
                 message = bytearray(json.dumps(message_obj).encode("utf-8"))
             else:
                 raise Exception("Unsupported message type")
-            
+
             fastavro.validate(
                 message_obj,
                 self.connection.avro_schemas[self.internal_station_name],
