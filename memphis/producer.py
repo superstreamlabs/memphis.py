@@ -223,7 +223,9 @@ class Producer:
                     self.background_tasks.add(task)
                     task.add_done_callback(self.background_tasks.discard)
 
-                    if concurrent_task_limit is not None and len(self.background_tasks) >= concurrent_task_limit:
+                    # block until the number of outstanding async tasks is reduced
+                    if concurrent_task_limit is not None and \
+                        len(self.background_tasks) >= concurrent_task_limit:
                         desired_size = concurrent_task_limit / 2
                         while len(self.background_tasks) > desired_size:
                             await asyncio.sleep(0.1)
