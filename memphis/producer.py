@@ -11,6 +11,7 @@ from graphql import parse as parse_graphql
 from graphql import validate as validate_graphql
 from jsonschema import validate
 import google.protobuf.json_format as protobuf_json_format
+import fastavro
 from memphis.exceptions import MemphisError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
@@ -43,6 +44,9 @@ class Producer:
                 return message
             if schema_type == "graphql":
                 message = self.validate_graphql(message)
+                return message
+            if schema_type == "avro":
+                message = self.validate_avro_schema(message)
                 return message
             if hasattr(message, "SerializeToString"):
                 msg_to_send = message.SerializeToString()
@@ -153,6 +157,28 @@ class Producer:
                 e = "Invalid message format, expected GraphQL"
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
+
+    def validate_avro_schema(self, message):
+        try:
+            if isinstance(message, bytearray):
+                try:
+                    message_obj = json.loads(message)
+                except Exception as e:
+                    raise Exception("Expecting Avro format: " + str(e))
+            elif isinstance(message, dict):
+                message_obj = message
+                message = bytearray(json.dumps(message_obj).encode("utf-8"))
+            else:
+                raise Exception("Unsupported message type")
+
+            fastavro.validate(
+                message_obj,
+                self.connection.avro_schemas[self.internal_station_name],
+            )
+            return message
+        except fastavro.validation.ValidationError as e:
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+
     # pylint: disable=R0913
     async def produce(
         self,
@@ -172,6 +198,7 @@ class Producer:
                                       - bytearray/dict (schema validated station - json schema)
                                       - string/bytearray/graphql.language.ast.DocumentNode
                                         (schema validated station - graphql schema)
+                                      - bytearray/dict (schema validated station - avro schema)
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from the broker.
                                           Defaults to 15 sec.
             headers (dict, optional): message headers, defaults to {}.

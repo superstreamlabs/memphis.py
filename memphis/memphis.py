@@ -48,6 +48,7 @@ class Memphis:
         self.proto_msgs = {}
         self.graphql_schemas = {}
         self.json_schemas = {}
+        self.avro_schemas = {}
         self.cluster_configurations = {}
         self.station_schemaverse_to_dls = {}
         self.update_configurations_sub = {}
@@ -449,6 +450,14 @@ class Memphis:
                             "active_version"
                         ]["schema_content"]
                     )
+                elif (
+                    self.schema_updates_data[internal_station_name]["type"] == "avro"
+                ):
+                    schema = self.schema_updates_data[internal_station_name][
+                        "active_version"
+                    ]["schema_content"]
+                    self.avro_schemas[internal_station_name] = json.loads(
+                        schema)
             producer = Producer(self, producer_name, station_name, real_name)
             map_key = internal_station_name + "_" + real_name
             self.producers_map[map_key] = producer
@@ -633,7 +642,7 @@ class Memphis:
         Args:
             station_name (str): station name to produce messages into.
             producer_name (str): name for the producer.
-            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema or  bytearray/dict (schema validated station - avro schema))
             generate_random_suffix (bool): false by default, if true concatenate a random suffix to producer's name
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
@@ -729,11 +738,11 @@ class Memphis:
         """Creates a new schema.
         Args:.
             schema_name (str): the name of the schema.
-            schema_type (str): the type of the schema json / graphql / protobuf.
+            schema_type (str): the type of the schema json / graphql / protobuf / avro.
             schema_path (str): the path for the schema file
         """
 
-        if schema_type not in {'json', 'graphql', 'protobuf'}:
+        if schema_type not in {'json', 'graphql', 'protobuf', 'avro'}:
             raise MemphisError("schema type not supported" + type)
 
         try:
