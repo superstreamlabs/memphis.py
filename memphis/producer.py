@@ -287,6 +287,10 @@ class Producer:
     async def destroy(self):
         """Destroy the producer."""
         try:
+            # drain buffered async messages
+            while len(self.background_tasks) > 0:
+                await asyncio.sleep(0.1)
+
             destroy_producer_req = {
                 "name": self.producer_name,
                 "station_name": self.station_name,
