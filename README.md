@@ -233,7 +233,7 @@ await memphis.produce(station_name='test_station_py', producer_name='prod_py',
   generate_random_suffix=False, #defaults to false
   ack_wait_sec=15, # defaults to 15
   headers=headers, # default to {}
-  async_produce=False, #defaults to false
+  nonblocking=False, #defaults to false
   msg_id="123"
 )
 ```
@@ -256,14 +256,26 @@ await producer.produce(
   headers=headers) # default to {}
 ```
 
-### Async produce
-For better performance. The client won't block requests while waiting for an acknowledgment.
+### Non-blocking Produce
+For better performance, the client won't block requests while waiting for an acknowledgment.
 
 ```python
 await producer.produce(
   message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
-  headers={}, async_produce=True)
+  headers={}, nonblocking=True)
 ```
+
+### Non-blocking Produce with Task Limits
+For better performance, the client won't block requests while waiting for an acknowledgment.
+If you are producing a large number of messages and see timeout errors, then you may need to
+limit the number of concurrent tasks like so:
+
+```python
+await producer.produce(
+  message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+  headers={}, nonblocking=True, limit_concurrent_tasks=500)
+```
+
 
 ### Message ID
 Stations are idempotent by default for 2 minutes (can be configured), Idempotency achieved by adding a message id

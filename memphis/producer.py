@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 from typing import Union
+import warnings
 
 import graphql
 from graphql import parse as parse_graphql
@@ -152,24 +153,38 @@ class Producer:
                 e = "Invalid message format, expected GraphQL"
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
+    # pylint: disable=R0913
     async def produce(
         self,
         message,
         ack_wait_sec: int = 15,
         headers: Union[Headers, None] = None,
-        async_produce: bool = False,
+        async_produce: Union[bool, None] = None,
+        nonblocking: bool = False,
         msg_id: Union[str, None] = None,
-        buffer_limit_msg: Union[int, None] = None
+        concurrent_task_limit: Union[int, None] = None
     ):
         """Produces a message into a station.
         Args:
-            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
-            ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
-            headers (dict, optional): Message headers, defaults to {}.
-            async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
-            msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotency
-            buffer_limit_msg (int, optional): Limit the number of outstanding async produce tasks.
-                                              Calls with async_produce will block if the buffer is full.
+            message (bytearray/dict): message to send into the station
+                                      - bytearray/protobuf class
+                                        (schema validated station - protobuf)
+                                      - bytearray/dict (schema validated station - json schema)
+                                      - string/bytearray/graphql.language.ast.DocumentNode
+                                        (schema validated station - graphql schema)
+            ack_wait_sec (int, optional): max time in seconds to wait for an ack from the broker.
+                                          Defaults to 15 sec.
+            headers (dict, optional): message headers, defaults to {}.
+            async_produce (boolean, optional): produce operation won't block (wait) on message send.
+                                               This argument is deprecated. Please use the
+                                               `nonblocking` arguemnt instead.
+            nonblocking (boolean, optional): produce operation won't block (wait) on message send.
+            msg_id (string, optional): Attach msg-id header to the message in order to
+                                       achieve idempotency.
+            concurrent_task_limit (int, optional): Limit the number of outstanding async produce
+                                                   tasks. Calls with nonblocking=True will block
+                                                   if the limit is hit and will wait until the
+                                                   buffer drains halfway down.
         Raises:
             Exception: _description_
         """
@@ -191,6 +206,11 @@ class Producer:
                 headers = memphis_headers
 
             if async_produce:
+                nonblocking = True
+                warnings.warn("The argument async_produce is deprecated. " + \
+                              "Please use the argument nonblocking instead.")
+
+            if nonblocking:
                 try:
                     task = self.loop.create_task(
                                self.connection.broker_connection.publish(
@@ -203,8 +223,8 @@ class Producer:
                     self.background_tasks.add(task)
                     task.add_done_callback(self.background_tasks.discard)
 
-                    if buffer_limit_msg is not None and len(self.background_tasks) >= buffer_limit_msg:
-                        desired_size = buffer_limit_msg / 2
+                    if concurrent_task_limit is not None and len(self.background_tasks) >= concurrent_task_limit:
+                        desired_size = concurrent_task_limit / 2
                         while len(self.background_tasks) > desired_size:
                             await asyncio.sleep(0.1)
 
