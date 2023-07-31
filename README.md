@@ -1,7 +1,6 @@
 <div align="center">
   
   ![Banner- Memphis dev streaming  (2)](https://github.com/memphisdev/memphis.py/assets/107035359/6787500c-d806-4f22-96aa-a182d4c24dfa)
-
   
 </div>
 
@@ -9,7 +8,7 @@
 
   <h4>
 
-**[Memphis](https://memphis.dev)** is a next-generation alternative to traditional message brokers.
+**[Memphis](https://memphis.dev)** is an intelligent, frictionless message broker.<br>Made to enable developers to build real-time and streaming apps fast.
 
   </h4>
   
@@ -24,7 +23,7 @@
 </div>
  
  <p align="center">
-  <a href="https://memphis.dev/docs/">Docs</a> - <a href="https://twitter.com/Memphis_Dev">Twitter</a> - <a href="https://www.youtube.com/channel/UCVdMDLCSxXOqtgrBaRUHKKg">YouTube</a>
+  <a href="https://memphis.dev/pricing/">Cloud</a> - <a href="https://memphis.dev/docs/">Docs</a> - <a href="https://twitter.com/Memphis_Dev">Twitter</a> - <a href="https://www.youtube.com/channel/UCVdMDLCSxXOqtgrBaRUHKKg">YouTube</a>
 </p>
 
 <p align="center">
@@ -36,11 +35,10 @@
 <img src="https://img.shields.io/github/last-commit/memphisdev/memphis?color=61dfc6&label=last%20commit">
 </p>
 
-A simple, robust, and durable cloud-native message broker wrapped with<br>
-an entire ecosystem that enables cost-effective, fast, and reliable development of modern queue-based use cases.<br><br>
-Memphis enables the building of modern queue-based applications that require<br>
-large volumes of streamed and enriched data, modern protocols, zero ops, rapid development,<br>
-extreme cost reduction, and a significantly lower amount of dev time for data-oriented developers and data engineers.
+Memphis.dev is more than a broker. It's a new streaming stack.<br><br>
+It accelerates the development of real-time applications that require<br>
+high throughput, low latency, small footprint, and multiple protocols,<br>with minimum platform operations, and all the observability you can think of.<br><br>
+Highly resilient, distributed architecture, cloud-native, and run on any Kubernetes,<br>on any cloud without zookeeper, bookeeper, or JVM.
 
 ## Installation
 
@@ -107,7 +105,7 @@ _If a station already exists nothing happens, the new configuration will not be 
 station = memphis.station(
   name="<station-name>",
   schema_name="<schema-name>",
-  retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
+  retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES/ACK_BASED(cloud only). Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
   storage_type=Storage.DISK, # Storage.DISK/Storage.MEMORY. Defaults to DISK
   replicas=1, # defaults to 1
@@ -140,6 +138,12 @@ memphis.types.Retention.BYTES
 
 Means that after max amount of saved bytes (set in retention value), the oldest messages will be deleted
 
+```python
+memphis.types.Retention.ACK_BASED # for cloud users only
+```
+
+Means that after a message is getting acked by all interested consumer groups it will be deleted from the Station.
+
 
 ### Retention Values
 
@@ -147,7 +151,7 @@ The `retention values` are directly related to the `retention types` mentioned a
 
 All retention values are of type `int` but with different representations as follows:
 
-`memphis.types.Retention.MAX_MESSAGE_AGE_SECONDS` is represented **in seconds**, `memphis.types.Retention.MESSAGES` in a **number of messages** and finally `memphis.types.Retention.BYTES` in a **number of bytes**.
+`memphis.types.Retention.MAX_MESSAGE_AGE_SECONDS` is represented **in seconds**, `memphis.types.Retention.MESSAGES` in a **number of messages**, `memphis.types.Retention.BYTES` in a **number of bytes** and finally and finally `memphis.ACK_BASED` is not using the retentionValue param at all.
 
 After these limits are reached oldest messages will be deleted.
 
@@ -253,7 +257,7 @@ await producer.produce(
 ```
 
 ### Async produce
-Meaning your application won't wait for broker acknowledgement - use only in case you are tolerant for data loss
+For better performance. The client won't block requests while waiting for an acknowledgment.
 
 ```python
 await producer.produce(
