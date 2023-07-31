@@ -105,7 +105,7 @@ _If a station already exists nothing happens, the new configuration will not be 
 station = memphis.station(
   name="<station-name>",
   schema_name="<schema-name>",
-  retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES. Defaults to MAX_MESSAGE_AGE_SECONDS
+  retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES/ACK_BASED(cloud only). Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
   storage_type=Storage.DISK, # Storage.DISK/Storage.MEMORY. Defaults to DISK
   replicas=1, # defaults to 1
@@ -138,6 +138,12 @@ memphis.types.Retention.BYTES
 
 Means that after max amount of saved bytes (set in retention value), the oldest messages will be deleted
 
+```python
+memphis.types.Retention.ACK_BASED # for cloud users only
+```
+
+Means that after a message is getting acked by all interested consumer groups it will be deleted from the Station.
+
 
 ### Retention Values
 
@@ -145,7 +151,7 @@ The `retention values` are directly related to the `retention types` mentioned a
 
 All retention values are of type `int` but with different representations as follows:
 
-`memphis.types.Retention.MAX_MESSAGE_AGE_SECONDS` is represented **in seconds**, `memphis.types.Retention.MESSAGES` in a **number of messages** and finally `memphis.types.Retention.BYTES` in a **number of bytes**.
+`memphis.types.Retention.MAX_MESSAGE_AGE_SECONDS` is represented **in seconds**, `memphis.types.Retention.MESSAGES` in a **number of messages**, `memphis.types.Retention.BYTES` in a **number of bytes** and finally and finally `memphis.ACK_BASED` is not using the retentionValue param at all.
 
 After these limits are reached oldest messages will be deleted.
 

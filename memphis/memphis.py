@@ -233,7 +233,7 @@ class Memphis:
         """Creates a station.
         Args:
             name (str): station name.
-            retention_type (Retention, optional): retention type: message_age_sec/messages/bytes . Defaults to "message_age_sec".
+            retention_type (Retention, optional): retention type: MESSAGE_AGE_SEC/MESSAGES/BYTES/ACK_BASED . Defaults to "MESSAGE_AGE_SEC".
             retention_value (int, optional): number which represents the retention based on the retention_type. Defaults to 604800.
             storage_type (Storage, optional): persistance storage for messages of the station: disk/memory. Defaults to "disk".
             replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
