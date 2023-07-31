@@ -27,6 +27,7 @@ class Producer:
         self.internal_station_name = get_internal_name(self.station_name)
         self.loop = asyncio.get_running_loop()
         self.real_name = real_name
+        self.background_tasks = set()
 
     async def validate_msg(self, message):
         if self.connection.schema_updates_data[self.internal_station_name] != {}:
@@ -158,6 +159,7 @@ class Producer:
         headers: Union[Headers, None] = None,
         async_produce: bool = False,
         msg_id: Union[str, None] = None,
+        buffer_limit_msg: Union[int, None] = None
     ):
         """Produces a message into a station.
         Args:
@@ -166,6 +168,8 @@ class Producer:
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
             msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotency
+            buffer_limit_msg (int, optional): Limit the number of outstanding async produce tasks.
+                                              Calls with async_produce will block if the buffer is full.
         Raises:
             Exception: _description_
         """
@@ -188,14 +192,22 @@ class Producer:
 
             if async_produce:
                 try:
-                    self.loop.create_task(
-                        self.connection.broker_connection.publish(
-                            self.internal_station_name + ".final",
-                            message,
-                            timeout=ack_wait_sec,
-                            headers=headers,
-                        )
-                    )
+                    task = self.loop.create_task(
+                               self.connection.broker_connection.publish(
+                                 self.internal_station_name + ".final",
+                                 message,
+                                 timeout=ack_wait_sec,
+                                 headers=headers,
+                               )
+                           )
+                    self.background_tasks.add(task)
+                    task.add_done_callback(self.background_tasks.discard)
+
+                    if buffer_limit_msg is not None and len(self.background_tasks) >= buffer_limit_msg:
+                        desired_size = buffer_limit_msg / 2
+                        while len(self.background_tasks) > desired_size:
+                            await asyncio.sleep(0.1)
+
                     await asyncio.sleep(0)
                 except Exception as e:
                     raise MemphisError(e)
