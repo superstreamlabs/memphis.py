@@ -89,6 +89,11 @@ class Consumer:
         """
         self.dls_callback_func = callback
         self.t_consume = asyncio.create_task(self.__consume(callback))
+    
+    def stopConsume(self):
+        if self.t_consume is not None:
+            self.t_consume.cancel()
+            self.t_consume = None
 
     async def __consume(self, callback):
         subject = get_internal_name(self.station_name)
