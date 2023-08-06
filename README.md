@@ -51,6 +51,7 @@ $ pip3 install memphis-py
 ```python
 from memphis import Memphis, Headers
 from memphis.types import Retention, Storage
+import asyncio
 ```
 
 ### Connecting to Memphis
