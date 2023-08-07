@@ -185,6 +185,7 @@ station.destroy()
 ```python
 await memphis.create_schema("<schema-name>", "<schema-type>", "<schema-file-path>")
 ```
+Current available schema types - Protobuf / JSON schema / GraphQL schema / Avro
 
 ### Enforcing a Schema on an Existing Station
 
