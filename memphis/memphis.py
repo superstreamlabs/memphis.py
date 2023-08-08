@@ -42,6 +42,8 @@ class Memphis:
     def __init__(self):
         self.is_connection_active = False
         self.schema_updates_data = {}
+        self.partition_producers_updates_data = {}
+        self.partition_consumers_updates_data = {}
         self.schema_updates_subs = {}
         self.producers_per_station = {}
         self.schema_tasks = {}
@@ -230,6 +232,7 @@ class Memphis:
         send_poison_msg_to_dls: bool = True,
         send_schema_failed_msg_to_dls: bool = True,
         tiered_storage_enabled: bool = False,
+        partitions_number = 1,
     ):
         """Creates a station.
         Args:
@@ -246,6 +249,9 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
+            
+            if partitions_number == 0:
+                partitions_number = 1
 
             create_station_req = {
                 "name": name,
@@ -260,7 +266,8 @@ class Memphis:
                     "Schemaverse": send_schema_failed_msg_to_dls,
                 },
                 "username": self.username,
-                "tiered_storage_enabled": tiered_storage_enabled
+                "tiered_storage_enabled": tiered_storage_enabled,
+                "partitions_number" : partitions_number
             }
             create_station_req_bytes = json.dumps(create_station_req, indent=2).encode(
                 "utf-8"
@@ -420,6 +427,11 @@ class Memphis:
                 raise MemphisError(create_res["error"])
 
             internal_station_name = get_internal_name(station_name)
+
+            self.partition_producers_updates_data[internal_station_name] = create_res[
+                "partitions_update"
+            ]
+
             self.station_schemaverse_to_dls[internal_station_name] = create_res[
                 "schemaverse_to_dls"
             ]

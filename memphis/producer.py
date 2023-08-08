@@ -15,6 +15,7 @@ import fastavro
 from memphis.exceptions import MemphisError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
+from memphis.partition_generator import PartitionGenerator
 
 schemaverse_fail_alert_type = "schema_validation_fail_alert"
 
@@ -30,6 +31,7 @@ class Producer:
         self.loop = asyncio.get_running_loop()
         self.real_name = real_name
         self.background_tasks = set()
+        self.partition_generator = PartitionGenerator(connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])
 
     async def validate_msg(self, message):
         if self.connection.schema_updates_data[self.internal_station_name] != {}:
@@ -232,6 +234,8 @@ class Producer:
             else:
                 headers = memphis_headers
 
+            partition_name = "{}${}".format(self.internal_station_name, str(self.partition_generator.next()))
+
             if async_produce:
                 nonblocking = True
                 warnings.warn("The argument async_produce is deprecated. " + \
@@ -241,7 +245,7 @@ class Producer:
                 try:
                     task = self.loop.create_task(
                                self.connection.broker_connection.publish(
-                                 self.internal_station_name + ".final",
+                                 partition_name + ".final",
                                  message,
                                  timeout=ack_wait_sec,
                                  headers=headers,
@@ -262,7 +266,7 @@ class Producer:
                     raise MemphisError(e)
             else:
                 await self.connection.broker_connection.publish(
-                    self.internal_station_name + ".final",
+                    partition_name + ".final",
                     message,
                     timeout=ack_wait_sec,
                     headers=headers,
