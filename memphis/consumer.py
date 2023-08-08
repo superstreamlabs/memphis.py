@@ -6,6 +6,7 @@ import json
 from memphis.exceptions import MemphisError
 from memphis.utils import default_error_handler, get_internal_name
 from memphis.message import Message
+from memphis.partition_generator import PartitionGenerator
 
 
 class Consumer:
@@ -47,6 +48,11 @@ class Consumer:
         self.dls_callback_func = None
         self.t_dls = asyncio.create_task(self.__consume_dls())
         self.t_consume = None
+        self.inner_station_name = get_internal_name(self.station_name)
+        self.subscriptions = {}
+        if self.inner_station_name in connection.partition_consumers_updates_data:
+            self.partition_generator = PartitionGenerator(connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"])
+
 
     def set_context(self, context):
         """Set a context (dict) that will be passed to each message handler call."""
@@ -91,16 +97,29 @@ class Consumer:
         self.t_consume = asyncio.create_task(self.__consume(callback))
 
     async def __consume(self, callback):
-        subject = get_internal_name(self.station_name)
-        consumer_group = get_internal_name(self.consumer_group)
-        self.psub = await self.connection.broker_connection.pull_subscribe(
-            subject + ".final", durable=consumer_group
-        )
+        if not self.inner_station_name in self.connection.partition_consumers_updates_data:
+            subject = self.inner_station_name + ".final"
+            consumer_group = get_internal_name(self.consumer_group)
+            psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group) 
+            self.subscriptions[1] = psub
+        else:
+            for p in self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"]:
+                subject = "{}${}.final".format(self.inner_station_name, str(p))
+                consumer_group = get_internal_name(self.consumer_group)
+                psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                self.subscriptions[p] = psub
+
+        partition_number = 1
+
         while True:
             if self.connection.is_connection_active and self.pull_interval_ms:
                 try:
+                    if len(self.subscriptions) > 1:
+                        partition_number = self.partition_generator.next()
+
                     memphis_messages = []
-                    msgs = await self.psub.fetch(self.batch_size)
+                    msgs = await self.subscriptions[partition_number].fetch(self.batch_size)
+
                     for msg in msgs:
                         memphis_messages.append(
                             Message(msg, self.connection, self.consumer_group)
@@ -229,11 +248,22 @@ class Consumer:
     async def __ping_consumer(self, callback):
         while True:
             try:
+                
                 await asyncio.sleep(self.ping_consumer_interval_ms / 1000)
+                station_inner = get_internal_name(self.station_name)
                 consumer_group = get_internal_name(self.consumer_group)
-                await self.connection.broker_connection.consumer_info(
-                    self.station_name, consumer_group, timeout=30
-                )
+                if not self.inner_station_name in self.connection.partition_consumers_updates_data:
+                    for p in self.connection.partition_consumers_updates_data[station_inner]["partitions_list"]:
+                        stream_name = "{}${}.final".format(station_inner, str(p))
+                        await self.connection.broker_connection.consumer_info(
+                            stream_name, consumer_group, timeout=30
+                        )
+                else:
+                    stream_name = "{}.final".format(station_inner)
+                    await self.connection.broker_connection.consumer_info(
+                        stream_name, consumer_group, timeout=30
+                    )
+                
 
             except Exception as e:
                 callback(MemphisError(str(e)))

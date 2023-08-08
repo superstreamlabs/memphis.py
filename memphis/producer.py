@@ -31,7 +31,8 @@ class Producer:
         self.loop = asyncio.get_running_loop()
         self.real_name = real_name
         self.background_tasks = set()
-        self.partition_generator = PartitionGenerator(connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])
+        if self.internal_station_name in connection.partition_producers_updates_data:
+            self.partition_generator = PartitionGenerator(connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])
 
     async def validate_msg(self, message):
         if self.connection.schema_updates_data[self.internal_station_name] != {}:
@@ -234,7 +235,10 @@ class Producer:
             else:
                 headers = memphis_headers
 
-            partition_name = "{}${}".format(self.internal_station_name, str(self.partition_generator.next()))
+            if not self.internal_station_name in self.connection.partition_producers_updates_data:
+                partition_name = self.internal_station_name
+            else:
+                partition_name = "{}${}".format(self.internal_station_name, str(self.partition_generator.next()))
 
             if async_produce:
                 nonblocking = True

@@ -428,9 +428,10 @@ class Memphis:
 
             internal_station_name = get_internal_name(station_name)
 
-            self.partition_producers_updates_data[internal_station_name] = create_res[
-                "partitions_update"
-            ]
+            if not create_res["partitions_update"]["partitions_list"] is None:
+                self.partition_producers_updates_data[internal_station_name] = create_res[
+                    "partitions_update"
+                ]
 
             self.station_schemaverse_to_dls[internal_station_name] = create_res[
                 "schemaverse_to_dls"
@@ -611,15 +612,21 @@ class Memphis:
             create_consumer_req_bytes = json.dumps(create_consumer_req, indent=2).encode(
                 "utf-8"
             )
-            err_msg = await self.broker_manager.request(
+            creation_res = await self.broker_manager.request(
                 "$memphis_consumer_creations", create_consumer_req_bytes, timeout=5
             )
-            err_msg = err_msg.data.decode("utf-8")
+            creation_res = creation_res.data.decode("utf-8")
+            creation_res = json.loads(creation_res)
 
-            if err_msg != "":
-                raise MemphisError(err_msg)
 
+            if creation_res["error"] != "":
+                raise MemphisError(creation_res["error"])
             internal_station_name = get_internal_name(station_name)
+
+            if not creation_res["partitions_update"]["partitions_list"] is None:
+                self.partition_consumers_updates_data[internal_station_name] = creation_res["partitions_update"]
+
+
             map_key = internal_station_name + "_" + real_name
             consumer = Consumer(
                 self,
