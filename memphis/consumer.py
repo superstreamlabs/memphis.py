@@ -97,7 +97,7 @@ class Consumer:
         self.t_consume = asyncio.create_task(self.__consume(callback))
 
     async def __consume(self, callback):
-        if not self.inner_station_name in self.connection.partition_consumers_updates_data:
+        if self.inner_station_name not in self.connection.partition_consumers_updates_data:
             subject = self.inner_station_name + ".final"
             consumer_group = get_internal_name(self.consumer_group)
             psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group) 
@@ -115,7 +115,7 @@ class Consumer:
             if self.connection.is_connection_active and self.pull_interval_ms:
                 try:
                     if len(self.subscriptions) > 1:
-                        partition_number = self.partition_generator.next()
+                        partition_number = next(self.partition_generator)
 
                     memphis_messages = []
                     msgs = await self.subscriptions[partition_number].fetch(self.batch_size)
@@ -252,7 +252,7 @@ class Consumer:
                 await asyncio.sleep(self.ping_consumer_interval_ms / 1000)
                 station_inner = get_internal_name(self.station_name)
                 consumer_group = get_internal_name(self.consumer_group)
-                if not self.inner_station_name in self.connection.partition_consumers_updates_data:
+                if self.inner_station_name not in self.connection.partition_consumers_updates_data:
                     for p in self.connection.partition_consumers_updates_data[station_inner]["partitions_list"]:
                         stream_name = "{}${}.final".format(station_inner, str(p))
                         await self.connection.broker_connection.consumer_info(

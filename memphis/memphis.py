@@ -428,7 +428,7 @@ class Memphis:
 
             internal_station_name = get_internal_name(station_name)
 
-            if not create_res["partitions_update"]["partitions_list"] is None:
+            if create_res["partitions_update"]["partitions_list"] is not None:
                 self.partition_producers_updates_data[internal_station_name] = create_res[
                     "partitions_update"
                 ]
@@ -623,7 +623,7 @@ class Memphis:
                 raise MemphisError(creation_res["error"])
             internal_station_name = get_internal_name(station_name)
 
-            if not creation_res["partitions_update"]["partitions_list"] is None:
+            if creation_res["partitions_update"]["partitions_list"] is not None:
                 self.partition_consumers_updates_data[internal_station_name] = creation_res["partitions_update"]
 
 

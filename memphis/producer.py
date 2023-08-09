@@ -235,10 +235,10 @@ class Producer:
             else:
                 headers = memphis_headers
 
-            if not self.internal_station_name in self.connection.partition_producers_updates_data:
+            if self.internal_station_name not in self.connection.partition_producers_updates_data:
                 partition_name = self.internal_station_name
             else:
-                partition_name = "{}${}".format(self.internal_station_name, str(self.partition_generator.next()))
+                partition_name = "{}${}".format(self.internal_station_name, str(next(self.partition_generator)))
 
             if async_produce:
                 nonblocking = True
