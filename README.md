@@ -114,6 +114,7 @@ station = memphis.station(
   send_poison_msg_to_dls=True, # defaults to true
   send_schema_failed_msg_to_dls=True, # defaults to true
   tiered_storage_enabled=False # defaults to false
+  partitions_number=1 # default to 1 
 )
 ```
 
@@ -172,6 +173,11 @@ memphis.types.Storage.MEMORY
 
 Means that messages persist on the main memory
 
+### Station partitions
+
+Memphis station is created with 1 patition by default
+You can change the patitions number as you wish in order to scale your stations
+
 ### Destroying a Station
 
 Destroying a station will remove all its resources (producers/consumers)
@@ -218,6 +224,8 @@ Memphis messages are payload agnostic. Payloads are `bytearray`.
 
 In order to stop getting messages, you have to call `consumer.destroy()`. Destroy will terminate regardless
 of whether there are messages in flight for the client.
+
+If a station is created with more than one partition, produce and consume bill be perform in a Round Robin fasion
 
 ### Creating a Producer
 
