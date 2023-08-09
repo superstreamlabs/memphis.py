@@ -1,4 +1,4 @@
-#The PartitionGenerator class is used to create a round robin generator for station's partitions 
+#The PartitionGenerator class is used to create a round robin generator for station's partitions
 #the class gets a list of partitions and by using the next() function it returns an item from the list
 
 class PartitionGenerator:

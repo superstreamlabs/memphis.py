@@ -249,7 +249,6 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
-            
             if partitions_number == 0:
                 partitions_number = 1
 

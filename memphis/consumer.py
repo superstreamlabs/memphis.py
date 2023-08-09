@@ -100,11 +100,11 @@ class Consumer:
         if self.inner_station_name not in self.connection.partition_consumers_updates_data:
             subject = self.inner_station_name + ".final"
             consumer_group = get_internal_name(self.consumer_group)
-            psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group) 
+            psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
             self.subscriptions[1] = psub
         else:
             for p in self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"]:
-                subject = "{}${}.final".format(self.inner_station_name, str(p))
+                subject = f"{self.inner_station_name}${str(p)}.final"
                 consumer_group = get_internal_name(self.consumer_group)
                 psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
                 self.subscriptions[p] = psub
@@ -248,22 +248,20 @@ class Consumer:
     async def __ping_consumer(self, callback):
         while True:
             try:
-                
                 await asyncio.sleep(self.ping_consumer_interval_ms / 1000)
                 station_inner = get_internal_name(self.station_name)
                 consumer_group = get_internal_name(self.consumer_group)
                 if self.inner_station_name not in self.connection.partition_consumers_updates_data:
                     for p in self.connection.partition_consumers_updates_data[station_inner]["partitions_list"]:
-                        stream_name = "{}${}.final".format(station_inner, str(p))
+                        stream_name = f"{station_inner}${str(p)}.final"
                         await self.connection.broker_connection.consumer_info(
                             stream_name, consumer_group, timeout=30
                         )
                 else:
-                    stream_name = "{}.final".format(station_inner)
+                    stream_name = f"{station_inner}.final"
                     await self.connection.broker_connection.consumer_info(
                         stream_name, consumer_group, timeout=30
                     )
-                
 
             except Exception as e:
                 callback(MemphisError(str(e)))
