@@ -411,7 +411,7 @@ class Memphis:
                 "station_name": station_name,
                 "connection_id": self.connection_id,
                 "producer_type": "application",
-                "req_version": 1,
+                "req_version": 2,
                 "username": self.username
             }
             create_producer_req_bytes = json.dumps(create_producer_req, indent=2).encode(
@@ -604,7 +604,7 @@ class Memphis:
                 "max_msg_deliveries": max_msg_deliveries,
                 "start_consume_from_sequence": start_consume_from_sequence,
                 "last_messages": last_messages,
-                "req_version": 1,
+                "req_version": 2,
                 "username": self.username
             }
 
