@@ -264,7 +264,7 @@ class Consumer:
                     )
 
             except Exception as e:
-                if "consumer not found" or "stream not found" in str(e):
+                if "consumer not found" in str(e) or "stream not found" in str(e):
                     callback(MemphisError(str(e)))
 
     async def destroy(self):
