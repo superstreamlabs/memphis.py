@@ -251,20 +251,21 @@ class Consumer:
                 await asyncio.sleep(self.ping_consumer_interval_ms / 1000)
                 station_inner = get_internal_name(self.station_name)
                 consumer_group = get_internal_name(self.consumer_group)
-                if self.inner_station_name not in self.connection.partition_consumers_updates_data:
+                if self.inner_station_name in self.connection.partition_consumers_updates_data:
                     for p in self.connection.partition_consumers_updates_data[station_inner]["partitions_list"]:
-                        stream_name = f"{station_inner}${str(p)}.final"
+                        stream_name = f"{station_inner}${str(p)}"
                         await self.connection.broker_connection.consumer_info(
                             stream_name, consumer_group, timeout=30
                         )
                 else:
-                    stream_name = f"{station_inner}.final"
+                    stream_name = station_inner
                     await self.connection.broker_connection.consumer_info(
                         stream_name, consumer_group, timeout=30
                     )
 
             except Exception as e:
-                callback(MemphisError(str(e)))
+                if "consumer not found" or "stream not found" in str(e):
+                    callback(MemphisError(str(e)))
 
     async def destroy(self):
         """Destroy the consumer."""
