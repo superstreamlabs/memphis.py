@@ -200,7 +200,6 @@ class Consumer:
                 number_of_messages_to_prefetch = batch_size * 2 - batch_size  # calculated for clarity
                 self.load_messages_to_cache(number_of_messages_to_prefetch)
                 return messages
-            # else:
             messages = self.cached_messages
             batch_size -= len(self.cached_messages)
             self.cached_messages = []
