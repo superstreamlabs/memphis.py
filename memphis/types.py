@@ -19,6 +19,7 @@ class Retention(Enum):
     MAX_MESSAGE_AGE_SECONDS = "message_age_sec"
     MESSAGES = "messages"
     BYTES = "bytes"
+    ACK_BASED = "ack_based"
 
 
 class Storage(Enum):

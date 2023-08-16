@@ -4,15 +4,18 @@ import asyncio
 import json
 import time
 from typing import Union
+import warnings
 
 import graphql
 from graphql import parse as parse_graphql
 from graphql import validate as validate_graphql
 from jsonschema import validate
 import google.protobuf.json_format as protobuf_json_format
+import fastavro
 from memphis.exceptions import MemphisError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
+from memphis.partition_generator import PartitionGenerator
 
 schemaverse_fail_alert_type = "schema_validation_fail_alert"
 
@@ -27,6 +30,9 @@ class Producer:
         self.internal_station_name = get_internal_name(self.station_name)
         self.loop = asyncio.get_running_loop()
         self.real_name = real_name
+        self.background_tasks = set()
+        if self.internal_station_name in connection.partition_producers_updates_data:
+            self.partition_generator = PartitionGenerator(connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])
 
     async def validate_msg(self, message):
         if self.connection.schema_updates_data[self.internal_station_name] != {}:
@@ -41,6 +47,9 @@ class Producer:
                 return message
             if schema_type == "graphql":
                 message = self.validate_graphql(message)
+                return message
+            if schema_type == "avro":
+                message = self.validate_avro_schema(message)
                 return message
             if hasattr(message, "SerializeToString"):
                 msg_to_send = message.SerializeToString()
@@ -151,21 +160,61 @@ class Producer:
                 e = "Invalid message format, expected GraphQL"
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
+
+    def validate_avro_schema(self, message):
+        try:
+            if isinstance(message, bytearray):
+                try:
+                    message_obj = json.loads(message)
+                except Exception as e:
+                    raise Exception("Expecting Avro format: " + str(e))
+            elif isinstance(message, dict):
+                message_obj = message
+                message = bytearray(json.dumps(message_obj).encode("utf-8"))
+            else:
+                raise Exception("Unsupported message type")
+
+            fastavro.validate(
+                message_obj,
+                self.connection.avro_schemas[self.internal_station_name],
+            )
+            return message
+        except fastavro.validation.ValidationError as e:
+            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+
+    # pylint: disable=R0913
     async def produce(
         self,
         message,
         ack_wait_sec: int = 15,
         headers: Union[Headers, None] = None,
-        async_produce: bool = False,
+        async_produce: Union[bool, None] = None,
+        nonblocking: bool = False,
         msg_id: Union[str, None] = None,
+        concurrent_task_limit: Union[int, None] = None
     ):
         """Produces a message into a station.
         Args:
-            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
-            ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
-            headers (dict, optional): Message headers, defaults to {}.
-            async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
-            msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotency
+            message (bytearray/dict): message to send into the station
+                                      - bytearray/protobuf class
+                                        (schema validated station - protobuf)
+                                      - bytearray/dict (schema validated station - json schema)
+                                      - string/bytearray/graphql.language.ast.DocumentNode
+                                        (schema validated station - graphql schema)
+                                      - bytearray/dict (schema validated station - avro schema)
+            ack_wait_sec (int, optional): max time in seconds to wait for an ack from the broker.
+                                          Defaults to 15 sec.
+            headers (dict, optional): message headers, defaults to {}.
+            async_produce (boolean, optional): produce operation won't block (wait) on message send.
+                                               This argument is deprecated. Please use the
+                                               `nonblocking` arguemnt instead.
+            nonblocking (boolean, optional): produce operation won't block (wait) on message send.
+            msg_id (string, optional): Attach msg-id header to the message in order to
+                                       achieve idempotency.
+            concurrent_task_limit (int, optional): Limit the number of outstanding async produce
+                                                   tasks. Calls with nonblocking=True will block
+                                                   if the limit is hit and will wait until the
+                                                   buffer drains halfway down.
         Raises:
             Exception: _description_
         """
@@ -186,22 +235,42 @@ class Producer:
             else:
                 headers = memphis_headers
 
+            if self.internal_station_name not in self.connection.partition_producers_updates_data:
+                partition_name = self.internal_station_name
+            else:
+                partition_name = f"{self.internal_station_name}${str(next(self.partition_generator))}"
+
             if async_produce:
+                nonblocking = True
+                warnings.warn("The argument async_produce is deprecated. " + \
+                              "Please use the argument nonblocking instead.")
+
+            if nonblocking:
                 try:
-                    self.loop.create_task(
-                        self.connection.broker_connection.publish(
-                            self.internal_station_name + ".final",
-                            message,
-                            timeout=ack_wait_sec,
-                            headers=headers,
-                        )
-                    )
+                    task = self.loop.create_task(
+                               self.connection.broker_connection.publish(
+                                 partition_name + ".final",
+                                 message,
+                                 timeout=ack_wait_sec,
+                                 headers=headers,
+                               )
+                           )
+                    self.background_tasks.add(task)
+                    task.add_done_callback(self.background_tasks.discard)
+
+                    # block until the number of outstanding async tasks is reduced
+                    if concurrent_task_limit is not None and \
+                        len(self.background_tasks) >= concurrent_task_limit:
+                        desired_size = concurrent_task_limit / 2
+                        while len(self.background_tasks) > desired_size:
+                            await asyncio.sleep(0.1)
+
                     await asyncio.sleep(0)
                 except Exception as e:
                     raise MemphisError(e)
             else:
                 await self.connection.broker_connection.publish(
-                    self.internal_station_name + ".final",
+                    partition_name + ".final",
                     message,
                     timeout=ack_wait_sec,
                     headers=headers,
@@ -275,6 +344,10 @@ class Producer:
     async def destroy(self):
         """Destroy the producer."""
         try:
+            # drain buffered async messages
+            while len(self.background_tasks) > 0:
+                await asyncio.sleep(0.1)
+
             destroy_producer_req = {
                 "name": self.producer_name,
                 "station_name": self.station_name,

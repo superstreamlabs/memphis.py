@@ -42,12 +42,15 @@ class Memphis:
     def __init__(self):
         self.is_connection_active = False
         self.schema_updates_data = {}
+        self.partition_producers_updates_data = {}
+        self.partition_consumers_updates_data = {}
         self.schema_updates_subs = {}
         self.producers_per_station = {}
         self.schema_tasks = {}
         self.proto_msgs = {}
         self.graphql_schemas = {}
         self.json_schemas = {}
+        self.avro_schemas = {}
         self.cluster_configurations = {}
         self.station_schemaverse_to_dls = {}
         self.update_configurations_sub = {}
@@ -99,6 +102,11 @@ class Memphis:
             ping_connection_opts["allow_reconnect"] = False
             ping_connection_opts["error_cb"] = ping_error_cb
 
+            # Newer versions of Memphis take a user of the form
+            # "{username}${account_id}".  For older versions, the user was
+            # simply the username.  The user is created using the new style
+            # in Memphis.connect(). If connecting with the new-style user
+            # fails, try the old style.
             try:
                 conn = await broker.connect(**ping_connection_opts)
                 await conn.close()
@@ -224,11 +232,12 @@ class Memphis:
         send_poison_msg_to_dls: bool = True,
         send_schema_failed_msg_to_dls: bool = True,
         tiered_storage_enabled: bool = False,
+        partitions_number = 1,
     ):
         """Creates a station.
         Args:
             name (str): station name.
-            retention_type (Retention, optional): retention type: message_age_sec/messages/bytes . Defaults to "message_age_sec".
+            retention_type (Retention, optional): retention type: MESSAGE_AGE_SEC/MESSAGES/BYTES/ACK_BASED . Defaults to "MESSAGE_AGE_SEC".
             retention_value (int, optional): number which represents the retention based on the retention_type. Defaults to 604800.
             storage_type (Storage, optional): persistance storage for messages of the station: disk/memory. Defaults to "disk".
             replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
@@ -240,6 +249,8 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
+            if partitions_number == 0:
+                partitions_number = 1
 
             create_station_req = {
                 "name": name,
@@ -254,7 +265,8 @@ class Memphis:
                     "Schemaverse": send_schema_failed_msg_to_dls,
                 },
                 "username": self.username,
-                "tiered_storage_enabled": tiered_storage_enabled
+                "tiered_storage_enabled": tiered_storage_enabled,
+                "partitions_number" : partitions_number
             }
             create_station_req_bytes = json.dumps(create_station_req, indent=2).encode(
                 "utf-8"
@@ -399,7 +411,7 @@ class Memphis:
                 "station_name": station_name,
                 "connection_id": self.connection_id,
                 "producer_type": "application",
-                "req_version": 1,
+                "req_version": 2,
                 "username": self.username
             }
             create_producer_req_bytes = json.dumps(create_producer_req, indent=2).encode(
@@ -414,6 +426,12 @@ class Memphis:
                 raise MemphisError(create_res["error"])
 
             internal_station_name = get_internal_name(station_name)
+            if "partitions_update" in create_res:
+                if create_res["partitions_update"]["partitions_list"] is not None:
+                    self.partition_producers_updates_data[internal_station_name] = create_res[
+                        "partitions_update"
+                    ]
+
             self.station_schemaverse_to_dls[internal_station_name] = create_res[
                 "schemaverse_to_dls"
             ]
@@ -444,6 +462,14 @@ class Memphis:
                             "active_version"
                         ]["schema_content"]
                     )
+                elif (
+                    self.schema_updates_data[internal_station_name]["type"] == "avro"
+                ):
+                    schema = self.schema_updates_data[internal_station_name][
+                        "active_version"
+                    ]["schema_content"]
+                    self.avro_schemas[internal_station_name] = json.loads(
+                        schema)
             producer = Producer(self, producer_name, station_name, real_name)
             map_key = internal_station_name + "_" + real_name
             self.producers_map[map_key] = producer
@@ -578,20 +604,29 @@ class Memphis:
                 "max_msg_deliveries": max_msg_deliveries,
                 "start_consume_from_sequence": start_consume_from_sequence,
                 "last_messages": last_messages,
-                "req_version": 1,
+                "req_version": 2,
                 "username": self.username
             }
 
             create_consumer_req_bytes = json.dumps(create_consumer_req, indent=2).encode(
                 "utf-8"
             )
-            err_msg = await self.broker_manager.request(
+            creation_res = await self.broker_manager.request(
                 "$memphis_consumer_creations", create_consumer_req_bytes, timeout=5
             )
-            err_msg = err_msg.data.decode("utf-8")
+            creation_res = creation_res.data.decode("utf-8")
+            if creation_res != "":
+                try:
+                    creation_res = json.loads(creation_res)
 
-            if err_msg != "":
-                raise MemphisError(err_msg)
+                    if creation_res["error"] != "":
+                        raise MemphisError(creation_res["error"])
+                    internal_station_name = get_internal_name(station_name)
+
+                    if creation_res["partitions_update"]["partitions_list"] is not None:
+                        self.partition_consumers_updates_data[internal_station_name] = creation_res["partitions_update"]
+                except:
+                    raise MemphisError(creation_res)
 
             internal_station_name = get_internal_name(station_name)
             map_key = internal_station_name + "_" + real_name
@@ -628,7 +663,7 @@ class Memphis:
         Args:
             station_name (str): station name to produce messages into.
             producer_name (str): name for the producer.
-            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+            message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema or  bytearray/dict (schema validated station - avro schema))
             generate_random_suffix (bool): false by default, if true concatenate a random suffix to producer's name
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
@@ -726,11 +761,11 @@ class Memphis:
         """Creates a new schema.
         Args:.
             schema_name (str): the name of the schema.
-            schema_type (str): the type of the schema json / graphql / protobuf.
+            schema_type (str): the type of the schema json / graphql / protobuf / avro.
             schema_path (str): the path for the schema file
         """
 
-        if schema_type not in {'json', 'graphql', 'protobuf'}:
+        if schema_type not in {'json', 'graphql', 'protobuf', 'avro'}:
             raise MemphisError("schema type not supported" + type)
 
         try:

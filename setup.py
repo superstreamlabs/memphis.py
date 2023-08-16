@@ -8,7 +8,7 @@ long_description = (this_directory / "README.md").read_text()
 setup(
     name="memphis-py",
     packages=["memphis"],
-    version="1.0.6",
+    version="1.1.1",
     license="Apache-2.0",
     description="A powerful messaging platform for modern developers",
     long_description=long_description,
@@ -17,9 +17,9 @@ setup(
     author="Memphis.dev",
     author_email="team@memphis.dev",
     url="https://github.com/memphisdev/memphis.py",
-    download_url="https://github.com/memphisdev/memphis.py/archive/refs/tags/1.0.6.tar.gz",
+    download_url="https://github.com/memphisdev/memphis.py/archive/refs/tags/1.1.1.tar.gz",
     keywords=["message broker", "devtool", "streaming", "data"],
-    install_requires=["asyncio", "nats-py", "protobuf", "jsonschema", "graphql-core"],
+    install_requires=["asyncio", "nats-py", "protobuf", "jsonschema", "graphql-core", "fastavro"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
