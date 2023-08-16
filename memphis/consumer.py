@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import threading
 
 from memphis.exceptions import MemphisError
 from memphis.utils import default_error_handler, get_internal_name
@@ -14,19 +13,19 @@ class Consumer:
     MAX_BATCH_SIZE = 5000
 
     def __init__(
-            self,
-            connection,
-            station_name: str,
-            consumer_name,
-            consumer_group,
-            pull_interval_ms: int,
-            batch_size: int,
-            batch_max_time_to_wait_ms: int,
-            max_ack_time_ms: int,
-            max_msg_deliveries: int = 10,
-            error_callback=None,
-            start_consume_from_sequence: int = 1,
-            last_messages: int = -1,
+        self,
+        connection,
+        station_name: str,
+        consumer_name,
+        consumer_group,
+        pull_interval_ms: int,
+        batch_size: int,
+        batch_max_time_to_wait_ms: int,
+        max_ack_time_ms: int,
+        max_msg_deliveries: int = 10,
+        error_callback=None,
+        start_consume_from_sequence: int = 1,
+        last_messages: int = -1,
     ):
         self.connection = connection
         self.station_name = station_name.lower()
@@ -253,15 +252,14 @@ class Consumer:
                 for msg in msgs:
                     messages.append(
                         Message(msg, self.connection, self.consumer_group))
+                if prefetch:
+                    number_of_messages_to_prefetch = batch_size * 2
+                    self.load_messages_to_cache(number_of_messages_to_prefetch)
                 return messages
             except Exception as e:
                 if "timeout" not in str(e).lower():
                     raise MemphisError(str(e)) from e
 
-        if prefetch:
-            number_of_messages_to_prefetch = batch_size * 2
-            self.load_messages_to_cache(number_of_messages_to_prefetch)
-        return messages
 
     async def __ping_consumer(self, callback):
         while True:
@@ -319,8 +317,8 @@ class Consumer:
 
     def load_messages_to_cache(self, batch_size):
         if not self.loading_thread or not self.loading_thread.is_alive():
-            self.loading_thread = threading.Thread(target=self.__load_messages(batch_size))
-            self.loading_thread.start()
+            asyncio.ensure_future(self.__load_messages(batch_size))
+
 
     async def __load_messages(self, batch_size):
         new_messages = await self.fetch(batch_size)
