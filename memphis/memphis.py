@@ -404,8 +404,15 @@ class Memphis:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
             real_name = producer_name.lower()
+            internal_station_name = get_internal_name(station_name)
             if generate_random_suffix:
                 producer_name = self.__generate_random_suffix(producer_name)
+            else:
+                map_key = internal_station_name + "_" + producer_name.lower()
+                producer = None
+                if map_key in self.producers_map:
+                    return self.producers_map[map_key]
+
             create_producer_req = {
                 "name": producer_name,
                 "station_name": station_name,
@@ -425,7 +432,6 @@ class Memphis:
             if create_res["error"] != "":
                 raise MemphisError(create_res["error"])
 
-            internal_station_name = get_internal_name(station_name)
             if "partitions_update" in create_res:
                 if create_res["partitions_update"]["partitions_list"] is not None:
                     self.partition_producers_updates_data[internal_station_name] = create_res[
