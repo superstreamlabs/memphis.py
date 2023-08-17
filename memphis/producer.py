@@ -237,6 +237,8 @@ class Producer:
 
             if self.internal_station_name not in self.connection.partition_producers_updates_data:
                 partition_name = self.internal_station_name
+            elif len(self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list']) == 1:
+                partition_name = f"{self.internal_station_name}${self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list'][0]}"
             else:
                 partition_name = f"{self.internal_station_name}${str(next(self.partition_generator))}"
 
