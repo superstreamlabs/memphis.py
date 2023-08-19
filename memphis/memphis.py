@@ -34,6 +34,7 @@ from memphis.station import Station
 from memphis.types import Retention, Storage
 from memphis.utils import get_internal_name, random_bytes
 
+app_id = str(uuid.uuid4())
 
 class Memphis:
     MAX_BATCH_SIZE = 5000
@@ -418,8 +419,9 @@ class Memphis:
                 "station_name": station_name,
                 "connection_id": self.connection_id,
                 "producer_type": "application",
-                "req_version": 2,
-                "username": self.username
+                "req_version": 3,
+                "username": self.username,
+                "app_id": app_id,
             }
             create_producer_req_bytes = json.dumps(create_producer_req, indent=2).encode(
                 "utf-8"
@@ -610,8 +612,9 @@ class Memphis:
                 "max_msg_deliveries": max_msg_deliveries,
                 "start_consume_from_sequence": start_consume_from_sequence,
                 "last_messages": last_messages,
-                "req_version": 2,
-                "username": self.username
+                "req_version": 3,
+                "username": self.username,
+                "app_id": app_id,
             }
 
             create_consumer_req_bytes = json.dumps(create_consumer_req, indent=2).encode(
