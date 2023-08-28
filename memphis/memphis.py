@@ -21,6 +21,7 @@ from typing import Iterable, Union
 import uuid
 import base64
 import re
+import warnings
 
 import nats as broker
 from google.protobuf import descriptor_pb2, descriptor_pool
@@ -395,7 +396,7 @@ class Memphis:
         Args:
             station_name (str): station name to produce messages into.
             producer_name (str): name for the producer.
-            generate_random_suffix (bool): false by default, if true concatenate a random suffix to producer's name
+            generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to producer's name
         Raises:
             Exception: _description_
         Returns:
@@ -407,6 +408,7 @@ class Memphis:
             real_name = producer_name.lower()
             internal_station_name = get_internal_name(station_name)
             if generate_random_suffix:
+                warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
                 producer_name = self.__generate_random_suffix(producer_name)
             else:
                 map_key = internal_station_name + "_" + producer_name.lower()
@@ -573,7 +575,7 @@ class Memphis:
             batch_max_time_to_wait_ms (int, optional): max time in milliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in milliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
-            generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
+            generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
         Returns:
@@ -587,6 +589,7 @@ class Memphis:
                     f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
             real_name = consumer_name.lower()
             if generate_random_suffix:
+                warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
                 consumer_name = self.__generate_random_suffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
 
@@ -673,7 +676,7 @@ class Memphis:
             station_name (str): station name to produce messages into.
             producer_name (str): name for the producer.
             message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema or  bytearray/dict (schema validated station - avro schema))
-            generate_random_suffix (bool): false by default, if true concatenate a random suffix to producer's name
+            generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to producer's name
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
@@ -725,7 +728,7 @@ class Memphis:
             batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
-            generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
+            generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
         Returns:
