@@ -181,6 +181,10 @@ class Memphis:
             if self.connection_token == "" and self.password == "":
                 raise MemphisConnectError(
                     "You have to connect with one of the following methods: connection token / password")
+            self.broker_manager = None
+            async def closed_callback():
+                if self.broker_manager is not None:
+                    print(MemphisError(str(self.broker_manager.last_error)))
 
             connection_opts = {
                 "servers": self.host + ":" + str(self.port),
@@ -189,6 +193,7 @@ class Memphis:
                 "connect_timeout": self.timeout_ms / 1000,
                 "max_reconnect_attempts": self.max_reconnect,
                 "name": self.connection_id + "::" + self.username,
+                "closed_cb": closed_callback,
             }
             if cert_file != "" or key_file != "" or ca_file != "":
                 if cert_file == "":
