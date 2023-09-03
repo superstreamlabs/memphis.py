@@ -457,34 +457,8 @@ class Memphis:
                 internal_station_name, create_res["schema_update"]
             )
 
-            if self.schema_updates_data[internal_station_name] != {}:
-                if (
-                    self.schema_updates_data[internal_station_name]["type"]
-                    == "protobuf"
-                ):
-                    self.parse_descriptor(internal_station_name)
-                if self.schema_updates_data[internal_station_name]["type"] == "json":
-                    schema = self.schema_updates_data[internal_station_name][
-                        "active_version"
-                    ]["schema_content"]
-                    self.json_schemas[internal_station_name] = json.loads(
-                        schema)
-                elif (
-                    self.schema_updates_data[internal_station_name]["type"] == "graphql"
-                ):
-                    self.graphql_schemas[internal_station_name] = build_graphql_schema(
-                        self.schema_updates_data[internal_station_name][
-                            "active_version"
-                        ]["schema_content"]
-                    )
-                elif (
-                    self.schema_updates_data[internal_station_name]["type"] == "avro"
-                ):
-                    schema = self.schema_updates_data[internal_station_name][
-                        "active_version"
-                    ]["schema_content"]
-                    self.avro_schemas[internal_station_name] = json.loads(
-                        schema)
+            self.update_schema_data(station_name)
+
             producer = Producer(self, producer_name, station_name, real_name)
             map_key = internal_station_name + "_" + real_name
             self.producers_map[map_key] = producer
@@ -492,6 +466,37 @@ class Memphis:
 
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def update_schema_data(self, station_name):
+        internal_station_name = get_internal_name(station_name)
+        if self.schema_updates_data[internal_station_name] != {}:
+            if (
+                self.schema_updates_data[internal_station_name]["type"]
+                == "protobuf"
+            ):
+                self.parse_descriptor(internal_station_name)
+            if self.schema_updates_data[internal_station_name]["type"] == "json":
+                schema = self.schema_updates_data[internal_station_name][
+                    "active_version"
+                ]["schema_content"]
+                self.json_schemas[internal_station_name] = json.loads(
+                    schema)
+            elif (
+                self.schema_updates_data[internal_station_name]["type"] == "graphql"
+            ):
+                self.graphql_schemas[internal_station_name] = build_graphql_schema(
+                    self.schema_updates_data[internal_station_name][
+                        "active_version"
+                    ]["schema_content"]
+                )
+            elif (
+                self.schema_updates_data[internal_station_name]["type"] == "avro"
+            ):
+                schema = self.schema_updates_data[internal_station_name][
+                    "active_version"
+                ]["schema_content"]
+                self.avro_schemas[internal_station_name] = json.loads(
+                    schema)
 
     async def get_msg_schema_updates(self, internal_station_name, iterable):
         async for msg in iterable:
@@ -555,6 +560,8 @@ class Memphis:
                 )
             )
             self.schema_tasks[station_name] = task
+
+            self.update_schema_data(station_name)
 
     async def consumer(
         self,
@@ -647,6 +654,9 @@ class Memphis:
 
             internal_station_name = get_internal_name(station_name)
             map_key = internal_station_name + "_" + real_name
+            await self.start_listen_for_schema_updates(
+                internal_station_name, creation_res["schema_update"]
+            )
             consumer = Consumer(
                 self,
                 station_name,

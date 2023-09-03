@@ -29,6 +29,7 @@ class Consumer:
     ):
         self.connection = connection
         self.station_name = station_name.lower()
+        self.internal_station_name = get_internal_name(self.station_name)
         self.consumer_name = consumer_name.lower()
         self.consumer_group = consumer_group.lower()
         self.pull_interval_ms = pull_interval_ms
@@ -122,7 +123,7 @@ class Consumer:
 
                     for msg in msgs:
                         memphis_messages.append(
-                            Message(msg, self.connection, self.consumer_group)
+                            Message(msg, self.connection, self.consumer_group, self.internal_station_name)
                         )
                     await callback(memphis_messages, None, self.context)
                     await asyncio.sleep(self.pull_interval_ms / 1000)
@@ -153,12 +154,12 @@ class Consumer:
                     index_to_insert %= 10000
                 self.dls_messages.insert(
                     index_to_insert, Message(
-                        msg, self.connection, self.consumer_group)
+                        msg, self.connection, self.consumer_group, self.internal_station_name)
                 )
                 self.dls_current_index += 1
                 if self.dls_callback_func != None:
                     await self.dls_callback_func(
-                        [Message(msg, self.connection, self.consumer_group)],
+                        [Message(msg, self.connection, self.consumer_group, self.internal_station_name)],
                         None,
                         self.context,
                     )
@@ -237,7 +238,7 @@ class Consumer:
                 msgs = await self.psub.fetch(batch_size)
                 for msg in msgs:
                     messages.append(
-                        Message(msg, self.connection, self.consumer_group))
+                        Message(msg, self.connection, self.consumer_group, self.internal_station_name))
                 return messages
             except Exception as e:
                 if "timeout" not in str(e).lower():
