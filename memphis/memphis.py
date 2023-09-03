@@ -502,7 +502,8 @@ class Memphis:
             else:
                 data = message["init"]
             self.schema_updates_data[internal_station_name] = data
-            self.parse_descriptor(internal_station_name)
+            if message["init"]["type"] == "protobuf":
+                self.parse_descriptor(internal_station_name)
 
     def parse_descriptor(self, station_name):
         try:
