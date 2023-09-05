@@ -21,6 +21,7 @@ from typing import Iterable, Union
 import uuid
 import base64
 import re
+import warnings
 
 import nats as broker
 from google.protobuf import descriptor_pb2, descriptor_pool
@@ -34,6 +35,7 @@ from memphis.station import Station
 from memphis.types import Retention, Storage
 from memphis.utils import get_internal_name, random_bytes
 
+app_id = str(uuid.uuid4())
 
 class Memphis:
     MAX_BATCH_SIZE = 5000
@@ -179,6 +181,10 @@ class Memphis:
             if self.connection_token == "" and self.password == "":
                 raise MemphisConnectError(
                     "You have to connect with one of the following methods: connection token / password")
+            self.broker_manager = None
+            async def closed_callback():
+                if self.broker_manager is not None:
+                    print(MemphisError(str(self.broker_manager.last_error)))
 
             connection_opts = {
                 "servers": self.host + ":" + str(self.port),
@@ -187,6 +193,7 @@ class Memphis:
                 "connect_timeout": self.timeout_ms / 1000,
                 "max_reconnect_attempts": self.max_reconnect,
                 "name": self.connection_id + "::" + self.username,
+                "closed_cb": closed_callback,
             }
             if cert_file != "" or key_file != "" or ca_file != "":
                 if cert_file == "":
@@ -394,7 +401,7 @@ class Memphis:
         Args:
             station_name (str): station name to produce messages into.
             producer_name (str): name for the producer.
-            generate_random_suffix (bool): false by default, if true concatenate a random suffix to producer's name
+            generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to producer's name
         Raises:
             Exception: _description_
         Returns:
@@ -404,15 +411,24 @@ class Memphis:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
             real_name = producer_name.lower()
+            internal_station_name = get_internal_name(station_name)
             if generate_random_suffix:
+                warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
                 producer_name = self.__generate_random_suffix(producer_name)
+            else:
+                map_key = internal_station_name + "_" + producer_name.lower()
+                producer = None
+                if map_key in self.producers_map:
+                    return self.producers_map[map_key]
+
             create_producer_req = {
                 "name": producer_name,
                 "station_name": station_name,
                 "connection_id": self.connection_id,
                 "producer_type": "application",
-                "req_version": 2,
-                "username": self.username
+                "req_version": 3,
+                "username": self.username,
+                "app_id": app_id,
             }
             create_producer_req_bytes = json.dumps(create_producer_req, indent=2).encode(
                 "utf-8"
@@ -425,7 +441,6 @@ class Memphis:
             if create_res["error"] != "":
                 raise MemphisError(create_res["error"])
 
-            internal_station_name = get_internal_name(station_name)
             if "partitions_update" in create_res:
                 if create_res["partitions_update"]["partitions_list"] is not None:
                     self.partition_producers_updates_data[internal_station_name] = create_res[
@@ -487,7 +502,8 @@ class Memphis:
             else:
                 data = message["init"]
             self.schema_updates_data[internal_station_name] = data
-            self.parse_descriptor(internal_station_name)
+            if message["init"]["type"] == "protobuf":
+                self.parse_descriptor(internal_station_name)
 
     def parse_descriptor(self, station_name):
         try:
@@ -565,7 +581,7 @@ class Memphis:
             batch_max_time_to_wait_ms (int, optional): max time in milliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in milliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
-            generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
+            generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
         Returns:
@@ -579,6 +595,7 @@ class Memphis:
                     f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
             real_name = consumer_name.lower()
             if generate_random_suffix:
+                warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
                 consumer_name = self.__generate_random_suffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
 
@@ -604,8 +621,9 @@ class Memphis:
                 "max_msg_deliveries": max_msg_deliveries,
                 "start_consume_from_sequence": start_consume_from_sequence,
                 "last_messages": last_messages,
-                "req_version": 2,
-                "username": self.username
+                "req_version": 3,
+                "username": self.username,
+                "app_id": app_id,
             }
 
             create_consumer_req_bytes = json.dumps(create_consumer_req, indent=2).encode(
@@ -664,7 +682,7 @@ class Memphis:
             station_name (str): station name to produce messages into.
             producer_name (str): name for the producer.
             message (bytearray/dict): message to send into the station - bytearray/protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema or  bytearray/dict (schema validated station - avro schema))
-            generate_random_suffix (bool): false by default, if true concatenate a random suffix to producer's name
+            generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to producer's name
             ack_wait_sec (int, optional): max time in seconds to wait for an ack from memphis. Defaults to 15.
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
@@ -717,7 +735,7 @@ class Memphis:
             batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
-            generate_random_suffix (bool): false by default, if true concatenate a random suffix to consumer's name
+            generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
             prefetch: false by default, if true then fetch messages from local cache (if exists) and load more messages into the cache.
