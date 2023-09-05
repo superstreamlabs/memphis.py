@@ -225,11 +225,6 @@ class Consumer:
                         self.dls_current_index -= len(messages)
                     return messages
 
-                durable_name = ""
-                if self.consumer_group != "":
-                    durable_name = get_internal_name(self.consumer_group)
-                else:
-                    durable_name = get_internal_name(self.consumer_name)
                 subject = get_internal_name(self.station_name)
                 if len(self.subscriptions) == 0:
                     if self.inner_station_name not in self.connection.partition_consumers_updates_data:
