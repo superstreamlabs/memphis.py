@@ -237,7 +237,7 @@ class Consumer:
                             subject = f"{self.inner_station_name}${str(p)}.final"
                             consumer_group = get_internal_name(self.consumer_group)
                             psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
-                            self.subscriptions[p] = psub       
+                            self.subscriptions[p] = psub
                 partition_number = 1
                 if len(self.subscriptions) > 1:
                     partition_number = next(self.partition_generator)
