@@ -231,10 +231,22 @@ class Consumer:
                 else:
                     durable_name = get_internal_name(self.consumer_name)
                 subject = get_internal_name(self.station_name)
-                self.psub = await self.connection.broker_connection.pull_subscribe(
-                    subject + ".final", durable=durable_name
-                )
-                msgs = await self.psub.fetch(batch_size)
+                if len(self.subscriptions) == 0:
+                    if self.inner_station_name not in self.connection.partition_consumers_updates_data:
+                        subject = self.inner_station_name + ".final"
+                        consumer_group = get_internal_name(self.consumer_group)
+                        psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                        self.subscriptions[1] = psub
+                    else:
+                        for p in self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"]:
+                            subject = f"{self.inner_station_name}${str(p)}.final"
+                            consumer_group = get_internal_name(self.consumer_group)
+                            psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                            self.subscriptions[p] = psub       
+                partition_number = 1
+                if len(self.subscriptions) > 1:
+                    partition_number = next(self.partition_generator)
+                msgs = await self.subscriptions[partition_number].fetch(batch_size)
                 for msg in msgs:
                     messages.append(
                         Message(msg, self.connection, self.consumer_group))
