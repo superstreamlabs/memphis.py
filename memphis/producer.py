@@ -12,6 +12,7 @@ from graphql import validate as validate_graphql
 from jsonschema import validate
 import google.protobuf.json_format as protobuf_json_format
 import fastavro
+import mmh3
 from memphis.exceptions import MemphisError, MemphisSchemaError
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
@@ -191,7 +192,8 @@ class Producer:
         async_produce: Union[bool, None] = None,
         nonblocking: bool = False,
         msg_id: Union[str, None] = None,
-        concurrent_task_limit: Union[int, None] = None
+        concurrent_task_limit: Union[int, None] = None,
+        producer_partition_key: Union[str, None] = None
     ):
         """Produces a message into a station.
         Args:
@@ -235,7 +237,10 @@ class Producer:
             else:
                 headers = memphis_headers
 
-            if self.internal_station_name not in self.connection.partition_producers_updates_data:
+            if producer_partition_key is not None:
+                partition_number = self.get_partition_from_key(producer_partition_key)
+                partition_name = f"{self.internal_station_name}${str(partition_number)}"
+            elif self.internal_station_name not in self.connection.partition_producers_updates_data:
                 partition_name = self.internal_station_name
             elif len(self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list']) == 1:
                 partition_name = f"{self.internal_station_name}${self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list'][0]}"
@@ -395,3 +400,10 @@ class Producer:
 
         except Exception as e:
             raise Exception(e)
+        
+    def get_partition_from_key(self, key):
+        try:
+            index = mmh3.hash(key, self.connection.SEED, signed=False) % len(self.connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])
+            return self.connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"][index]
+        except Exception as e:
+            raise e

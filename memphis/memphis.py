@@ -34,12 +34,14 @@ from memphis.producer import Producer
 from memphis.station import Station
 from memphis.types import Retention, Storage
 from memphis.utils import get_internal_name, random_bytes
+from memphis.partition_generator import PartitionGenerator
 
 app_id = str(uuid.uuid4())
 
 class Memphis:
     MAX_BATCH_SIZE = 5000
     MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
+    SEED = 1234
 
     def __init__(self):
         self.is_connection_active = False
@@ -645,6 +647,27 @@ class Memphis:
                         self.partition_consumers_updates_data[internal_station_name] = creation_res["partitions_update"]
                 except:
                     raise MemphisError(creation_res)
+                
+            inner_station_name = get_internal_name(station_name.lower())
+
+            partition_generator = None
+                
+            if inner_station_name in self.partition_consumers_updates_data:
+                partition_generator = PartitionGenerator(self.partition_consumers_updates_data[inner_station_name]["partitions_list"])
+
+            consumer_group = get_internal_name(cg.lower())
+            subscriptions = {}
+
+            if inner_station_name not in self.partition_consumers_updates_data:
+                subject = inner_station_name + ".final"
+                psub = await self.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                subscriptions[1] = psub
+            else:
+                for p in self.partition_consumers_updates_data[inner_station_name]["partitions_list"]:
+                    subject = f"{inner_station_name}${str(p)}.final"
+                    psub = await self.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                    subscriptions[p] = psub
+
 
             internal_station_name = get_internal_name(station_name)
             map_key = internal_station_name + "_" + real_name
@@ -660,6 +683,8 @@ class Memphis:
                 max_msg_deliveries,
                 start_consume_from_sequence=start_consume_from_sequence,
                 last_messages=last_messages,
+                partition_generator=partition_generator,
+                subscriptions=subscriptions,
             )
             self.consumers_map[map_key] = consumer
             return consumer
@@ -724,6 +749,7 @@ class Memphis:
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
+        partition_key: str = None,
     ):
         """Consume a batch of messages.
         Args:.
@@ -765,7 +791,7 @@ class Memphis:
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            messages = await consumer.fetch(batch_size)
+            messages = await consumer.fetch(batch_size, partition_key=partition_key)
             if messages == None:
                 messages = []
             return messages
