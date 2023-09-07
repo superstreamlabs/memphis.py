@@ -156,8 +156,8 @@ class Memphis:
             password (str): depends on how Memphis deployed - default is connection token-based authentication.
             port (int, optional): port. Defaults to 6666.
             reconnect (bool, optional): whether to do reconnect while connection is lost. Defaults to True.
-            max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
-            reconnect_interval_ms (int, optional): Interval in milliseconds between reconnect attempts. Defaults to 200.
+            max_reconnect (int, optional): The reconnect attempt. Defaults to 10.
+            reconnect_interval_ms (int, optional): Interval in milliseconds between reconnect attempts. Defaults to 1500.
             timeout_ms (int, optional): connection timeout in milliseconds. Defaults to 15000.
             key_file (string): path to tls key file.
             cert_file (string): path to tls cert file.
