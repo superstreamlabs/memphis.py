@@ -299,6 +299,3 @@ class Consumer:
             return index + 1
         except Exception as e:
             raise e
-    
-
-
