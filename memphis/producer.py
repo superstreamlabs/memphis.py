@@ -400,7 +400,7 @@ class Producer:
 
         except Exception as e:
             raise Exception(e)
-        
+
     def get_partition_from_key(self, key):
         try:
             index = mmh3.hash(key, self.connection.SEED, signed=False) % len(self.connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])

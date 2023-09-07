@@ -54,7 +54,6 @@ class Consumer:
         self.inner_station_name = get_internal_name(self.station_name)
         self.subscriptions = subscriptions
         self.partition_generator = partition_generator
-            
 
 
     def set_context(self, context):
@@ -224,8 +223,7 @@ class Consumer:
 
                 if partition_key is not None:
                     partition_number = self.get_partition_from_key(partition_key)
-            
-                
+
                 if len(self.subscriptions) > 1:
                     if partition_key is None:
                         partition_number = next(self.partition_generator)
@@ -294,7 +292,7 @@ class Consumer:
             del self.connection.consumers_map[map_key]
         except Exception as e:
             raise MemphisError(str(e)) from e
-        
+
     def get_partition_from_key(self, key):
         try:
             index = mmh3.hash(key, self.connection.SEED, signed=False) % len(self.subscriptions)

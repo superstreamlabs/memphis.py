@@ -647,11 +647,11 @@ class Memphis:
                         self.partition_consumers_updates_data[internal_station_name] = creation_res["partitions_update"]
                 except:
                     raise MemphisError(creation_res)
-                
+
             inner_station_name = get_internal_name(station_name.lower())
 
             partition_generator = None
-                
+
             if inner_station_name in self.partition_consumers_updates_data:
                 partition_generator = PartitionGenerator(self.partition_consumers_updates_data[inner_station_name]["partitions_list"])
 
