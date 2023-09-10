@@ -70,6 +70,7 @@ class Consumer:
                 - `messages`: A list of `Message` objects representing the batch of messages received.
                 - `error`: An optional `MemphisError` object if there was an error while consuming the messages.
                 - `context`: A dictionary representing the context that was set using the `set_context()` method.
+            consumer_partition_key (str): A string that will be used to determine the partition to consume from. If not provided, the consume will work in a Round Robin fashion.
 
         Example:
             import asyncio

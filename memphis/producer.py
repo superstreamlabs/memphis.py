@@ -217,6 +217,7 @@ class Producer:
                                                    tasks. Calls with nonblocking=True will block
                                                    if the limit is hit and will wait until the
                                                    buffer drains halfway down.
+            producer_partition_key (string, optional): Produce messages to a specific partition using the partition key.
         Raises:
             Exception: _description_
         """

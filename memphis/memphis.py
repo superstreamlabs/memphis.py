@@ -713,6 +713,7 @@ class Memphis:
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
             msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotence
+            producer_partition_key (string, optional): produce to a specific partition using the partition key
         Raises:
             Exception: _description_
         """
@@ -765,6 +766,7 @@ class Memphis:
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
+            consumer_partition_key (str): consume from a specific partition using the partition key
         Returns:
             list: Message
         """
