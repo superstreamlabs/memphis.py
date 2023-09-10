@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import mmh3
 
 from memphis.exceptions import MemphisError
 from memphis.utils import default_error_handler, get_internal_name
@@ -26,6 +27,8 @@ class Consumer:
         error_callback=None,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
+        partition_generator: PartitionGenerator = None,
+        subscriptions: dict = None,
     ):
         self.connection = connection
         self.station_name = station_name.lower()
@@ -49,16 +52,15 @@ class Consumer:
         self.t_dls = asyncio.create_task(self.__consume_dls())
         self.t_consume = None
         self.inner_station_name = get_internal_name(self.station_name)
-        self.subscriptions = {}
-        if self.inner_station_name in connection.partition_consumers_updates_data:
-            self.partition_generator = PartitionGenerator(connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"])
+        self.subscriptions = subscriptions
+        self.partition_generator = partition_generator
 
 
     def set_context(self, context):
         """Set a context (dict) that will be passed to each message handler call."""
         self.context = context
 
-    def consume(self, callback):
+    def consume(self, callback, consumer_partition_key: str = None):
         """
         This method starts consuming events from the specified station and invokes the provided callback function for each batch of messages received.
 
@@ -68,6 +70,7 @@ class Consumer:
                 - `messages`: A list of `Message` objects representing the batch of messages received.
                 - `error`: An optional `MemphisError` object if there was an error while consuming the messages.
                 - `context`: A dictionary representing the context that was set using the `set_context()` method.
+            consumer_partition_key (str): A string that will be used to determine the partition to consume from. If not provided, the consume will work in a Round Robin fashion.
 
         Example:
             import asyncio
@@ -94,28 +97,20 @@ class Consumer:
             asyncio.run(main())
         """
         self.dls_callback_func = callback
-        self.t_consume = asyncio.create_task(self.__consume(callback))
+        self.t_consume = asyncio.create_task(self.__consume(callback, partition_key=consumer_partition_key))
 
-    async def __consume(self, callback):
-        if self.inner_station_name not in self.connection.partition_consumers_updates_data:
-            subject = self.inner_station_name + ".final"
-            consumer_group = get_internal_name(self.consumer_group)
-            psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
-            self.subscriptions[1] = psub
-        else:
-            for p in self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"]:
-                subject = f"{self.inner_station_name}${str(p)}.final"
-                consumer_group = get_internal_name(self.consumer_group)
-                psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
-                self.subscriptions[p] = psub
-
+    async def __consume(self, callback, partition_key: str = None):
         partition_number = 1
+
+        if partition_key is not None:
+            partition_number = self.get_partition_from_key(partition_key)
 
         while True:
             if self.connection.is_connection_active and self.pull_interval_ms:
                 try:
                     if len(self.subscriptions) > 1:
-                        partition_number = next(self.partition_generator)
+                        if partition_key is None:
+                            partition_number = next(self.partition_generator)
 
                     memphis_messages = []
                     msgs = await self.subscriptions[partition_number].fetch(self.batch_size)
@@ -167,7 +162,7 @@ class Consumer:
                 await self.dls_callback_func([], MemphisError(str(e)), self.context)
                 return
 
-    async def fetch(self, batch_size: int = 10):
+    async def fetch(self, batch_size: int = 10, consumer_partition_key: str = None):
         """
         Fetch a batch of messages.
 
@@ -225,22 +220,14 @@ class Consumer:
                         self.dls_current_index -= len(messages)
                     return messages
 
-                subject = get_internal_name(self.station_name)
-                if len(self.subscriptions) == 0:
-                    if self.inner_station_name not in self.connection.partition_consumers_updates_data:
-                        subject = self.inner_station_name + ".final"
-                        consumer_group = get_internal_name(self.consumer_group)
-                        psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
-                        self.subscriptions[1] = psub
-                    else:
-                        for p in self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"]:
-                            subject = f"{self.inner_station_name}${str(p)}.final"
-                            consumer_group = get_internal_name(self.consumer_group)
-                            psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
-                            self.subscriptions[p] = psub
                 partition_number = 1
+
                 if len(self.subscriptions) > 1:
-                    partition_number = next(self.partition_generator)
+                    if consumer_partition_key is not None:
+                        partition_number = self.get_partition_from_key(consumer_partition_key)
+                    else:
+                        partition_number = next(self.partition_generator)
+
                 msgs = await self.subscriptions[partition_number].fetch(batch_size)
                 for msg in msgs:
                     messages.append(
@@ -305,3 +292,10 @@ class Consumer:
             del self.connection.consumers_map[map_key]
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def get_partition_from_key(self, key):
+        try:
+            index = mmh3.hash(key, self.connection.SEED, signed=False) % len(self.subscriptions)
+            return self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"][index]
+        except Exception as e:
+            raise e

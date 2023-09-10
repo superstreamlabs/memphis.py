@@ -34,12 +34,14 @@ from memphis.producer import Producer
 from memphis.station import Station
 from memphis.types import Retention, Storage
 from memphis.utils import get_internal_name, random_bytes
+from memphis.partition_generator import PartitionGenerator
 
 app_id = str(uuid.uuid4())
 
 class Memphis:
     MAX_BATCH_SIZE = 5000
     MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
+    SEED = 1234
 
     def __init__(self):
         self.is_connection_active = False
@@ -646,6 +648,27 @@ class Memphis:
                 except:
                     raise MemphisError(creation_res)
 
+            inner_station_name = get_internal_name(station_name.lower())
+
+            partition_generator = None
+
+            if inner_station_name in self.partition_consumers_updates_data:
+                partition_generator = PartitionGenerator(self.partition_consumers_updates_data[inner_station_name]["partitions_list"])
+
+            consumer_group = get_internal_name(cg.lower())
+            subscriptions = {}
+
+            if inner_station_name not in self.partition_consumers_updates_data:
+                subject = inner_station_name + ".final"
+                psub = await self.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                subscriptions[1] = psub
+            else:
+                for p in self.partition_consumers_updates_data[inner_station_name]["partitions_list"]:
+                    subject = f"{inner_station_name}${str(p)}.final"
+                    psub = await self.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                    subscriptions[p] = psub
+
+
             internal_station_name = get_internal_name(station_name)
             map_key = internal_station_name + "_" + real_name
             consumer = Consumer(
@@ -660,6 +683,8 @@ class Memphis:
                 max_msg_deliveries,
                 start_consume_from_sequence=start_consume_from_sequence,
                 last_messages=last_messages,
+                partition_generator=partition_generator,
+                subscriptions=subscriptions,
             )
             self.consumers_map[map_key] = consumer
             return consumer
@@ -676,6 +701,7 @@ class Memphis:
         headers: Union[Headers, None] = None,
         async_produce: bool = False,
         msg_id: Union[str, None] = None,
+        producer_partition_key: Union[str, None] = None
     ):
         """Produces a message into a station without the need to create a producer.
         Args:
@@ -687,6 +713,7 @@ class Memphis:
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
             msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotence
+            producer_partition_key (string, optional): produce to a specific partition using the partition key
         Raises:
             Exception: _description_
         """
@@ -708,6 +735,7 @@ class Memphis:
                 headers=headers,
                 async_produce=async_produce,
                 msg_id=msg_id,
+                producer_partition_key=producer_partition_key
             )
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -724,6 +752,7 @@ class Memphis:
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
+        consumer_partition_key: str = None,
     ):
         """Consume a batch of messages.
         Args:.
@@ -737,6 +766,7 @@ class Memphis:
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
+            consumer_partition_key (str): consume from a specific partition using the partition key
         Returns:
             list: Message
         """
@@ -765,7 +795,7 @@ class Memphis:
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            messages = await consumer.fetch(batch_size)
+            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key)
             if messages == None:
                 messages = []
             return messages
