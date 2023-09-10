@@ -701,6 +701,7 @@ class Memphis:
         headers: Union[Headers, None] = None,
         async_produce: bool = False,
         msg_id: Union[str, None] = None,
+        producer_partition_key: Union[str, None] = None
     ):
         """Produces a message into a station without the need to create a producer.
         Args:
@@ -733,6 +734,7 @@ class Memphis:
                 headers=headers,
                 async_produce=async_produce,
                 msg_id=msg_id,
+                producer_partition_key=producer_partition_key
             )
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -749,7 +751,7 @@ class Memphis:
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
-        partition_key: str = None,
+        consumer_partition_key: str = None,
     ):
         """Consume a batch of messages.
         Args:.
@@ -791,7 +793,7 @@ class Memphis:
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            messages = await consumer.fetch(batch_size, partition_key=partition_key)
+            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key)
             if messages == None:
                 messages = []
             return messages

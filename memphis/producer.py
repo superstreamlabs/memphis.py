@@ -237,13 +237,13 @@ class Producer:
             else:
                 headers = memphis_headers
 
-            if producer_partition_key is not None:
-                partition_number = self.get_partition_from_key(producer_partition_key)
-                partition_name = f"{self.internal_station_name}${str(partition_number)}"
-            elif self.internal_station_name not in self.connection.partition_producers_updates_data:
+            if self.internal_station_name not in self.connection.partition_producers_updates_data:
                 partition_name = self.internal_station_name
             elif len(self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list']) == 1:
                 partition_name = f"{self.internal_station_name}${self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list'][0]}"
+            elif producer_partition_key is not None:
+                partition_number = self.get_partition_from_key(producer_partition_key)
+                partition_name = f"{self.internal_station_name}${str(partition_number)}"
             else:
                 partition_name = f"{self.internal_station_name}${str(next(self.partition_generator))}"
 

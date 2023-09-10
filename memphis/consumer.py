@@ -60,7 +60,7 @@ class Consumer:
         """Set a context (dict) that will be passed to each message handler call."""
         self.context = context
 
-    def consume(self, callback, partition_key: str = None):
+    def consume(self, callback, consumer_partition_key: str = None):
         """
         This method starts consuming events from the specified station and invokes the provided callback function for each batch of messages received.
 
@@ -96,7 +96,7 @@ class Consumer:
             asyncio.run(main())
         """
         self.dls_callback_func = callback
-        self.t_consume = asyncio.create_task(self.__consume(callback, partition_key=partition_key))
+        self.t_consume = asyncio.create_task(self.__consume(callback, partition_key=consumer_partition_key))
 
     async def __consume(self, callback, partition_key: str = None):
         partition_number = 1
@@ -161,7 +161,7 @@ class Consumer:
                 await self.dls_callback_func([], MemphisError(str(e)), self.context)
                 return
 
-    async def fetch(self, batch_size: int = 10, partition_key: str = None):
+    async def fetch(self, batch_size: int = 10, consumer_partition_key: str = None):
         """
         Fetch a batch of messages.
 
@@ -221,11 +221,10 @@ class Consumer:
 
                 partition_number = 1
 
-                if partition_key is not None:
-                    partition_number = self.get_partition_from_key(partition_key)
-
                 if len(self.subscriptions) > 1:
-                    if partition_key is None:
+                    if consumer_partition_key is not None:
+                        partition_number = self.get_partition_from_key(consumer_partition_key)
+                    else:
                         partition_number = next(self.partition_generator)
 
                 msgs = await self.subscriptions[partition_number].fetch(batch_size)
@@ -296,6 +295,6 @@ class Consumer:
     def get_partition_from_key(self, key):
         try:
             index = mmh3.hash(key, self.connection.SEED, signed=False) % len(self.subscriptions)
-            return index + 1
+            return self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"][index]
         except Exception as e:
             raise e
