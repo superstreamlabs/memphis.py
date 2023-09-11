@@ -281,7 +281,7 @@ class Memphis:
                 "utf-8"
             )
             err_msg = await self.broker_manager.request(
-                "$memphis_station_creations", create_station_req_bytes, timeout=5
+                "$memphis_station_creations", create_station_req_bytes, timeout=20
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -319,7 +319,7 @@ class Memphis:
                    "username": self.username}
             msg_to_send = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
-                "$memphis_schema_attachments", msg_to_send, timeout=5
+                "$memphis_schema_attachments", msg_to_send, timeout=20
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -341,7 +341,7 @@ class Memphis:
             msg = {"station_name": station_name, "username": self.username}
             msg_to_send = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
-                "$memphis_schema_detachments", msg_to_send, timeout=5
+                "$memphis_schema_detachments", msg_to_send, timeout=20
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -436,7 +436,7 @@ class Memphis:
                 "utf-8"
             )
             create_res = await self.broker_manager.request(
-                "$memphis_producer_creations", create_producer_req_bytes, timeout=5
+                "$memphis_producer_creations", create_producer_req_bytes, timeout=20
             )
             create_res = create_res.data.decode("utf-8")
             create_res = json.loads(create_res)
@@ -632,7 +632,7 @@ class Memphis:
                 "utf-8"
             )
             creation_res = await self.broker_manager.request(
-                "$memphis_consumer_creations", create_consumer_req_bytes, timeout=5
+                "$memphis_consumer_creations", create_consumer_req_bytes, timeout=20
             )
             creation_res = creation_res.data.decode("utf-8")
             if creation_res != "":
@@ -835,7 +835,7 @@ class Memphis:
         create_schema_req_bytes = json.dumps(create_schema_req, indent=2).encode("utf-8")
 
         create_res = await self.broker_manager.request(
-            "$memphis_schema_creations", create_schema_req_bytes, timeout=5)
+            "$memphis_schema_creations", create_schema_req_bytes, timeout=20)
 
         create_res = create_res.data.decode("utf-8")
         create_res = json.loads(create_res)
