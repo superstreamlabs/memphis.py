@@ -41,7 +41,7 @@ app_id = str(uuid.uuid4())
 class Memphis:
     MAX_BATCH_SIZE = 5000
     MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
-    SEED = 1234
+    SEED = 31
 
     def __init__(self):
         self.is_connection_active = False

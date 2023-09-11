@@ -46,6 +46,11 @@ Highly resilient, distributed architecture, cloud-native, and run on any Kuberne
 $ pip3 install memphis-py
 ```
 
+Notice: you may receive an error about the "mmh3" package, to solve it please install python3-devel
+```sh
+$ sudo yum install python3-devel
+```
+
 ## Importing
 
 ```python
