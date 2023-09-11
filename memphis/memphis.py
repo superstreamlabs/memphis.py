@@ -42,7 +42,7 @@ class Memphis:
     MAX_BATCH_SIZE = 5000
     MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
     SEED = 31
-    
+
     def __init__(self):
         self.is_connection_active = False
         self.schema_updates_data = {}
