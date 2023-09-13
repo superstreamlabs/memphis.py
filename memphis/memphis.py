@@ -185,7 +185,7 @@ class Memphis:
                     "You have to connect with one of the following methods: connection token / password")
             self.broker_manager = None
             async def closed_callback():
-                if self.broker_manager is not None:
+                if self.broker_manager is not None and self.broker_manager.last_error is not None:
                     print(MemphisError(str(self.broker_manager.last_error)))
 
             connection_opts = {
