@@ -110,7 +110,7 @@ _If a station already exists nothing happens, the new configuration will not be 
 ```python
 station = memphis.station(
   name="<station-name>",
-  schema_name="<schema-name>",
+  schema_name="<schema-name>", # defaults to "" (no schema)
   retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES/ACK_BASED(cloud only). Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
   storage_type=Storage.DISK, # Storage.DISK/Storage.MEMORY. Defaults to DISK
@@ -118,8 +118,9 @@ station = memphis.station(
   idempotency_window_ms=120000, # defaults to 2 minutes
   send_poison_msg_to_dls=True, # defaults to true
   send_schema_failed_msg_to_dls=True, # defaults to true
-  tiered_storage_enabled=False # defaults to false
-  partitions_number=1 # default to 1 
+  tiered_storage_enabled=False, # defaults to false
+  partitions_number=1, # defaults to 1 
+  dls_station="<station-name>" # defaults to "" (no DLS station) - If selected DLS events will be sent to selected station as well
 )
 ```
 
