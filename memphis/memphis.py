@@ -241,7 +241,8 @@ class Memphis:
         send_poison_msg_to_dls: bool = True,
         send_schema_failed_msg_to_dls: bool = True,
         tiered_storage_enabled: bool = False,
-        partitions_number = 1,
+        partitions_number: int = 1,
+        dls_station: str = "",
     ):
         """Creates a station.
         Args:
@@ -252,6 +253,11 @@ class Memphis:
             replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
             idempotency_window_ms (int, optional): time frame in which idempotent messages will be tracked, happens based on message ID Defaults to 120000.
             schema_name (str): schema name.
+            send_poison_msg_to_dls (bool): whether unacked(poison) messages (reached the max deliveries) should be sent into the DLS. Defaults to True.
+            send_schema_failed_msg_to_dls (bool): whether schema violation messages should be sent into the DLS. Defaults to True.
+            tiered_storage_enabled (bool): if true + tiered storage configured - messages hit the retention will be moved into tier 2 storage. Defaults to False.
+            partitions_number (int): number of partitions for the station. Defaults to 1.
+            dls_station (str): If selected DLS events will be sent to selected station as well. Defaults to "".
         Returns:
             object: station
         """
@@ -275,7 +281,8 @@ class Memphis:
                 },
                 "username": self.username,
                 "tiered_storage_enabled": tiered_storage_enabled,
-                "partitions_number" : partitions_number
+                "partitions_number" : partitions_number,
+                "dls_station": dls_station
             }
             create_station_req_bytes = json.dumps(create_station_req, indent=2).encode(
                 "utf-8"
