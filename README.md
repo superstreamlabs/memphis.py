@@ -46,6 +46,11 @@ Highly resilient, distributed architecture, cloud-native, and run on any Kuberne
 $ pip3 install memphis-py
 ```
 
+Notice: you may receive an error about the "mmh3" package, to solve it please install python3-devel
+```sh
+$ sudo yum install python3-devel
+```
+
 ## Importing
 
 ```python
@@ -70,7 +75,7 @@ async def main():
       password="<string>", # depends on how Memphis deployed - default is connection token-based authentication
       port=<port>, # defaults to 6666
       reconnect=True, # defaults to True
-      max_reconnect=3, # defaults to 3
+      max_reconnect=10, # defaults to 10
       reconnect_interval_ms=1500, # defaults to 1500
       timeout_ms=1500, # defaults to 1500
       # for TLS connection:
@@ -105,7 +110,7 @@ _If a station already exists nothing happens, the new configuration will not be 
 ```python
 station = memphis.station(
   name="<station-name>",
-  schema_name="<schema-name>",
+  schema_name="<schema-name>", # defaults to "" (no schema)
   retention_type=Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES/ACK_BASED(cloud only). Defaults to MAX_MESSAGE_AGE_SECONDS
   retention_value=604800, # defaults to 604800
   storage_type=Storage.DISK, # Storage.DISK/Storage.MEMORY. Defaults to DISK
@@ -113,8 +118,9 @@ station = memphis.station(
   idempotency_window_ms=120000, # defaults to 2 minutes
   send_poison_msg_to_dls=True, # defaults to true
   send_schema_failed_msg_to_dls=True, # defaults to true
-  tiered_storage_enabled=False # defaults to false
-  partitions_number=1 # default to 1 
+  tiered_storage_enabled=False, # defaults to false
+  partitions_number=1, # defaults to 1 
+  dls_station="<station-name>" # defaults to "" (no DLS station) - If selected DLS events will be sent to selected station as well
 )
 ```
 
@@ -243,7 +249,8 @@ await memphis.produce(station_name='test_station_py', producer_name='prod_py',
   ack_wait_sec=15, # defaults to 15
   headers=headers, # default to {}
   nonblocking=False, #defaults to false
-  msg_id="123"
+  msg_id="123",
+  producer_partition_key="key" #default to None
 )
 ```
 
@@ -272,6 +279,15 @@ For better performance, the client won't block requests while waiting for an ack
 await producer.produce(
   message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
   headers={}, nonblocking=True)
+```
+
+### Produce using partition key
+Use any string to produce messages to a specific partition
+
+```python
+await producer.produce(
+  message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+  producer_partition_key="key") #default to None
 ```
 
 ### Non-blocking Produce with Task Limits
@@ -341,6 +357,15 @@ async def msg_handler(msgs, error, context):
 consumer.consume(msg_handler)
 ```
 
+### Consume using a partition key
+The key will be used to consume from a specific partition
+
+```python
+consumer.consume(msg_handler,
+                 consumer_partition_key = "key" #consume from a specific partition
+                )
+```
+
 ### Fetch a single batch of messages
 ```python
 msgs = await memphis.fetch_messages(
@@ -351,8 +376,9 @@ msgs = await memphis.fetch_messages(
   batch_max_time_to_wait_ms=5000, # defaults to 5000
   max_ack_time_ms=30000, # defaults to 30000
   max_msg_deliveries=10, # defaults to 10
-  start_consume_from_sequence=1 # start consuming from a specific sequence. defaults to 1
-  last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station))
+  start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
+  last_messages=-1, # consume the last N messages, defaults to -1 (all messages in the station))
+  consumer_partition_key="key" # used to consume from a specific partition, default to None 
 )
 ```
 
