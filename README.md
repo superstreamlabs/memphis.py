@@ -118,8 +118,8 @@ station = memphis.station(
   idempotency_window_ms=120000, # defaults to 2 minutes
   send_poison_msg_to_dls=True, # defaults to true
   send_schema_failed_msg_to_dls=True, # defaults to true
-  tiered_storage_enabled=False # defaults to false
-  partitions_number=1 # defaults to 1 
+  tiered_storage_enabled=False, # defaults to false
+  partitions_number=1, # defaults to 1 
   dls_station="<station-name>" # defaults to "" (no DLS station) - If selected DLS events will be sent to selected station as well
 )
 ```
