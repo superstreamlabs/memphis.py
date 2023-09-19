@@ -207,6 +207,8 @@ class Consumer:
         messages = []
 
         if prefetch:
+            if len(self.cached_messages) >= 0:
+                print(f"consuming from cache: {len(self.cached_messages)}")
             if len(self.cached_messages) >= batch_size:
                 messages = self.cached_messages[:batch_size]
                 self.cached_messages = self.cached_messages[batch_size:]
@@ -324,3 +326,4 @@ class Consumer:
     async def __load_messages(self, batch_size):
         new_messages = await self.fetch(batch_size)
         self.cached_messages.extend(new_messages)
+        print(f"cached msgs: {len(self.cached_messages)}")
