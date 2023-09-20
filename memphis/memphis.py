@@ -47,7 +47,7 @@ class Memphis:
         self.partition_producers_updates_data = {}
         self.partition_consumers_updates_data = {}
         self.schema_updates_subs = {}
-        self.producers_per_station = {}
+        self.clients_per_station = {}
         self.schema_tasks = {}
         self.proto_msgs = {}
         self.graphql_schemas = {}
@@ -364,8 +364,8 @@ class Memphis:
                         del self.schema_updates_data[key]
                     if key in self.schema_updates_subs:
                         del self.schema_updates_subs[key]
-                    if key in self.producers_per_station:
-                        del self.producers_per_station[key]
+                    if key in self.clients_per_station:
+                        del self.clients_per_station[key]
                     if key in self.schema_tasks:
                         del self.schema_tasks[key]
                     if task is not None:
@@ -546,10 +546,10 @@ class Memphis:
 
         schema_exists = self.schema_updates_subs.get(station_name)
         if schema_exists:
-            self.producers_per_station[station_name] += 1
+            self.clients_per_station[station_name] += 1
         else:
             sub = await self.broker_manager.subscribe(schema_updates_subject)
-            self.producers_per_station[station_name] = 1
+            self.clients_per_station[station_name] = 1
             self.schema_updates_subs[station_name] = sub
         task_exists = self.schema_tasks.get(station_name)
         if not task_exists:

@@ -5,11 +5,11 @@ import json
 from memphis.exceptions import MemphisConnectError, MemphisError
 
 class Message:
-    def __init__(self, message, connection, cg_name, station_name):
+    def __init__(self, message, connection, cg_name, internal_station_name):
         self.message = message
         self.connection = connection
         self.cg_name = cg_name
-        self.internal_station_name = station_name
+        self.internal_station_name = internal_station_name
 
     async def ack(self):
         """Ack a message is done processing."""
@@ -38,7 +38,7 @@ class Message:
     def get_data(self):
         """Receive the message."""
         try:
-            return json.loads(bytearray(self.message.data))
+            return bytearray(self.message.data)
         except Exception:
             return
 

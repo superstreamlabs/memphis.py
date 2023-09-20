@@ -368,10 +368,10 @@ class Producer:
 
             internal_station_name = get_internal_name(self.station_name)
             producer_number = (
-                self.connection.producers_per_station.get(
+                self.connection.clients_per_station.get(
                     internal_station_name) - 1
             )
-            self.connection.producers_per_station[
+            self.connection.clients_per_station[
                 internal_station_name
             ] = producer_number
 
