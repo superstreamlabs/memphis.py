@@ -561,8 +561,6 @@ class Memphis:
             )
             self.schema_tasks[station_name] = task
 
-            self.update_schema_data(station_name)
-
     async def consumer(
         self,
         station_name: str,
@@ -654,9 +652,11 @@ class Memphis:
 
             internal_station_name = get_internal_name(station_name)
             map_key = internal_station_name + "_" + real_name
-            await self.start_listen_for_schema_updates(
-                internal_station_name, creation_res["schema_update"]
-            )
+            if "schema_update" in creation_res:
+                await self.start_listen_for_schema_updates(
+                    internal_station_name, creation_res["schema_update"]
+                )
+                self.update_schema_data(station_name)
             consumer = Consumer(
                 self,
                 station_name,

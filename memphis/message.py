@@ -45,7 +45,7 @@ class Message:
     def get_data_deserialized(self):
         """Receive the message."""
         try:
-            if self.connection.schema_updates_data[self.internal_station_name] != {}:
+            if self.connection.schema_updates_data and self.connection.schema_updates_data[self.internal_station_name] != {}:
                 schema_type = self.connection.schema_updates_data[
                     self.internal_station_name
                 ]["type"]
@@ -62,7 +62,7 @@ class Message:
                     decoded_str = message.decode("utf-8")
                     return decoded_str
             else:
-                return self.message.data
+                return bytearray(self.message.data)
         except Exception:
             return
 

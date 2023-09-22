@@ -294,29 +294,30 @@ class Consumer:
             if error != "" and not "not exist" in error:
                 raise MemphisError(error)
             self.dls_messages.clear()
-            internal_station_name = get_internal_name(self.station_name)
-            producer_number = (
-                self.connection.clients_per_station.get(
-                    internal_station_name) - 1
-            )
-            self.connection.clients_per_station[
-                internal_station_name
-            ] = producer_number
+            if self.connection.schema_updates_data != {}:
+                internal_station_name = get_internal_name(self.station_name)
+                clients_number = (
+                    self.connection.clients_per_station.get(
+                        internal_station_name) - 1
+                )
+                self.connection.clients_per_station[
+                    internal_station_name
+                ] = clients_number
 
-            if producer_number == 0:
-                sub = self.connection.schema_updates_subs.get(
-                    internal_station_name)
-                task = self.connection.schema_tasks.get(internal_station_name)
-                if internal_station_name in self.connection.schema_updates_data:
-                    del self.connection.schema_updates_data[internal_station_name]
-                if internal_station_name in self.connection.schema_updates_subs:
-                    del self.connection.schema_updates_subs[internal_station_name]
-                if internal_station_name in self.connection.schema_tasks:
-                    del self.connection.schema_tasks[internal_station_name]
-                if task is not None:
-                    task.cancel()
-                if sub is not None:
-                    await sub.unsubscribe()
+                if clients_number == 0:
+                    sub = self.connection.schema_updates_subs.get(
+                        internal_station_name)
+                    task = self.connection.schema_tasks.get(internal_station_name)
+                    if internal_station_name in self.connection.schema_updates_data:
+                        del self.connection.schema_updates_data[internal_station_name]
+                    if internal_station_name in self.connection.schema_updates_subs:
+                        del self.connection.schema_updates_subs[internal_station_name]
+                    if internal_station_name in self.connection.schema_tasks:
+                        del self.connection.schema_tasks[internal_station_name]
+                    if task is not None:
+                        task.cancel()
+                    if sub is not None:
+                        await sub.unsubscribe()
 
             map_key = internal_station_name + "_" + self.consumer_name.lower()
             del self.connection.consumers_map[map_key]
