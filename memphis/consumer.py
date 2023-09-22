@@ -294,8 +294,8 @@ class Consumer:
             if error != "" and not "not exist" in error:
                 raise MemphisError(error)
             self.dls_messages.clear()
+            internal_station_name = get_internal_name(self.station_name)
             if self.connection.schema_updates_data != {}:
-                internal_station_name = get_internal_name(self.station_name)
                 clients_number = (
                     self.connection.clients_per_station.get(
                         internal_station_name) - 1
