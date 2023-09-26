@@ -206,18 +206,17 @@ class Consumer:
         """
         messages = []
 
-        if prefetch:
-            if len(self.cached_messages) >= 0:
-                print(f"consuming from cache: {len(self.cached_messages)}")
+        if prefetch and len(self.cached_messages) > 0:
             if len(self.cached_messages) >= batch_size:
                 messages = self.cached_messages[:batch_size]
                 self.cached_messages = self.cached_messages[batch_size:]
                 number_of_messages_to_prefetch = batch_size * 2 - batch_size  # calculated for clarity
                 self.load_messages_to_cache(number_of_messages_to_prefetch)
                 return messages
-            messages = self.cached_messages
-            batch_size -= len(self.cached_messages)
-            self.cached_messages = []
+            else:
+                messages = self.cached_messages
+                batch_size -= len(self.cached_messages)
+                self.cached_messages = []
 
         if self.connection.is_connection_active:
             try:
@@ -325,5 +324,5 @@ class Consumer:
 
     async def __load_messages(self, batch_size):
         new_messages = await self.fetch(batch_size)
-        self.cached_messages.extend(new_messages)
-        print(f"cached msgs: {len(self.cached_messages)}")
+        if new_messages is not None:
+            self.cached_messages.extend(new_messages)
