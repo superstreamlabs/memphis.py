@@ -255,6 +255,8 @@ class Consumer:
                 if "timeout" not in str(e).lower():
                     raise MemphisError(str(e)) from e
 
+        return messages
+
 
     async def __ping_consumer(self, callback):
         while True:
