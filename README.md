@@ -387,6 +387,11 @@ msgs = await memphis.fetch_messages(
 msgs = await consumer.fetch(batch_size=10) # defaults to 10
 ```
 
+### Fetch a single batch of messages after creating a consumer
+`prefetch = true` will prefetch next batch of messages and save it in memory for future fetch() request<br>
+```python
+msgs = await consumer.fetch(batch_size=10, prefetch=True) # defaults to False
+```
 
 ### Acknowledge a message
 

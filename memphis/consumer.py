@@ -54,6 +54,8 @@ class Consumer:
         self.inner_station_name = get_internal_name(self.station_name)
         self.subscriptions = subscriptions
         self.partition_generator = partition_generator
+        self.cached_messages = []
+        self.loading_thread = None
 
 
     def set_context(self, context):
@@ -162,7 +164,7 @@ class Consumer:
                 await self.dls_callback_func([], MemphisError(str(e)), self.context)
                 return
 
-    async def fetch(self, batch_size: int = 10, consumer_partition_key: str = None):
+    async def fetch(self, batch_size: int = 10, consumer_partition_key: str = None, prefetch: bool = False):
         """
         Fetch a batch of messages.
 
@@ -203,6 +205,19 @@ class Consumer:
         
         """
         messages = []
+
+        if prefetch and len(self.cached_messages) > 0:
+            if len(self.cached_messages) >= batch_size:
+                messages = self.cached_messages[:batch_size]
+                self.cached_messages = self.cached_messages[batch_size:]
+                number_of_messages_to_prefetch = batch_size * 2 - batch_size  # calculated for clarity
+                self.load_messages_to_cache(number_of_messages_to_prefetch)
+                return messages
+            else:
+                messages = self.cached_messages
+                batch_size -= len(self.cached_messages)
+                self.cached_messages = []
+
         if self.connection.is_connection_active:
             try:
                 if batch_size > self.MAX_BATCH_SIZE:
@@ -232,12 +247,16 @@ class Consumer:
                 for msg in msgs:
                     messages.append(
                         Message(msg, self.connection, self.consumer_group))
+                if prefetch:
+                    number_of_messages_to_prefetch = batch_size * 2
+                    self.load_messages_to_cache(number_of_messages_to_prefetch)
                 return messages
             except Exception as e:
                 if "timeout" not in str(e).lower():
                     raise MemphisError(str(e)) from e
 
         return messages
+
 
     async def __ping_consumer(self, callback):
         while True:
@@ -299,3 +318,13 @@ class Consumer:
             return self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"][index]
         except Exception as e:
             raise e
+
+    def load_messages_to_cache(self, batch_size):
+        if not self.loading_thread or not self.loading_thread.is_alive():
+            asyncio.ensure_future(self.__load_messages(batch_size))
+
+
+    async def __load_messages(self, batch_size):
+        new_messages = await self.fetch(batch_size)
+        if new_messages is not None:
+            self.cached_messages.extend(new_messages)

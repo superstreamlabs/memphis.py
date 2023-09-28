@@ -760,6 +760,7 @@ class Memphis:
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
         consumer_partition_key: str = None,
+        prefetch: bool = False,
     ):
         """Consume a batch of messages.
         Args:.
@@ -774,6 +775,7 @@ class Memphis:
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
             consumer_partition_key (str): consume from a specific partition using the partition key
+            prefetch: false by default, if true then fetch messages from local cache (if exists) and load more messages into the cache.
         Returns:
             list: Message
         """
@@ -802,7 +804,7 @@ class Memphis:
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key)
+            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key, prefetch=prefetch)
             if messages == None:
                 messages = []
             return messages
