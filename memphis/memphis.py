@@ -34,12 +34,14 @@ from memphis.producer import Producer
 from memphis.station import Station
 from memphis.types import Retention, Storage
 from memphis.utils import get_internal_name, random_bytes
+from memphis.partition_generator import PartitionGenerator
 
 app_id = str(uuid.uuid4())
 
 class Memphis:
     MAX_BATCH_SIZE = 5000
     MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
+    SEED = 31
 
     def __init__(self):
         self.is_connection_active = False
@@ -156,8 +158,8 @@ class Memphis:
             password (str): depends on how Memphis deployed - default is connection token-based authentication.
             port (int, optional): port. Defaults to 6666.
             reconnect (bool, optional): whether to do reconnect while connection is lost. Defaults to True.
-            max_reconnect (int, optional): The reconnect attempt. Defaults to 3.
-            reconnect_interval_ms (int, optional): Interval in milliseconds between reconnect attempts. Defaults to 200.
+            max_reconnect (int, optional): The reconnect attempt. Defaults to 10.
+            reconnect_interval_ms (int, optional): Interval in milliseconds between reconnect attempts. Defaults to 1500.
             timeout_ms (int, optional): connection timeout in milliseconds. Defaults to 15000.
             key_file (string): path to tls key file.
             cert_file (string): path to tls cert file.
@@ -183,7 +185,7 @@ class Memphis:
                     "You have to connect with one of the following methods: connection token / password")
             self.broker_manager = None
             async def closed_callback():
-                if self.broker_manager is not None:
+                if self.broker_manager is not None and self.broker_manager.last_error is not None:
                     print(MemphisError(str(self.broker_manager.last_error)))
 
             connection_opts = {
@@ -239,7 +241,8 @@ class Memphis:
         send_poison_msg_to_dls: bool = True,
         send_schema_failed_msg_to_dls: bool = True,
         tiered_storage_enabled: bool = False,
-        partitions_number = 1,
+        partitions_number: int = 1,
+        dls_station: str = "",
     ):
         """Creates a station.
         Args:
@@ -250,6 +253,11 @@ class Memphis:
             replicas (int, optional):number of replicas for the messages of the data. Defaults to 1.
             idempotency_window_ms (int, optional): time frame in which idempotent messages will be tracked, happens based on message ID Defaults to 120000.
             schema_name (str): schema name.
+            send_poison_msg_to_dls (bool): whether unacked(poison) messages (reached the max deliveries) should be sent into the DLS. Defaults to True.
+            send_schema_failed_msg_to_dls (bool): whether schema violation messages should be sent into the DLS. Defaults to True.
+            tiered_storage_enabled (bool): if true + tiered storage configured - messages hit the retention will be moved into tier 2 storage. Defaults to False.
+            partitions_number (int): number of partitions for the station. Defaults to 1.
+            dls_station (str): If selected DLS events will be sent to selected station as well. Defaults to "".
         Returns:
             object: station
         """
@@ -273,13 +281,14 @@ class Memphis:
                 },
                 "username": self.username,
                 "tiered_storage_enabled": tiered_storage_enabled,
-                "partitions_number" : partitions_number
+                "partitions_number" : partitions_number,
+                "dls_station": dls_station
             }
             create_station_req_bytes = json.dumps(create_station_req, indent=2).encode(
                 "utf-8"
             )
             err_msg = await self.broker_manager.request(
-                "$memphis_station_creations", create_station_req_bytes, timeout=5
+                "$memphis_station_creations", create_station_req_bytes, timeout=20
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -317,7 +326,7 @@ class Memphis:
                    "username": self.username}
             msg_to_send = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
-                "$memphis_schema_attachments", msg_to_send, timeout=5
+                "$memphis_schema_attachments", msg_to_send, timeout=20
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -339,7 +348,7 @@ class Memphis:
             msg = {"station_name": station_name, "username": self.username}
             msg_to_send = json.dumps(msg).encode("utf-8")
             err_msg = await self.broker_manager.request(
-                "$memphis_schema_detachments", msg_to_send, timeout=5
+                "$memphis_schema_detachments", msg_to_send, timeout=20
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -434,7 +443,7 @@ class Memphis:
                 "utf-8"
             )
             create_res = await self.broker_manager.request(
-                "$memphis_producer_creations", create_producer_req_bytes, timeout=5
+                "$memphis_producer_creations", create_producer_req_bytes, timeout=20
             )
             create_res = create_res.data.decode("utf-8")
             create_res = json.loads(create_res)
@@ -507,7 +516,8 @@ class Memphis:
             else:
                 data = message["init"]
             self.schema_updates_data[internal_station_name] = data
-            self.parse_descriptor(internal_station_name)
+            if message["init"]["type"] == "protobuf":
+                self.parse_descriptor(internal_station_name)
 
     def parse_descriptor(self, station_name):
         try:
@@ -634,7 +644,7 @@ class Memphis:
                 "utf-8"
             )
             creation_res = await self.broker_manager.request(
-                "$memphis_consumer_creations", create_consumer_req_bytes, timeout=5
+                "$memphis_consumer_creations", create_consumer_req_bytes, timeout=20
             )
             creation_res = creation_res.data.decode("utf-8")
             if creation_res != "":
@@ -649,6 +659,27 @@ class Memphis:
                         self.partition_consumers_updates_data[internal_station_name] = creation_res["partitions_update"]
                 except:
                     raise MemphisError(creation_res)
+
+            inner_station_name = get_internal_name(station_name.lower())
+
+            partition_generator = None
+
+            if inner_station_name in self.partition_consumers_updates_data:
+                partition_generator = PartitionGenerator(self.partition_consumers_updates_data[inner_station_name]["partitions_list"])
+
+            consumer_group = get_internal_name(cg.lower())
+            subscriptions = {}
+
+            if inner_station_name not in self.partition_consumers_updates_data:
+                subject = inner_station_name + ".final"
+                psub = await self.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                subscriptions[1] = psub
+            else:
+                for p in self.partition_consumers_updates_data[inner_station_name]["partitions_list"]:
+                    subject = f"{inner_station_name}${str(p)}.final"
+                    psub = await self.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                    subscriptions[p] = psub
+
 
             internal_station_name = get_internal_name(station_name)
             map_key = internal_station_name + "_" + real_name
@@ -669,6 +700,8 @@ class Memphis:
                 max_msg_deliveries,
                 start_consume_from_sequence=start_consume_from_sequence,
                 last_messages=last_messages,
+                partition_generator=partition_generator,
+                subscriptions=subscriptions,
             )
             self.consumers_map[map_key] = consumer
             return consumer
@@ -685,6 +718,7 @@ class Memphis:
         headers: Union[Headers, None] = None,
         async_produce: bool = False,
         msg_id: Union[str, None] = None,
+        producer_partition_key: Union[str, None] = None
     ):
         """Produces a message into a station without the need to create a producer.
         Args:
@@ -696,6 +730,7 @@ class Memphis:
             headers (dict, optional): Message headers, defaults to {}.
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
             msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotence
+            producer_partition_key (string, optional): produce to a specific partition using the partition key
         Raises:
             Exception: _description_
         """
@@ -717,6 +752,7 @@ class Memphis:
                 headers=headers,
                 async_produce=async_produce,
                 msg_id=msg_id,
+                producer_partition_key=producer_partition_key
             )
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -733,6 +769,8 @@ class Memphis:
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
+        consumer_partition_key: str = None,
+        prefetch: bool = False,
     ):
         """Consume a batch of messages.
         Args:.
@@ -746,6 +784,8 @@ class Memphis:
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
+            consumer_partition_key (str): consume from a specific partition using the partition key
+            prefetch: false by default, if true then fetch messages from local cache (if exists) and load more messages into the cache.
         Returns:
             list: Message
         """
@@ -774,7 +814,7 @@ class Memphis:
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            messages = await consumer.fetch(batch_size)
+            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key, prefetch=prefetch)
             if messages == None:
                 messages = []
             return messages
@@ -814,7 +854,7 @@ class Memphis:
         create_schema_req_bytes = json.dumps(create_schema_req, indent=2).encode("utf-8")
 
         create_res = await self.broker_manager.request(
-            "$memphis_schema_creations", create_schema_req_bytes, timeout=5)
+            "$memphis_schema_creations", create_schema_req_bytes, timeout=20)
 
         create_res = create_res.data.decode("utf-8")
         create_res = json.loads(create_res)

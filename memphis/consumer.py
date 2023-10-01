@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import mmh3
 
 from memphis.exceptions import MemphisError
 from memphis.utils import default_error_handler, get_internal_name
@@ -26,6 +27,8 @@ class Consumer:
         error_callback=None,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
+        partition_generator: PartitionGenerator = None,
+        subscriptions: dict = None,
     ):
         self.connection = connection
         self.station_name = station_name.lower()
@@ -50,16 +53,17 @@ class Consumer:
         self.t_dls = asyncio.create_task(self.__consume_dls())
         self.t_consume = None
         self.inner_station_name = get_internal_name(self.station_name)
-        self.subscriptions = {}
-        if self.inner_station_name in connection.partition_consumers_updates_data:
-            self.partition_generator = PartitionGenerator(connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"])
+        self.subscriptions = subscriptions
+        self.partition_generator = partition_generator
+        self.cached_messages = []
+        self.loading_thread = None
 
 
     def set_context(self, context):
         """Set a context (dict) that will be passed to each message handler call."""
         self.context = context
 
-    def consume(self, callback):
+    def consume(self, callback, consumer_partition_key: str = None):
         """
         This method starts consuming events from the specified station and invokes the provided callback function for each batch of messages received.
 
@@ -69,6 +73,7 @@ class Consumer:
                 - `messages`: A list of `Message` objects representing the batch of messages received.
                 - `error`: An optional `MemphisError` object if there was an error while consuming the messages.
                 - `context`: A dictionary representing the context that was set using the `set_context()` method.
+            consumer_partition_key (str): A string that will be used to determine the partition to consume from. If not provided, the consume will work in a Round Robin fashion.
 
         Example:
             import asyncio
@@ -95,28 +100,20 @@ class Consumer:
             asyncio.run(main())
         """
         self.dls_callback_func = callback
-        self.t_consume = asyncio.create_task(self.__consume(callback))
+        self.t_consume = asyncio.create_task(self.__consume(callback, partition_key=consumer_partition_key))
 
-    async def __consume(self, callback):
-        if self.inner_station_name not in self.connection.partition_consumers_updates_data:
-            subject = self.inner_station_name + ".final"
-            consumer_group = get_internal_name(self.consumer_group)
-            psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
-            self.subscriptions[1] = psub
-        else:
-            for p in self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"]:
-                subject = f"{self.inner_station_name}${str(p)}.final"
-                consumer_group = get_internal_name(self.consumer_group)
-                psub = await self.connection.broker_connection.pull_subscribe(subject, durable=consumer_group)
-                self.subscriptions[p] = psub
-
+    async def __consume(self, callback, partition_key: str = None):
         partition_number = 1
+
+        if partition_key is not None:
+            partition_number = self.get_partition_from_key(partition_key)
 
         while True:
             if self.connection.is_connection_active and self.pull_interval_ms:
                 try:
                     if len(self.subscriptions) > 1:
-                        partition_number = next(self.partition_generator)
+                        if partition_key is None:
+                            partition_number = next(self.partition_generator)
 
                     memphis_messages = []
                     msgs = await self.subscriptions[partition_number].fetch(self.batch_size)
@@ -168,7 +165,7 @@ class Consumer:
                 await self.dls_callback_func([], MemphisError(str(e)), self.context)
                 return
 
-    async def fetch(self, batch_size: int = 10):
+    async def fetch(self, batch_size: int = 10, consumer_partition_key: str = None, prefetch: bool = False):
         """
         Fetch a batch of messages.
 
@@ -209,6 +206,19 @@ class Consumer:
         
         """
         messages = []
+
+        if prefetch and len(self.cached_messages) > 0:
+            if len(self.cached_messages) >= batch_size:
+                messages = self.cached_messages[:batch_size]
+                self.cached_messages = self.cached_messages[batch_size:]
+                number_of_messages_to_prefetch = batch_size * 2 - batch_size  # calculated for clarity
+                self.load_messages_to_cache(number_of_messages_to_prefetch)
+                return messages
+            else:
+                messages = self.cached_messages
+                batch_size -= len(self.cached_messages)
+                self.cached_messages = []
+
         if self.connection.is_connection_active:
             try:
                 if batch_size > self.MAX_BATCH_SIZE:
@@ -226,25 +236,28 @@ class Consumer:
                         self.dls_current_index -= len(messages)
                     return messages
 
-                durable_name = ""
-                if self.consumer_group != "":
-                    durable_name = get_internal_name(self.consumer_group)
-                else:
-                    durable_name = get_internal_name(self.consumer_name)
-                subject = get_internal_name(self.station_name)
-                self.psub = await self.connection.broker_connection.pull_subscribe(
-                    subject + ".final", durable=durable_name
-                )
-                msgs = await self.psub.fetch(batch_size)
+                partition_number = 1
+
+                if len(self.subscriptions) > 1:
+                    if consumer_partition_key is not None:
+                        partition_number = self.get_partition_from_key(consumer_partition_key)
+                    else:
+                        partition_number = next(self.partition_generator)
+
+                msgs = await self.subscriptions[partition_number].fetch(batch_size)
                 for msg in msgs:
                     messages.append(
                         Message(msg, self.connection, self.consumer_group, self.internal_station_name))
+                if prefetch:
+                    number_of_messages_to_prefetch = batch_size * 2
+                    self.load_messages_to_cache(number_of_messages_to_prefetch)
                 return messages
             except Exception as e:
                 if "timeout" not in str(e).lower():
                     raise MemphisError(str(e)) from e
 
         return messages
+
 
     async def __ping_consumer(self, callback):
         while True:
@@ -323,3 +336,20 @@ class Consumer:
             del self.connection.consumers_map[map_key]
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def get_partition_from_key(self, key):
+        try:
+            index = mmh3.hash(key, self.connection.SEED, signed=False) % len(self.subscriptions)
+            return self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"][index]
+        except Exception as e:
+            raise e
+
+    def load_messages_to_cache(self, batch_size):
+        if not self.loading_thread or not self.loading_thread.is_alive():
+            asyncio.ensure_future(self.__load_messages(batch_size))
+
+
+    async def __load_messages(self, batch_size):
+        new_messages = await self.fetch(batch_size)
+        if new_messages is not None:
+            self.cached_messages.extend(new_messages)
