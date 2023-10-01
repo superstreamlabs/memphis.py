@@ -32,6 +32,7 @@ class Consumer:
     ):
         self.connection = connection
         self.station_name = station_name.lower()
+        self.internal_station_name = get_internal_name(self.station_name)
         self.consumer_name = consumer_name.lower()
         self.consumer_group = consumer_group.lower()
         self.pull_interval_ms = pull_interval_ms
@@ -119,7 +120,7 @@ class Consumer:
 
                     for msg in msgs:
                         memphis_messages.append(
-                            Message(msg, self.connection, self.consumer_group)
+                            Message(msg, self.connection, self.consumer_group, self.internal_station_name)
                         )
                     await callback(memphis_messages, None, self.context)
                     await asyncio.sleep(self.pull_interval_ms / 1000)
@@ -150,12 +151,12 @@ class Consumer:
                     index_to_insert %= 10000
                 self.dls_messages.insert(
                     index_to_insert, Message(
-                        msg, self.connection, self.consumer_group)
+                        msg, self.connection, self.consumer_group, self.internal_station_name)
                 )
                 self.dls_current_index += 1
                 if self.dls_callback_func != None:
                     await self.dls_callback_func(
-                        [Message(msg, self.connection, self.consumer_group)],
+                        [Message(msg, self.connection, self.consumer_group, self.internal_station_name)],
                         None,
                         self.context,
                     )
@@ -246,7 +247,7 @@ class Consumer:
                 msgs = await self.subscriptions[partition_number].fetch(batch_size)
                 for msg in msgs:
                     messages.append(
-                        Message(msg, self.connection, self.consumer_group))
+                        Message(msg, self.connection, self.consumer_group, self.internal_station_name))
                 if prefetch:
                     number_of_messages_to_prefetch = batch_size * 2
                     self.load_messages_to_cache(number_of_messages_to_prefetch)
@@ -307,6 +308,30 @@ class Consumer:
                 raise MemphisError(error)
             self.dls_messages.clear()
             internal_station_name = get_internal_name(self.station_name)
+            if self.connection.schema_updates_data != {}:
+                clients_number = (
+                    self.connection.clients_per_station.get(
+                        internal_station_name) - 1
+                )
+                self.connection.clients_per_station[
+                    internal_station_name
+                ] = clients_number
+
+                if clients_number == 0:
+                    sub = self.connection.schema_updates_subs.get(
+                        internal_station_name)
+                    task = self.connection.schema_tasks.get(internal_station_name)
+                    if internal_station_name in self.connection.schema_updates_data:
+                        del self.connection.schema_updates_data[internal_station_name]
+                    if internal_station_name in self.connection.schema_updates_subs:
+                        del self.connection.schema_updates_subs[internal_station_name]
+                    if internal_station_name in self.connection.schema_tasks:
+                        del self.connection.schema_tasks[internal_station_name]
+                    if task is not None:
+                        task.cancel()
+                    if sub is not None:
+                        await sub.unsubscribe()
+
             map_key = internal_station_name + "_" + self.consumer_name.lower()
             del self.connection.consumers_map[map_key]
         except Exception as e:
