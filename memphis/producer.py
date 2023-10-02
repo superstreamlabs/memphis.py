@@ -380,15 +380,15 @@ class Producer:
                 raise Exception(error)
 
             internal_station_name = get_internal_name(self.station_name)
-            producer_number = (
-                self.connection.producers_per_station.get(
+            clients_number = (
+                self.connection.clients_per_station.get(
                     internal_station_name) - 1
             )
-            self.connection.producers_per_station[
+            self.connection.clients_per_station[
                 internal_station_name
-            ] = producer_number
+            ] = clients_number
 
-            if producer_number == 0:
+            if clients_number == 0:
                 sub = self.connection.schema_updates_subs.get(
                     internal_station_name)
                 task = self.connection.schema_tasks.get(internal_station_name)

@@ -28,8 +28,8 @@ class Station:
                 del self.connection.schema_updates_data[internal_station_name]
             if internal_station_name in self.connection.schema_updates_subs:
                 del self.connection.schema_updates_subs[internal_station_name]
-            if internal_station_name in self.connection.producers_per_station:
-                del self.connection.producers_per_station[internal_station_name]
+            if internal_station_name in self.connection.clients_per_station:
+                del self.connection.clients_per_station[internal_station_name]
             if internal_station_name in self.connection.schema_tasks:
                 del self.connection.schema_tasks[internal_station_name]
             if task is not None:

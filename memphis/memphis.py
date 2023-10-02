@@ -49,7 +49,7 @@ class Memphis:
         self.partition_producers_updates_data = {}
         self.partition_consumers_updates_data = {}
         self.schema_updates_subs = {}
-        self.producers_per_station = {}
+        self.clients_per_station = {}
         self.schema_tasks = {}
         self.proto_msgs = {}
         self.graphql_schemas = {}
@@ -373,8 +373,8 @@ class Memphis:
                         del self.schema_updates_data[key]
                     if key in self.schema_updates_subs:
                         del self.schema_updates_subs[key]
-                    if key in self.producers_per_station:
-                        del self.producers_per_station[key]
+                    if key in self.clients_per_station:
+                        del self.clients_per_station[key]
                     if key in self.schema_tasks:
                         del self.schema_tasks[key]
                     if task is not None:
@@ -466,34 +466,8 @@ class Memphis:
                 internal_station_name, create_res["schema_update"]
             )
 
-            if self.schema_updates_data[internal_station_name] != {}:
-                if (
-                    self.schema_updates_data[internal_station_name]["type"]
-                    == "protobuf"
-                ):
-                    self.parse_descriptor(internal_station_name)
-                if self.schema_updates_data[internal_station_name]["type"] == "json":
-                    schema = self.schema_updates_data[internal_station_name][
-                        "active_version"
-                    ]["schema_content"]
-                    self.json_schemas[internal_station_name] = json.loads(
-                        schema)
-                elif (
-                    self.schema_updates_data[internal_station_name]["type"] == "graphql"
-                ):
-                    self.graphql_schemas[internal_station_name] = build_graphql_schema(
-                        self.schema_updates_data[internal_station_name][
-                            "active_version"
-                        ]["schema_content"]
-                    )
-                elif (
-                    self.schema_updates_data[internal_station_name]["type"] == "avro"
-                ):
-                    schema = self.schema_updates_data[internal_station_name][
-                        "active_version"
-                    ]["schema_content"]
-                    self.avro_schemas[internal_station_name] = json.loads(
-                        schema)
+            self.update_schema_data(station_name)
+
             producer = Producer(self, producer_name, station_name, real_name)
             map_key = internal_station_name + "_" + real_name
             self.producers_map[map_key] = producer
@@ -501,6 +475,37 @@ class Memphis:
 
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    def update_schema_data(self, station_name):
+        internal_station_name = get_internal_name(station_name)
+        if self.schema_updates_data[internal_station_name] != {}:
+            if (
+                self.schema_updates_data[internal_station_name]["type"]
+                == "protobuf"
+            ):
+                self.parse_descriptor(internal_station_name)
+            if self.schema_updates_data[internal_station_name]["type"] == "json":
+                schema = self.schema_updates_data[internal_station_name][
+                    "active_version"
+                ]["schema_content"]
+                self.json_schemas[internal_station_name] = json.loads(
+                    schema)
+            elif (
+                self.schema_updates_data[internal_station_name]["type"] == "graphql"
+            ):
+                self.graphql_schemas[internal_station_name] = build_graphql_schema(
+                    self.schema_updates_data[internal_station_name][
+                        "active_version"
+                    ]["schema_content"]
+                )
+            elif (
+                self.schema_updates_data[internal_station_name]["type"] == "avro"
+            ):
+                schema = self.schema_updates_data[internal_station_name][
+                    "active_version"
+                ]["schema_content"]
+                self.avro_schemas[internal_station_name] = json.loads(
+                    schema)
 
     async def get_msg_schema_updates(self, internal_station_name, iterable):
         async for msg in iterable:
@@ -551,10 +556,10 @@ class Memphis:
 
         schema_exists = self.schema_updates_subs.get(station_name)
         if schema_exists:
-            self.producers_per_station[station_name] += 1
+            self.clients_per_station[station_name] += 1
         else:
             sub = await self.broker_manager.subscribe(schema_updates_subject)
-            self.producers_per_station[station_name] = 1
+            self.clients_per_station[station_name] = 1
             self.schema_updates_subs[station_name] = sub
         task_exists = self.schema_tasks.get(station_name)
         if not task_exists:
@@ -678,6 +683,11 @@ class Memphis:
 
             internal_station_name = get_internal_name(station_name)
             map_key = internal_station_name + "_" + real_name
+            if "schema_update" in creation_res:
+                await self.start_listen_for_schema_updates(
+                    internal_station_name, creation_res["schema_update"]
+                )
+                self.update_schema_data(station_name)
             consumer = Consumer(
                 self,
                 station_name,
@@ -763,7 +773,8 @@ class Memphis:
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
         consumer_partition_key: str = None,
-        consumer_partition_number: int = -1
+        consumer_partition_number: int = -1,
+        prefetch: bool = False,
     ):
         """Consume a batch of messages.
         Args:.
@@ -779,6 +790,7 @@ class Memphis:
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
             consumer_partition_key (str): consume from a specific partition using the partition key.
             consumer_partition_number (int): consume from a specific partition using the partition number.
+            prefetch: false by default, if true then fetch messages from local cache (if exists) and load more messages into the cache.
         Returns:
             list: Message
         """
@@ -807,7 +819,7 @@ class Memphis:
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key, consumer_partition_number=consumer_partition_number)
+            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key, consumer_partition_number=consumer_partition_number, prefetch=prefetch)
             if messages == None:
                 messages = []
             return messages
