@@ -252,7 +252,6 @@ class Consumer:
                         del self.dls_messages[0:batch_size]
                         self.dls_current_index -= len(messages)
                     return messages
-                
                 msgs = await self.subscriptions[partition_number].fetch(batch_size)
                 for msg in msgs:
                     messages.append(
