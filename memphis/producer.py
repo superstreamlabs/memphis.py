@@ -250,8 +250,8 @@ class Producer:
                 partition_number = self.get_partition_from_key(producer_partition_key)
                 partition_name = f"{self.internal_station_name}${str(partition_number)}"
             elif producer_partition_number > 0:
-                    self.validate_partition_number(producer_partition_number, self.internal_station_name)
-                    partition_name = f"{self.internal_station_name}${str(producer_partition_number)}"
+                self.validate_partition_number(producer_partition_number, self.internal_station_name)
+                partition_name = f"{self.internal_station_name}${str(producer_partition_number)}"
             else:
                 partition_name = f"{self.internal_station_name}${str(next(self.partition_generator))}"
 
@@ -425,4 +425,3 @@ class Producer:
                 raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
         else:
             raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
-
