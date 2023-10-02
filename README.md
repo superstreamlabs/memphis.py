@@ -250,7 +250,8 @@ await memphis.produce(station_name='test_station_py', producer_name='prod_py',
   headers=headers, # default to {}
   nonblocking=False, #defaults to false
   msg_id="123",
-  producer_partition_key="key" #default to None
+  producer_partition_key="key", #default to None
+  producer_partition_number=-1, #default to -1
 )
 ```
 
@@ -287,7 +288,18 @@ Use any string to produce messages to a specific partition
 ```python
 await producer.produce(
   message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
-  producer_partition_key="key") #default to None
+  producer_partition_key="key", #default to None
+)
+```
+
+### Produce using partition number
+Use number of partition to produce messages to a specific partition
+
+```python
+await producer.produce(
+  message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
+  producer_partition_number=-1 #default to -1
+)
 ```
 
 ### Non-blocking Produce with Task Limits
@@ -366,6 +378,15 @@ consumer.consume(msg_handler,
                 )
 ```
 
+### Consume using a partition number
+The number will be used to consume from a specific partition
+
+```python
+consumer.consume(msg_handler,
+                 consumer_partition_number = -1 #consume from a specific partition
+                )
+```
+
 ### Fetch a single batch of messages
 ```python
 msgs = await memphis.fetch_messages(
@@ -378,7 +399,8 @@ msgs = await memphis.fetch_messages(
   max_msg_deliveries=10, # defaults to 10
   start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
   last_messages=-1, # consume the last N messages, defaults to -1 (all messages in the station))
-  consumer_partition_key="key" # used to consume from a specific partition, default to None 
+  consumer_partition_key="key", # used to consume from a specific partition, default to None 
+  consumer_partition_number=-1 # used to consume from a specific partition, default to -1 
 )
 ```
 

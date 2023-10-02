@@ -193,7 +193,8 @@ class Producer:
         nonblocking: bool = False,
         msg_id: Union[str, None] = None,
         concurrent_task_limit: Union[int, None] = None,
-        producer_partition_key: Union[str, None] = None
+        producer_partition_key: Union[str, None] = None,
+        producer_partition_number: Union[int, -1] = -1
     ):
         """Produces a message into a station.
         Args:
@@ -218,6 +219,7 @@ class Producer:
                                                    if the limit is hit and will wait until the
                                                    buffer drains halfway down.
             producer_partition_key (string, optional): Produce messages to a specific partition using the partition key.
+            producer_partition_number (int, optional): Produce messages to a specific partition using the partition number.
         Raises:
             Exception: _description_
         """
@@ -242,9 +244,14 @@ class Producer:
                 partition_name = self.internal_station_name
             elif len(self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list']) == 1:
                 partition_name = f"{self.internal_station_name}${self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list'][0]}"
+            elif producer_partition_number > 0 and producer_partition_key is not None:
+                raise MemphisError('Can not use both partition number and partition key')
             elif producer_partition_key is not None:
                 partition_number = self.get_partition_from_key(producer_partition_key)
                 partition_name = f"{self.internal_station_name}${str(partition_number)}"
+            elif producer_partition_number > 0:
+                self.validate_partition_number(producer_partition_number, self.internal_station_name)
+                partition_name = f"{self.internal_station_name}${str(producer_partition_number)}"
             else:
                 partition_name = f"{self.internal_station_name}${str(next(self.partition_generator))}"
 
@@ -408,3 +415,13 @@ class Producer:
             return self.connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"][index]
         except Exception as e:
             raise e
+
+    def validate_partition_number(self, partition_number, station_name):
+        partitions_list = self.connection.partition_consumers_updates_data[station_name]["partitions_list"]
+        if partitions_list is not None:
+            if partition_number < 0 or partition_number >= len(partitions_list):
+                raise MemphisError("Partition number is out of range")
+            elif partition_number not in partitions_list:
+                raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
+        else:
+            raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
