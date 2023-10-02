@@ -110,7 +110,7 @@ class Consumer:
         elif partition_key is not None:
             partition_number = self.get_partition_from_key(partition_key)
         elif consumer_partition_number > 0:
-            validate_partition_number(self, consumer_partition_number, self.inner_station_name)
+            self.validate_partition_number(self, consumer_partition_number, self.inner_station_name)
             partition_number = consumer_partition_number
 
         while True:
@@ -218,7 +218,7 @@ class Consumer:
             elif consumer_partition_key is not None:
                 partition_number = self.get_partition_from_key(consumer_partition_key)
             elif consumer_partition_number > 0:
-                validate_partition_number(self, consumer_partition_number, self.inner_station_name)
+                self.validate_partition_number(self, consumer_partition_number, self.inner_station_name)
                 partition_number = consumer_partition_number
             else:
                 partition_number = next(self.partition_generator)
