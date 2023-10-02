@@ -352,21 +352,21 @@ class Consumer:
         except Exception as e:
             raise e
 
-def validate_partition_number(self, partition_number, station_name):
-    partitions_list = self.connection.partition_consumers_updates_data[station_name]["partitions_list"]
-    if partitions_list is not None:
-        if partition_number < 0 or partition_number >= len(partitions_list):
-            raise MemphisError("Partition number is out of range")
-        elif partition_number not in partitions_list:
+    def validate_partition_number(self, partition_number, station_name):
+        partitions_list = self.connection.partition_consumers_updates_data[station_name]["partitions_list"]
+        if partitions_list is not None:
+            if partition_number < 0 or partition_number >= len(partitions_list):
+                raise MemphisError("Partition number is out of range")
+            elif partition_number not in partitions_list:
+                raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
+        else:
             raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
-    else:
-        raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
 
-def load_messages_to_cache(self, batch_size, partition_number):
-    if not self.loading_thread or not self.loading_thread.is_alive():
-        asyncio.ensure_future(self.__load_messages(batch_size, partition_number))
+    def load_messages_to_cache(self, batch_size, partition_number):
+        if not self.loading_thread or not self.loading_thread.is_alive():
+            asyncio.ensure_future(self.__load_messages(batch_size, partition_number))
 
-async def __load_messages(self, batch_size, partition_number):
-    new_messages = await self.fetch(batch_size, consumer_partition_number=partition_number)
-    if new_messages is not None:
-        self.cached_messages.extend(new_messages)
+    async def __load_messages(self, batch_size, partition_number):
+        new_messages = await self.fetch(batch_size, consumer_partition_number=partition_number)
+        if new_messages is not None:
+            self.cached_messages.extend(new_messages)
