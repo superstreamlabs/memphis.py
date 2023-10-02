@@ -366,7 +366,6 @@ def load_messages_to_cache(self, batch_size, partition_number):
     if not self.loading_thread or not self.loading_thread.is_alive():
         asyncio.ensure_future(self.__load_messages(batch_size, partition_number))
 
-
 async def __load_messages(self, batch_size, partition_number):
     new_messages = await self.fetch(batch_size, consumer_partition_number=partition_number)
     if new_messages is not None:
