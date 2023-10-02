@@ -60,7 +60,7 @@ class Consumer:
         """Set a context (dict) that will be passed to each message handler call."""
         self.context = context
 
-    def consume(self, callback, consumer_partition_key: str = None):
+    def consume(self, callback, consumer_partition_key: str = None, consumer_partition_number: int = -1):
         """
         This method starts consuming events from the specified station and invokes the provided callback function for each batch of messages received.
 
@@ -71,6 +71,7 @@ class Consumer:
                 - `error`: An optional `MemphisError` object if there was an error while consuming the messages.
                 - `context`: A dictionary representing the context that was set using the `set_context()` method.
             consumer_partition_key (str): A string that will be used to determine the partition to consume from. If not provided, the consume will work in a Round Robin fashion.
+            consumer_partition_number (int): An integer that will be used to determine the partition to consume from. If not provided, the consume will work in a Round Robin fashion.
 
         Example:
             import asyncio
@@ -97,13 +98,17 @@ class Consumer:
             asyncio.run(main())
         """
         self.dls_callback_func = callback
-        self.t_consume = asyncio.create_task(self.__consume(callback, partition_key=consumer_partition_key))
+        self.t_consume = asyncio.create_task(self.__consume(callback, partition_key=consumer_partition_key, consumer_partition_number=consumer_partition_number))
 
-    async def __consume(self, callback, partition_key: str = None):
+    async def __consume(self, callback, partition_key: str = None, consumer_partition_number: int = -1):
         partition_number = 1
-
-        if partition_key is not None:
+        if consumer_partition_number > 0 and partition_key is not None:
+            raise MemphisError('Can not use both partition number and partition key')
+        elif partition_key is not None:
             partition_number = self.get_partition_from_key(partition_key)
+        elif consumer_partition_number > 0:
+            validate_partition_number(self, consumer_partition_number, self.inner_station_name)
+            partition_number = consumer_partition_number
 
         while True:
             if self.connection.is_connection_active and self.pull_interval_ms:
@@ -162,7 +167,7 @@ class Consumer:
                 await self.dls_callback_func([], MemphisError(str(e)), self.context)
                 return
 
-    async def fetch(self, batch_size: int = 10, consumer_partition_key: str = None):
+    async def fetch(self, batch_size: int = 10, consumer_partition_key: str = None, consumer_partition_number: int = -1):
         """
         Fetch a batch of messages.
 
@@ -223,8 +228,13 @@ class Consumer:
                 partition_number = 1
 
                 if len(self.subscriptions) > 1:
-                    if consumer_partition_key is not None:
+                    if consumer_partition_number > 0 and consumer_partition_key is not None:
+                        raise MemphisError('Can not use both partition number and partition key')
+                    elif consumer_partition_key is not None:
                         partition_number = self.get_partition_from_key(consumer_partition_key)
+                    elif consumer_partition_number > 0:
+                        validate_partition_number(self, consumer_partition_number, self.inner_station_name)
+                        partition_number = consumer_partition_number
                     else:
                         partition_number = next(self.partition_generator)
 
@@ -299,3 +309,14 @@ class Consumer:
             return self.connection.partition_consumers_updates_data[self.inner_station_name]["partitions_list"][index]
         except Exception as e:
             raise e
+
+def validate_partition_number(self, partition_number, station_name):
+        partitions_list = self.connection.partition_consumers_updates_data[station_name]["partitions_list"]
+        if partitions_list is not None:
+            if partition_number < 0 or partition_number >= len(partitions_list):
+                raise MemphisError("Partition number is out of range")
+            elif partition_number not in partitions_list:
+                raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
+        else:
+            raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
+

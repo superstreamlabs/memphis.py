@@ -708,7 +708,8 @@ class Memphis:
         headers: Union[Headers, None] = None,
         async_produce: bool = False,
         msg_id: Union[str, None] = None,
-        producer_partition_key: Union[str, None] = None
+        producer_partition_key: Union[str, None] = None,
+        producer_partition_number: Union[int, -1] = -1
     ):
         """Produces a message into a station without the need to create a producer.
         Args:
@@ -721,6 +722,7 @@ class Memphis:
             async_produce (boolean, optional): produce operation won't wait for broker acknowledgement
             msg_id (string, optional): Attach msg-id header to the message in order to achieve idempotence
             producer_partition_key (string, optional): produce to a specific partition using the partition key
+            producer_partition_number (int, optional): produce to a specific partition using the partition number
         Raises:
             Exception: _description_
         """
@@ -742,7 +744,8 @@ class Memphis:
                 headers=headers,
                 async_produce=async_produce,
                 msg_id=msg_id,
-                producer_partition_key=producer_partition_key
+                producer_partition_key=producer_partition_key,
+                producer_partition_number=producer_partition_number
             )
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -760,6 +763,7 @@ class Memphis:
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
         consumer_partition_key: str = None,
+        consumer_partition_number: int = -1
     ):
         """Consume a batch of messages.
         Args:.
@@ -773,7 +777,8 @@ class Memphis:
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
-            consumer_partition_key (str): consume from a specific partition using the partition key
+            consumer_partition_key (str): consume from a specific partition using the partition key.
+            consumer_partition_number (int): consume from a specific partition using the partition number.
         Returns:
             list: Message
         """
@@ -802,7 +807,7 @@ class Memphis:
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key)
+            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key, consumer_partition_number=consumer_partition_number)
             if messages == None:
                 messages = []
             return messages
@@ -887,3 +892,4 @@ class Memphis:
                     del self.consumers_map[key]
         except Exception as e:
             raise e
+        
