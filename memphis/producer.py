@@ -415,7 +415,7 @@ class Producer:
             return self.connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"][index]
         except Exception as e:
             raise e
-    
+
     def validate_partition_number(self, partition_number, station_name):
         partitions_list = self.connection.partition_producers_updates_data[station_name]["partitions_list"]
         if partitions_list is not None:
