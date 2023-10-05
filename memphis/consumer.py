@@ -117,7 +117,7 @@ class Consumer:
             if self.connection.is_connection_active and self.pull_interval_ms:
                 try:
                     if len(self.subscriptions) > 1:
-                        if partition_key is None:
+                        if partition_key is None and consumer_partition_number < 1:
                             partition_number = next(self.partition_generator)
 
                     memphis_messages = []
@@ -355,7 +355,7 @@ class Consumer:
     def validate_partition_number(self, partition_number, station_name):
         partitions_list = self.connection.partition_consumers_updates_data[station_name]["partitions_list"]
         if partitions_list is not None:
-            if partition_number < 0 or partition_number >= len(partitions_list):
+            if partition_number < 1 or partition_number > len(partitions_list):
                 raise MemphisError("Partition number is out of range")
             elif partition_number not in partitions_list:
                 raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
