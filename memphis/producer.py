@@ -417,7 +417,7 @@ class Producer:
             raise e
 
     def validate_partition_number(self, partition_number, station_name):
-        partitions_list = self.connection.partition_consumers_updates_data[station_name]["partitions_list"]
+        partitions_list = self.connection.partition_producers_updates_data[station_name]["partitions_list"]
         if partitions_list is not None:
             if partition_number < 0 or partition_number >= len(partitions_list):
                 raise MemphisError("Partition number is out of range")
