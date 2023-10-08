@@ -368,6 +368,20 @@ async def msg_handler(msgs, error, context):
     print(error)
 consumer.consume(msg_handler)
 ```
+#### Processing schema deserialized messages
+To get messages deserialized, use `msg.get_data_deserialized()`.  
+
+```python
+async def msg_handler(msgs, error, context):
+  for msg in msgs:
+    print("message: ", await msg.get_data_deserialized())
+    await msg.ack()
+  if error:
+    print(error)
+consumer.consume(msg_handler)
+```
+
+if you have ingested data into station in one format, afterwards you apply a schema on the station, the consumer won't deserialize the previously ingested data. For example, you have ingested string into the station and attached a protobuf schema on the station. In this case, consumer won't deserialize the string.
 
 ### Consume using a partition key
 The key will be used to consume from a specific partition
