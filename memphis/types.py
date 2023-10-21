@@ -25,3 +25,9 @@ class Retention(Enum):
 class Storage(Enum):
     DISK = "file"
     MEMORY = "memory"
+
+class Schema(Enum):
+    PROTOBUF: "protobuf"
+    AVRO: "avro"
+    JSON: "json"
+    NO_VALIDATION: None

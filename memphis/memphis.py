@@ -32,7 +32,7 @@ from memphis.exceptions import MemphisConnectError, MemphisError
 from memphis.headers import Headers
 from memphis.producer import Producer
 from memphis.station import Station
-from memphis.types import Retention, Storage
+from memphis.types import Retention, Storage, Schema
 from memphis.utils import get_internal_name, random_bytes
 from memphis.partition_generator import PartitionGenerator
 
@@ -905,3 +905,13 @@ class Memphis:
         except Exception as e:
             raise e
         
+    def create_function(
+        self,
+        function: callable, 
+        functions_schema_type,
+        functions_schema: Schema = None, 
+        schema_type: Schema = Schema.NO_VALIDATION,
+        schema = None
+    ) -> None:
+        if schema is not None:
+            
