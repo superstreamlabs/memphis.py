@@ -119,34 +119,6 @@ What arguments are used with the Memphis.connect function change depending on th
 
 For details on deploying memphis open-source with different types of connections see the [docs](https://docs.memphis.dev/memphis/memphis-broker/concepts/security).
  
-The default connection type (for cloud) is using a JWT token-based connection. Here is an example of using memphis.connect with a JWT token:
-
-```python
-    # Imports hidden. See other examples
-async def main():
-    try:
-      memphis = Memphis()
-      await memphis.connect(
-          host = "localhost",
-          username = "user",
-          connection_token = "token",
-          # port = 6666, default port
-          # reconnect = True, default reconnect setting
-          # max_reconnect = 10, default number of reconnect attempts
-          # reconnect_interval_ms = 1500, default reconnect interval
-          # timeout_ms = 2000, default duration of time for the connection to timeout
-      )
-  except Exception as e:
-      print(e)
-  finally:
-      await memphis.close()
-
-if __name__ == '__main__':
-  asyncio.run(main())  
-```
-
-The token will be presented when creating new users.
-
 A password-based connection would look like this (using the defualt root memphis login with Memphis open-source):
 
 ```python
@@ -172,6 +144,63 @@ async def main():
 if __name__ == '__main__':
   asyncio.run(main())  
 ```
+
+If you wanted to connect to Memphis cloud instead, simply add your account ID and change the host. The host and account_id can be found on the Overview page in the Memphis cloud UI under your name at the top. Here is an example to connecting to a cloud broker that is located in US East:  
+
+```python
+    # Imports hidden. See other examples
+async def main():
+  try:
+      memphis = Memphis()
+      await memphis.connect(
+          host = "aws-us-east-1.cloud.memphis.dev",
+          username = "my_client_username",
+          password = "my_client_password",
+          account_id = "123456789"
+          # port = 6666, default port
+          # reconnect = True, default reconnect setting
+          # max_reconnect = 10, default number of reconnect attempts
+          # reconnect_interval_ms = 1500, default reconnect interval
+          # timeout_ms = 2000, default duration of time for the connection to timeout
+      )
+  except Exception as e:
+      print(e)
+  finally:
+      await memphis.close()
+
+if __name__ == '__main__':
+  asyncio.run(main())  
+```
+
+It is possible to use a token-based connection to memphis as well, where multiple users can share the same token to connect to memphis. Here is an example of using memphis.connect with a token:
+
+```python
+    # Imports hidden. See other examples
+async def main():
+    try:
+      memphis = Memphis()
+      await memphis.connect(
+          host = "localhost",
+          username = "user",
+          connection_token = "token",
+          # port = 6666, default port
+          # reconnect = True, default reconnect setting
+          # max_reconnect = 10, default number of reconnect attempts
+          # reconnect_interval_ms = 1500, default reconnect interval
+          # timeout_ms = 2000, default duration of time for the connection to timeout
+      )
+  except Exception as e:
+      print(e)
+  finally:
+      await memphis.close()
+
+if __name__ == '__main__':
+  asyncio.run(main())  
+```
+
+The token will be presented when creating new users. 
+
+Memphis needs to be configured to use a token based connection. See the [docs](https://docs.memphis.dev/memphis/memphis-broker/concepts/security) for help doing this.
 
 > For the rest of the examples, the try-except statement and the asyncio runtime call will be withheld to assist with the succinctness of the examples. 
 
@@ -209,6 +238,9 @@ await memphis.close()
 ```
 
 ### Creating a Station
+
+Stations are distributed units that store messages. Producers add messages to stations and Consumers take messages from them. Each station stores messages until their retention policy causes them to either delete the messages or move them to [remote storage](https://docs.memphis.dev/memphis/integrations-center/storage/s3-compatible). 
+
 **A station will be automatically created for the user when a consumer or producer is used if no stations with the given station name exist.**<br><br>
 _If the station trying to be created exists when this function is called, nothing will change with the exisitng station_
 
@@ -232,7 +264,7 @@ _If the station trying to be created exists when this function is called, nothin
 
 The station function is used to create a station. Using the different arguemnts, one can programically create many different types of stations. The Memphis UI can also be used to create stations to the same effect. 
 
-A minimal example, using all default values would simply create a station with the given name:
+Creating a station with just a name name would create a station with that named and containing the default options provided above:
 
 ```python
     memphis = Memphis()
@@ -243,6 +275,8 @@ A minimal example, using all default values would simply create a station with t
         name = "my_station"
     )
 ```
+
+### Stations with Retention
 
 To change what criteria the station uses to decide if a message should be retained in the station, change the retention type. The different types of retention are documented [here](https://github.com/memphisdev/memphis.py#retention-types) in the python README. 
 
@@ -262,6 +296,8 @@ Here is an example of a station which will only hold up to 10 messages:
     )
 ```
 
+### Station storage types
+
 Memphis stations can either store Messages on disk or in memory. A comparison of those types of storage can be found [here](https://docs.memphis.dev/memphis/memphis-broker/concepts/storage-and-redundancy#tier-1-local-storage).
 
 Here is an example of how to create a station that uses Memory as its storage type:
@@ -276,6 +312,8 @@ Here is an example of how to create a station that uses Memory as its storage ty
         storage_type = Storage.MEMORY
     )
 ```
+
+### Station Replicas
 
 In order to make a station more redundant, replicas can be used. Read more about replicas [here](https://docs.memphis.dev/memphis/memphis-broker/concepts/storage-and-redundancy#replicas-mirroring). Note that replicas are only available in cluster mode. Cluster mode can be enabled in the [Helm settings](https://docs.memphis.dev/memphis/open-source-installation/kubernetes/1-installation#appendix-b-helm-deployment-options) when deploying Memphis with Kubernetes.
 
@@ -292,6 +330,8 @@ Here is an example of creating a station with 3 replicas:
     )
 ```
 
+### Station idempotency
+
 Idempotency defines how Memphis will prevent duplicate messages from being stored or consumed. The duration of time the message ID's will be stored in the station can be set with idempotency_window_ms. If the environment Memphis is deployed in has unreliably connection and/or a lot of latency, increasing this value might be desiriable. The default duration of time is set to two minutes. Read more about idempotency [here](https://docs.memphis.dev/memphis/memphis-broker/concepts/idempotency).
 
 Here is an example of changing the idempotency window to 3 seconds:
@@ -307,6 +347,8 @@ Here is an example of changing the idempotency window to 3 seconds:
     )
 ```
 
+### Enforcing a schema
+
 The schema name is used to set a schema to be enforced by the station. The default value of "" ensures that no schema is enforced. Here is an example of changing the schema to a defined schema in schemaverse called "sensor_logs":
 
 ```python
@@ -319,6 +361,8 @@ The schema name is used to set a schema to be enforced by the station. The defau
         schema = "sensor_logs"
     )
 ```
+
+### Dead Letter Stations
 
 There are two parameters for sending messages to the [dead-letter station(DLS)](https://docs.memphis.dev/memphis/memphis-broker/concepts/dead-letter#terminology). These are send_poison_msg_to_dls and send_schema_failed_msg_to_dls. 
 
@@ -353,6 +397,8 @@ When either of the DLS flags are set to True, a station can also be set to handl
     )
 ```
 
+### Station Tiered Storage
+
 When the retention value is met, Mempihs by default will delete old messages. If tiered storage is setup, Memphis can instead move messages to tier 2 storage. Read more about tiered storage [here](https://docs.memphis.dev/memphis/memphis-broker/concepts/storage-and-redundancy#storage-tiering). Enable this setting with the respective flag:
 
 ```python
@@ -365,6 +411,8 @@ When the retention value is met, Mempihs by default will delete old messages. If
         tiered_storage_enabled = True
     )
 ```
+
+### Station Partitions
 
 [Partitioning](https://docs.memphis.dev/memphis/memphis-broker/concepts/station#partitions) might be useful for a station. To have a station partitioned, simply change the partitions number:
 
@@ -409,8 +457,6 @@ memphis.types.Retention.ACK_BASED # for cloud users only
 
 When the retention type is set to ACK_BASED, messages in the station will be deleted after they are acked by all subscribed consumer groups.
 
-
-
 ### Retention Values
 
 The unit of the `retention_value` changes depending on the `retention_type` specified. 
@@ -435,12 +481,6 @@ When storage is set to DISK, messages are stored on disk.
 memphis.types.Storage.MEMORY
 ```
 When storage is set to MEMORY, messages are stored in the system memory.
-
-### Station partitions
-
-Memphis stations are created with 1 patition by default.
-You can change the patitions number as you wish in order to scale your stations. See the [documentation](https://docs.memphis.dev/memphis/memphis-broker/concepts/station#partitions) for more details on partitions.
-
 
 ### Destroying a Station
 
@@ -500,14 +540,14 @@ To remove a schema from an already created station, detach_schema can be used. H
     )
 ```
 
-
 ### Produce and Consume messages
 
-The most common client operations are `produce` to send messages and `consume` to
+The most common client operations are using `produce` to send messages and `consume` to
 receive messages.
 
-Messages are published to a station and consumed from it by creating a consumer.
-Consumers are poll based and consume all the messages in a station unless you are using a consumer group. When using a consumer group, all consumers in the group will receive each message.
+Messages are published to a station with a Producer and consumed from it by a Consumer. 
+
+Consumers are poll based and consume all the messages in a station. Consumers can also be grouped into consumer groups. When consuming with a consumer group, all consumers in the group will receive each message.
 
 Memphis messages are payload agnostic. Payloads are always `bytearray`s.
 
@@ -540,7 +580,6 @@ Use the Memphis producer function to create a producer. Here is an example of cr
 ```
 
 ### Producing a message
-
 ```python
 async def produce(
         self,
@@ -555,7 +594,7 @@ async def produce(
         producer_partition_number: Union[int, -1] = -1
     ):
 ```
-Without creating a producer. <br>
+Both producers and connections can use the produce function. To produce a message from a connection, simply call `memphis.produce`. This function will create a producer if none with the given name exists, otherwise it will pull the producer from a cache and use it to produce the message.
  
 ```python
 await memphis.produce(station_name='test_station_py', producer_name='prod_py',
@@ -568,7 +607,7 @@ await memphis.produce(station_name='test_station_py', producer_name='prod_py',
 )
 ```
 
-With creating a producer. Creating a producer and calling produce on it will increase the performance of producing messages as it reduces the overhead of pulling created producers from the cache.
+Creating a producer and calling produce on it will increase the performance of producing messages as it removes the overhead of pulling created producers from the cache.
 
 ```python
 await producer.produce(
@@ -610,6 +649,7 @@ As discussed before in the station section, idempotency is an important feature 
 ```
 
 ### Producing with headers
+
 To add message headers to the message, use the headers parameter. Headers can help with observability when using certain 3rd party to help monitor the behavior of memphis. See [here](https://docs.memphis.dev/memphis/memphis-broker/comparisons/aws-sqs-vs-memphis#observability) for more details.
 
 ```python
@@ -644,7 +684,7 @@ Lastly, memphis can produce to a specific partition in a station. To do so, use 
     )
 ```
 
-Or, alternatively use the producer_partition_number parameter:
+Or, alternatively, use the producer_partition_number parameter:
 ```python
    memphis = Memphis()
 
@@ -659,15 +699,17 @@ Or, alternatively use the producer_partition_number parameter:
 ```
 
 ### Non-blocking Produce with Task Limits
+
 For better performance, the client won't block requests while waiting for an acknowledgment.
-If you are producing a large number of messages and see timeout errors, then you may need to
-limit the number of concurrent tasks like so:
+If you are producing a large number of messages very quickly, there maybe some timeout errors, then you may need to limit the number of concurrent tasks to get around this:
 
 ```python
 await producer.produce(
   message='bytearray/protobuf class/dict/string/graphql.language.ast.DocumentNode', # bytearray / protobuf class (schema validated station - protobuf) or bytearray/dict (schema validated station - json schema) or string/bytearray/graphql.language.ast.DocumentNode (schema validated station - graphql schema)
   headers={}, nonblocking=True, limit_concurrent_tasks=500)
 ```
+
+You may read more about this [here](https://memphis.dev/blog/producing-messages-at-warp-speed-best-practices-for-optimizing-your-producers/) on the memphis.dev blog.
 
 ### Destroying a Producer
 
@@ -692,7 +734,7 @@ consumer = await memphis.consumer(
 )
 ```
 
-Here is an example on how to create a consumer with all of the default options:
+Consumers are used to pull messages from a station. Here is how to create a consumer with all of the default parameters:
 
 ```python
     memphis = Memphis()
@@ -719,7 +761,7 @@ To create a consumer in a consumer group, add the consumer_group parameter:
     )
 ```
 
-When using Consumer.consume, the consumer will continue to consume in an infinite loop. To change the rate at which the consumer polls, change the pull_interval_ms parameter:
+When using Consumer.consume, the consumer will continue to consume in an infinite loop. To change the rate at which the consumer polls the station for new messages, change the pull_interval_ms parameter:
 
 ```python
     memphis = Memphis()
@@ -733,7 +775,7 @@ When using Consumer.consume, the consumer will continue to consume in an infinit
     )
 ```
 
-Every time the consumer polls, the consumer will try to take batch_size number of elements from the station. However, sometimes there are not enough messages in the station for the consumer to consume a full batch. In this case, the consumer will continue to wait until either batch_size messages are gathered or the time in milliseconds specified by batch_max_time_to_wait_ms is reached. 
+Every time the consumer pulls from the station, the consumer will try to take batch_size number of elements from the station. However, sometimes there are not enough messages in the station for the consumer to consume a full batch. In this case, the consumer will continue to wait until either batch_size messages are gathered or the time in milliseconds specified by batch_max_time_to_wait_ms is reached. 
 
 Here is an example of a consumer that will try to poll 100 messages every 10 seconds while waiting up to 15 seconds for all messages to reach the consumer.
 
@@ -794,7 +836,7 @@ consumer.set_context(context)
 
 ### Processing messages
 
-Once all the messages in the station were consumed the msg_handler will receive error: `Memphis: TimeoutError`.
+To use a consumer to process messages, use the consume function. The consume function will have a consumer poll a station for new messages as discussed in previous sections. The consumer will stop polling the statoin once all the messages in the station were consumed, and the msg_handler will receive a `Memphis: TimeoutError`.
 
 ```python
 async def msg_handler(msgs, error, context):
@@ -819,11 +861,7 @@ async def msg_handler(msgs, error, context):
 consumer.consume(msg_handler)
 ```
 
-There may be some instances where you apply a schema *after* a station has received some messages. In order to consume those messages you must use get_data_deserialized so that the consumer does not try to deserialize the given payload into the data format that is set in the schema and instead keeps the payload in its encoded format.
-
-TO:DO: Compare these paragraphs. I'm not sure if I captured the meaning exactly. It reads very confusingly.
-
-if you have ingested data into station in one format, afterwards you apply a schema on the station, the consumer won't deserialize the previously ingested data. For example, you have ingested string into the station and attached a protobuf schema on the station. In this case, consumer won't deserialize the string.
+There may be some instances where you apply a schema *after* a station has received some messages. In order to consume those messages get_data_deserialized may be used to consume the messages without trying to apply the schema to them. As an example, if you produced a string to a station and then attached a protobuf schema, using get_data_deserialized will not try to deserialize the string as a protobuf-formatted message.
 
 ### Fetch a single batch of messages
 
