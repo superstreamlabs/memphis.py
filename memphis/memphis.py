@@ -22,6 +22,7 @@ import uuid
 import base64
 import re
 import warnings
+import dill
 
 import nats as broker
 from google.protobuf import descriptor_pb2, descriptor_pool
@@ -907,11 +908,72 @@ class Memphis:
         
     def create_function(
         self,
-        function: callable, 
-        functions_schema_type,
-        functions_schema: Schema = None, 
-        schema_type: Schema = Schema.NO_VALIDATION,
-        schema = None
+        user_func: callable, 
+        dependencies: list = [],
     ) -> None:
-        if schema is not None:
+        def lambda_handler(event, context):
+            import json
+
+            processed_events = {}
+            processed_events["successfullMessages"] = []
+            processed_events["errorMessages"] = []
+            for message in event.messages:
+                try:
+                    processed_message = user_func(message["payload"])
+                    byte_message = None
+
+                    if isinstance(processed_message, bytearray):
+                        byte_message = processed_message
+                    elif isinstance(processed_message, dict):
+                        byte_message = bytearray(json.dumps(processed_message), encoding="utf-8")
+                    elif isinstance(processed_message, str):
+                        byte_message = bytearray(processed_message, encoding="utf-8")
+                    else:
+                        raise Exception("No valid data formats")
+                    
+                    processed_events["successfullMessages"].append({
+                        "headers": message["headers"],
+                        "payload": byte_message
+                    })
+
+                except Exception as e:
+                    processed_events["errorMessages"].append({
+                        "headers": message["headers"],
+                        "payload": message["payload"],
+                        "error": str(e)  
+                    })
+
+            return json.dumps(processed_events)
+
+        # Now get string representation of the user function and the lambda handler
+        lambda_handler_string = dill.source.getsource(lambda_handler)
+        user_func_string = dill.source.getsource(user_func)
+
+        # Do whatever http request you need to do here to register the function...
             
+
+# func FlattenHandler(ctx context.Context, event *MemphisEvent) (*MemphisEvent, error) {
+# 	var processedEvent MemphisEvent
+# 	for _, msg := range event.Messages {
+# 	    msgStr := string(msg.Payload)
+
+# 		flattenedMessages, err := FlattenMessages([]byte(msgStr))
+
+# 		if err != nil{
+# 			processedEvent.FailedMessages = append(processedEvent.FailedMessages, MemphisMsgWithError{
+# 				Headers: msg.Headers,
+# 				Payload: []byte(msgStr),
+# 				Error: err.Error(),
+# 			})
+
+# 			continue
+# 		}
+
+# 		processedEvent.Messages = append(processedEvent.Messages, MemphisMsg{
+# 			Headers: msg.Headers,
+# 			Payload: flattenedMessages,
+# 		})
+# 	}
+
+# 	return &processedEvent, nil
+# }
