@@ -64,7 +64,7 @@ class Message:
                 if schema_type == "json":
                     return json.loads(bytearray(self.message.data))
                 if schema_type == "graphql":
-                    message = self.message.data
+                    message = bytearray(self.message.data)
                     decoded_str = message.decode("utf-8")
                     return decoded_str
             else:
