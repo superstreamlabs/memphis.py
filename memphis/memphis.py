@@ -909,7 +909,6 @@ class Memphis:
     def create_function(
         self,
         user_func: callable, 
-        dependencies: list = [],
     ) -> None:
         def lambda_handler(event, context):
             import json
@@ -945,11 +944,7 @@ class Memphis:
 
             return json.dumps(processed_events)
 
-        # Now get string representation of the user function and the lambda handler
-        lambda_handler_string = dill.source.getsource(lambda_handler)
-        user_func_string = dill.source.getsource(user_func)
-
-        # Do whatever http request you need to do here to register the function...
+        return lambda_handler
             
 
 # func FlattenHandler(ctx context.Context, event *MemphisEvent) (*MemphisEvent, error) {
