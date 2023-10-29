@@ -919,20 +919,10 @@ class Memphis:
             for message in event.messages:
                 try:
                     processed_message = user_func(message["payload"])
-                    byte_message = None
-
-                    if isinstance(processed_message, bytearray):
-                        byte_message = processed_message
-                    elif isinstance(processed_message, dict):
-                        byte_message = bytearray(json.dumps(processed_message), encoding="utf-8")
-                    elif isinstance(processed_message, str):
-                        byte_message = bytearray(processed_message, encoding="utf-8")
-                    else:
-                        raise Exception("No valid data formats")
                     
                     processed_events["successfullMessages"].append({
                         "headers": message["headers"],
-                        "payload": byte_message
+                        "payload": processed_message
                     })
 
                 except Exception as e:
@@ -941,34 +931,11 @@ class Memphis:
                         "payload": message["payload"],
                         "error": str(e)  
                     })
-
-            return json.dumps(processed_events)
+            
+            try:
+                return json.dumps(processed_events).encode('utf-8')
+            except Exception as e:
+                return f"Returned message types from user function are not able to be converted into JSON: {e}"
 
         return lambda_handler
             
-
-# func FlattenHandler(ctx context.Context, event *MemphisEvent) (*MemphisEvent, error) {
-# 	var processedEvent MemphisEvent
-# 	for _, msg := range event.Messages {
-# 	    msgStr := string(msg.Payload)
-
-# 		flattenedMessages, err := FlattenMessages([]byte(msgStr))
-
-# 		if err != nil{
-# 			processedEvent.FailedMessages = append(processedEvent.FailedMessages, MemphisMsgWithError{
-# 				Headers: msg.Headers,
-# 				Payload: []byte(msgStr),
-# 				Error: err.Error(),
-# 			})
-
-# 			continue
-# 		}
-
-# 		processedEvent.Messages = append(processedEvent.Messages, MemphisMsg{
-# 			Headers: msg.Headers,
-# 			Payload: flattenedMessages,
-# 		})
-# 	}
-
-# 	return &processedEvent, nil
-# }
