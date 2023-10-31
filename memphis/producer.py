@@ -103,6 +103,15 @@ class Producer:
             else:
                 partition_name = f"{self.internal_station_name}${str(next(self.partition_generator))}"
 
+            if self.internal_station_name in self.connection.functions_updates_data:
+                partition_number = partition_name.split("$")[1]
+                if partition_number in self.connection.functions_updates_data[self.internal_station_name]:
+                    full_subject_name = f"{partition_name}.functions.{self.connection.functions_updates_data[self.internal_station_name][partition_number]}"
+                else:
+                    full_subject_name = f"{partition_name}.final"
+            else:
+                full_subject_name = f"{partition_name}.final"
+
             if async_produce:
                 nonblocking = True
                 warnings.warn("The argument async_produce is deprecated. " + \
@@ -112,7 +121,7 @@ class Producer:
                 try:
                     task = self.loop.create_task(
                                self.connection.broker_connection.publish(
-                                 partition_name + ".final",
+                                 full_subject_name,
                                  message,
                                  timeout=ack_wait_sec,
                                  headers=headers,
@@ -133,7 +142,7 @@ class Producer:
                     raise MemphisError(e)
             else:
                 await self.connection.broker_connection.publish(
-                    partition_name + ".final",
+                    full_subject_name,
                     message,
                     timeout=ack_wait_sec,
                     headers=headers,
@@ -250,6 +259,23 @@ class Producer:
                     task.cancel()
                 if sub is not None:
                     await sub.unsubscribe()
+
+
+            self.connection.functions_clients_per_station[internal_station_name] -= 1
+            if self.connection.functions_clients_per_station[internal_station_name] == 0:
+                if internal_station_name in self.connection.functions_updates_data:
+                    del self.connection.functions_updates_data[internal_station_name]
+                if internal_station_name in self.connection.functions_updates_subs:
+                    sub = self.connection.functions_updates_subs.get(internal_station_name)
+                    if sub is not None:
+                        await sub.unsubscribe()
+                    del self.connection.functions_updates_subs[internal_station_name]
+                if internal_station_name in self.connection.functions_tasks:
+                    task = self.connection.functions_tasks.get(internal_station_name)
+                    if task is not None:
+                        task.cancel()
+                    del self.connection.functions_tasks[internal_station_name]
+
 
             map_key = internal_station_name + "_" + self.real_name
             del self.connection.producers_map[map_key]
