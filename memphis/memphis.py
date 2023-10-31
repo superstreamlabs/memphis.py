@@ -579,7 +579,7 @@ class Memphis:
             )
         )
         self.functions_tasks[station_name] = task
-  
+
     async def get_msg_functions_updates(self, station_name, iterable):
         async for msg in iterable:
             message = msg.data.decode("utf-8")
