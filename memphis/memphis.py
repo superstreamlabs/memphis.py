@@ -552,7 +552,7 @@ class Memphis:
 
         except Exception as e:
             raise MemphisError(str(e)) from e
-        
+
     async def start_listen_for_functions_updates(self, station_name, first_functions):
         #first_functions should contain the dict of the first function of each partition key: partition number, value: first function id
 
@@ -578,8 +578,8 @@ class Memphis:
                 station_name, self.functions_updates_subs[station_name].messages
             )
         )
-        self.functions_tasks[station_name] = task 
-             
+        self.functions_tasks[station_name] = task
+  
     async def get_msg_functions_updates(self, station_name, iterable):
         async for msg in iterable:
             message = msg.data.decode("utf-8")
@@ -591,7 +591,6 @@ class Memphis:
                 for key in message["functions"]:
                     if key in self.functions_updates_data[station_name]:
                         del self.functions_updates_data[station_name][key]
-            
 
     async def start_listen_for_schema_updates(self, station_name, schema_update_data):
         schema_updates_subject = "$memphis_schema_updates_" + station_name
