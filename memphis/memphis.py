@@ -580,7 +580,7 @@ class Memphis:
         batch_size: int = 10,
         batch_max_time_to_wait_ms: int = 5000,
         max_ack_time_ms: int = 30000,
-        max_msg_deliveries: int = 10,
+        max_msg_deliveries: int = 2,
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
@@ -594,7 +594,7 @@ class Memphis:
             batch_size (int, optional): pull batch size. Defaults to 10.
             batch_max_time_to_wait_ms (int, optional): max time in milliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in milliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
-            max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
+            max_msg_deliveries (int, optional): max number of message deliveries, by default is 2.
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
@@ -768,7 +768,7 @@ class Memphis:
         batch_size: int = 10,
         batch_max_time_to_wait_ms: int = 5000,
         max_ack_time_ms: int = 30000,
-        max_msg_deliveries: int = 10,
+        max_msg_deliveries: int = 2,
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
@@ -784,7 +784,7 @@ class Memphis:
             batch_size (int, optional): pull batch size. Defaults to 10.
             batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
-            max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
+            max_msg_deliveries (int, optional): max number of message deliveries, by default is 2.
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).

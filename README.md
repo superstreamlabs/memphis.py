@@ -712,7 +712,7 @@ consumer = await memphis.consumer(
   batch_size=10, # defaults to 10
   batch_max_time_to_wait_ms=5000, # defaults to 5000
   max_ack_time_ms=30000, # defaults to 30000
-  max_msg_deliveries=10, # defaults to 10
+  max_msg_deliveries=2, # defaults to 2
   start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
   last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station)
 )
@@ -790,7 +790,7 @@ The max_msg_deliveries parameter allows the user how many messages the consumer 
         pull_interval_ms = 10000,
         batch_size = 100,
         batch_max_time_to_wait_ms = 15000,
-        max_msg_deliveries = 100
+        max_msg_deliveries = 2
     )
 ```
 ### Consume using a partition key
@@ -859,7 +859,7 @@ msgs = await memphis.fetch_messages(
   batch_size=10, # defaults to 10
   batch_max_time_to_wait_ms=5000, # defaults to 5000
   max_ack_time_ms=30000, # defaults to 30000
-  max_msg_deliveries=10, # defaults to 10
+  max_msg_deliveries=2, # defaults to 2
   start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
   last_messages=-1, # consume the last N messages, defaults to -1 (all messages in the station))
   consumer_partition_key="key", # used to consume from a specific partition, default to None 
