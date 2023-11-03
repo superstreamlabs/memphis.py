@@ -917,7 +917,7 @@ class Memphis:
             processed_events = {}
             processed_events["successfullMessages"] = []
             processed_events["errorMessages"] = []
-            for message in event.messages:
+            for message in event["messages"]:
                 try:
                     processed_message = user_func(message["payload"])
                     
