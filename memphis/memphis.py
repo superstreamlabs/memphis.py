@@ -908,8 +908,8 @@ class Memphis:
         
     def create_function(
         self,
-        user_func: callable, 
-        event
+        event,
+        user_func: callable 
     ) -> None:
         def lambda_handler(event):
             import json
