@@ -23,7 +23,7 @@ class Consumer:
         batch_size: int,
         batch_max_time_to_wait_ms: int,
         max_ack_time_ms: int,
-        max_msg_deliveries: int = 10,
+        max_msg_deliveries: int = 2,
         error_callback=None,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,

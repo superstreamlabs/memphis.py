@@ -1,4 +1,4 @@
-<a href="![Github (2)](https://github.com/memphisdev/memphis.js/assets/107035359/731a59be-0f46-4a94-84c3-c0b2a07fe01c)">![Github (2)](https://github.com/memphisdev/memphis.js/assets/107035359/281222f9-8f93-4a20-9de8-7c26541bded7)</a>
+<a href="![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)">![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)</a>
 <p align="center">
 <a href="https://memphis.dev/discord"><img src="https://img.shields.io/discord/963333392844328961?color=6557ff&label=discord" alt="Discord"></a>
 <a href="https://github.com/memphisdev/memphis/issues?q=is%3Aissue+is%3Aclosed"><img src="https://img.shields.io/github/issues-closed/memphisdev/memphis?color=6557ff"></a> 
@@ -712,7 +712,7 @@ consumer = await memphis.consumer(
   batch_size=10, # defaults to 10
   batch_max_time_to_wait_ms=5000, # defaults to 5000
   max_ack_time_ms=30000, # defaults to 30000
-  max_msg_deliveries=10, # defaults to 10
+  max_msg_deliveries=2, # defaults to 2
   start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
   last_messages=-1 # consume the last N messages, defaults to -1 (all messages in the station)
 )
@@ -790,7 +790,7 @@ The max_msg_deliveries parameter allows the user how many messages the consumer 
         pull_interval_ms = 10000,
         batch_size = 100,
         batch_max_time_to_wait_ms = 15000,
-        max_msg_deliveries = 100
+        max_msg_deliveries = 2
     )
 ```
 ### Consume using a partition key
@@ -859,7 +859,7 @@ msgs = await memphis.fetch_messages(
   batch_size=10, # defaults to 10
   batch_max_time_to_wait_ms=5000, # defaults to 5000
   max_ack_time_ms=30000, # defaults to 30000
-  max_msg_deliveries=10, # defaults to 10
+  max_msg_deliveries=2, # defaults to 2
   start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
   last_messages=-1, # consume the last N messages, defaults to -1 (all messages in the station))
   consumer_partition_key="key", # used to consume from a specific partition, default to None 
