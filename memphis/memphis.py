@@ -909,8 +909,9 @@ class Memphis:
     def create_function(
         self,
         user_func: callable, 
+        event
     ) -> None:
-        def lambda_handler(event, context):
+        def lambda_handler(event):
             import json
 
             processed_events = {}
@@ -937,5 +938,5 @@ class Memphis:
             except Exception as e:
                 return f"Returned message types from user function are not able to be converted into JSON: {e}"
 
-        return lambda_handler
+        return lambda_handler(event)
             
