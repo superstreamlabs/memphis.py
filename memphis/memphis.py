@@ -584,13 +584,7 @@ class Memphis:
         async for msg in iterable:
             message = msg.data.decode("utf-8")
             message = json.loads(message)
-            if message["update_type"] == "modify":
-                for key in message["functions"]:
-                    self.functions_updates_data[station_name][key] = message["functions"][key]
-            elif message["update_type"] == "drop":
-                for key in message["functions"]:
-                    if key in self.functions_updates_data[station_name]:
-                        del self.functions_updates_data[station_name][key]
+            self.functions_updates_data[station_name] = message["functions"]
 
     async def start_listen_for_schema_updates(self, station_name, schema_update_data):
         schema_updates_subject = "$memphis_schema_updates_" + station_name
