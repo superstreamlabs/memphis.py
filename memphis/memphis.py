@@ -946,7 +946,7 @@ class Memphis:
                     del self.consumers_map[key]
         except Exception as e:
             raise e
-        
+
     def create_function(
         self,
         event,
@@ -982,11 +982,11 @@ class Memphis:
                 Return the result of this function in the Lambda handler.
         """
         class EncodeBase64(json.JSONEncoder):
-            def default(self, obj):
-                if isinstance(obj, bytes):
-                    return str(base64.b64encode(obj), encoding='utf-8')
-                return json.JSONEncoder.default(self, obj)
-        
+            def default(self, o):
+                if isinstance(o, bytes):
+                    return str(base64.b64encode(o), encoding='utf-8')
+                return json.JSONEncoder.default(self, o)
+
         def lambda_handler(event):
             processed_events = {}
             processed_events["successfullMessages"] = []
@@ -995,7 +995,7 @@ class Memphis:
                 try:
                     payload = base64.b64decode(bytes(message['payload'], encoding='utf-8'))
                     processed_message, processed_headers = user_func(payload, message['headers'])
-                    
+
                     if isinstance(processed_message, bytes) and isinstance(processed_headers, dict):
                         processed_events["successfullMessages"].append({
                             "headers": processed_headers,
@@ -1011,7 +1011,7 @@ class Memphis:
                         "payload": message["payload"],
                         "error": str(e)  
                     })
-            
+
             try:
                 return json.dumps(processed_events, cls=EncodeBase64).encode('utf-8')
             except Exception as e:
