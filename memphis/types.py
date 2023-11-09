@@ -31,3 +31,4 @@ class Schema(Enum):
     AVRO: "avro"
     JSON: "json"
     NO_VALIDATION: None
+    
