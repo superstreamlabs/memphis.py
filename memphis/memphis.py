@@ -22,7 +22,6 @@ import uuid
 import base64
 import re
 import warnings
-import dill
 
 import nats as broker
 from google.protobuf import descriptor_pb2, descriptor_pool
