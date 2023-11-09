@@ -40,8 +40,8 @@ node ("small-ec2-fleet") {
 		if (env.BRANCH_NAME ==~ /(latest)/) {
       stage('Checkout to version branch'){
         sh """
-	        sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo 
-          sudo yum install gh -y
+	  sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo -y
+          sudo dnf install gh -y
         """
         withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
           sh """
