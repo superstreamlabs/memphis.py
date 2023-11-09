@@ -32,7 +32,7 @@ from memphis.exceptions import MemphisConnectError, MemphisError
 from memphis.headers import Headers
 from memphis.producer import Producer
 from memphis.station import Station
-from memphis.types import Retention, Storage, Schema
+from memphis.types import Retention, Storage
 from memphis.utils import get_internal_name, random_bytes
 from memphis.partition_generator import PartitionGenerator
 
