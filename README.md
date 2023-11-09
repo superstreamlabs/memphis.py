@@ -919,3 +919,24 @@ consumer.destroy()
 ```python
 memphis.is_connected()
 ```
+
+### Using the create_function utility function
+The create_function utility function is used to take a function that the user creates to process one message, into one which processes a batch of messages. When writing a Memphis Function, the logic in the main python file is expected to look like this example, with a lambda_handler, the user function and a call to create_function:
+
+> Make sure to encode the bytes object that you will return with utf-8!
+
+```python
+import json
+import base64
+from memphis.Memphis import create_function
+
+def lambda_handler(event, context):
+    return create_function(event, user_func = modify_message)
+
+def modify_message(message_payload):
+  payload =  str(message_payload, 'utf-8')
+  as_json = json.loads(payload)
+  as_json['modified'] = True
+
+  return bytes(json.dumps(as_json), encoding='utf-8')
+```
