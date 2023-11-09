@@ -988,8 +988,6 @@ class Memphis:
                 return json.JSONEncoder.default(self, obj)
         
         def lambda_handler(event):
-            import json
-
             processed_events = {}
             processed_events["successfullMessages"] = []
             processed_events["errorMessages"] = []
