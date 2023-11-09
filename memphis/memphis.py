@@ -945,4 +945,3 @@ class Memphis:
                     del self.consumers_map[key]
         except Exception as e:
             raise e
-
