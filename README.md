@@ -928,7 +928,7 @@ The create_function utility function is used to take a function that the user cr
 ```python
 import json
 import base64
-from memphis.Memphis import create_function
+from memphis.functions import create_function
 
 def lambda_handler(event, context):
     return create_function(event, user_func = modify_message)
