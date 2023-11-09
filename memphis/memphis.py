@@ -1002,8 +1002,7 @@ class Memphis:
                             "payload": processed_message
                         })
                     else:
-                        err_msg = "The returned processed_message or processed_headers were not in the right format. " 
-                        + "processed_message must be bytes and processed_headers, dict"
+                        err_msg = "The returned processed_message or processed_headers were not in the right format. processed_message must be bytes and processed_headers, dict"
                         raise Exception(err_msg)
 
                 except Exception as e:
