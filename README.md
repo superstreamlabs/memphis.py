@@ -934,7 +934,7 @@ import base64
 from memphis.functions import create_function
 
 def handler(event, context): # this function name should be passed to the memphis.yaml file in the handler section
-    return create_function(event, user_func = event_handler)
+    return create_function(event, event_handler = event_handler)
 
 def event_handler(msg_payload, msg_headers):
   try:
