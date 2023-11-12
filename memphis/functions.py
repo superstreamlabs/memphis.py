@@ -82,10 +82,12 @@ def create_function(
                     })
                 elif processed_message is None and processed_headers is None: # filter out empty messages
                     continue
+                elif processed_message is None or processed_headers is None:
+                    err_msg = f"processed_messages is of type {type(processed_message)} and processed_headers is {type(processed_headers)}. Either both of these should be None or neither"
+                    raise Exception(err_msg)
                 else:
                     err_msg = "The returned processed_message or processed_headers were not in the right format. processed_message must be bytes and processed_headers, dict"
                     raise Exception(err_msg)
-
             except Exception as e:
                 processed_events["failed_messages"].append({
                     "headers": message["headers"],

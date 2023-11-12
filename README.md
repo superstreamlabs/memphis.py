@@ -923,9 +923,9 @@ memphis.is_connected()
 ### Creating a Memphis function
 Memphis provides a create_function utility for more easily creatin Memphis Functions.
 
-The user created `event_handler` will be called for every message in the given batch of events. The user `event_handler` will take in a `msg_payload` as bytes and `msg_headers` as a dict, and should return a modified version of the payload and headers in the same data types.
+The user created `event_handler` will be called for every message in the given batch of events. The user's `event_handler` will take in a `msg_payload` as bytes and `msg_headers` as a dict, and should return a modified version of the payload and headers in the same data types.
 
-The user function should raise an exception if the message processing has failed. If any exception is raised (deliberately or by a failed operation) the message will be placed in the dead letter station=.
+The user function should raise an exception if the message processing has failed. If any exception is raised (deliberately or by a failed operation) the message will be sent to the dead letter station.
 
 If the returned modified version of the `msg_payload` or `msg_headers` are returned as `None`, then the message will be skipped and will not be sent to the station or dead letter station.
 
