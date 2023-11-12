@@ -473,7 +473,7 @@ class Memphis:
             self.update_schema_data(station_name)
 
             if "station_version" in create_res:
-                if create_res["station_version"] > 0:
+                if create_res["station_version"] >= 2:
                     await self.start_listen_for_functions_updates(internal_station_name, create_res["station_partitions_first_functions"])
 
             producer = Producer(self, producer_name, station_name, real_name)
