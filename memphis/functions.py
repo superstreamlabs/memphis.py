@@ -3,17 +3,16 @@ import base64
 
 def create_function(
     event,
-    user_func: callable
+    event_handler: callable
 ) -> None:
     """
-    This function handles a batch of messages and processes them with the passed-in user function.
+    This function creates a Memphis function and processes events with the passed-in event_handler function.
 
     Args:
         event (dict):
-            The Lambda event that is provided to the function Lambda is calling, usually named `lambda_handler`. 
-            For more information, refer to: https://docs.aws.amazon.com/lambda/latest/dg/python-handler.html
-        user_func (callable):
-            `create_function` assumes the function signature is in the format: <user_func>(payload, headers) -> processed_payload, processed_headers. 
+            The event that is provided to the functionby Memphis.
+        event_handler (callable):
+            `create_function` assumes the function signature is in the format: <event_handler>(payload, headers) -> processed_payload, processed_headers. 
             This function will modify the payload and headers and return them in the modified format.
 
             Args:
@@ -27,12 +26,11 @@ def create_function(
             Raises:
                 Error:
                     Raises an exception of any kind when something goes wrong with processing a message. 
-                    The unprocessed message and the exception will be appended to the list of failed messages that is returned to the broker.
+                    The unprocessed message and the exception will be sent to the dead-letter station.
 
     Returns:
-        lambda_handler (callable):
-            A function that handles the batching of data and manages the returned messages. 
-            Return the result of this function in the Lambda handler.
+        handler (callable):
+            The Memphis function handler
     """
     class EncodeBase64(json.JSONEncoder):
         def default(self, o):
@@ -40,26 +38,28 @@ def create_function(
                 return str(base64.b64encode(o), encoding='utf-8')
             return json.JSONEncoder.default(self, o)
 
-    def lambda_handler(event):
+    def handler(event):
         processed_events = {}
-        processed_events["successfullMessages"] = []
-        processed_events["errorMessages"] = []
+        processed_events["messages"] = []
+        processed_events["failed_messages"] = []
         for message in event["messages"]:
             try:
                 payload = base64.b64decode(bytes(message['payload'], encoding='utf-8'))
-                processed_message, processed_headers = user_func(payload, message['headers'])
+                processed_message, processed_headers = event_handler(payload, message['headers'])
 
                 if isinstance(processed_message, bytes) and isinstance(processed_headers, dict):
-                    processed_events["successfullMessages"].append({
+                    processed_events["messages"].append({
                         "headers": processed_headers,
                         "payload": processed_message
                     })
+                elif processed_message is None and processed_headers is None: # filter out empty messages
+                    continue
                 else:
                     err_msg = "The returned processed_message or processed_headers were not in the right format. processed_message must be bytes and processed_headers, dict"
                     raise Exception(err_msg)
 
             except Exception as e:
-                processed_events["errorMessages"].append({
+                processed_events["failed_messages"].append({
                     "headers": message["headers"],
                     "payload": message["payload"],
                     "error": str(e)  
@@ -70,4 +70,4 @@ def create_function(
         except Exception as e:
             return f"Returned message types from user function are not able to be converted into JSON: {e}"
 
-    return lambda_handler(event)
+    return handler(event)

@@ -920,8 +920,11 @@ consumer.destroy()
 memphis.is_connected()
 ```
 
-### Using the create_function utility function
-The create_function utility function is used to take a function that the user creates to process one message, into one which processes a batch of messages. When writing a Memphis Function, the logic in the main python file is expected to look like this example, with a lambda_handler, the user function and a call to create_function:
+### Creating a Memphis function
+Utility for creating Memphis functions.
+event_handler gets the message payload as bytes and message headers as a dict and should return the modified payload and headers.<br>
+An exception should be raised if the message should be considered failed and go into the dead-letter station.<br>
+if all returned values are None the message will be filtered out from the station.
 
 > Make sure to encode the bytes object that you will return with utf-8!
 
@@ -930,13 +933,16 @@ import json
 import base64
 from memphis.functions import create_function
 
-def lambda_handler(event, context):
-    return create_function(event, user_func = modify_message)
+def handler(event, context): # this function name should be passed to the memphis.yaml file in the handler section
+    return create_function(event, user_func = event_handler)
 
-def modify_message(message_payload):
-  payload =  str(message_payload, 'utf-8')
-  as_json = json.loads(payload)
-  as_json['modified'] = True
+def event_handler(msg_payload, msg_headers):
+  try:
+    payload =  str(msg_payload, 'utf-8')
+    as_json = json.loads(payload)
+    as_json['modified'] = True
 
-  return bytes(json.dumps(as_json), encoding='utf-8')
+    return bytes(json.dumps(as_json), encoding='utf-8'), msg_headers
+  except Exception as e:
+    raise e
 ```
