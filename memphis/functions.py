@@ -10,7 +10,16 @@ def create_function(
 
     Args:
         event (dict):
-            The event that is provided to the functionby Memphis.
+            A dict of events given to the Function in the format: 
+            {
+                messages: [
+                    {
+                        headers: {},
+                        payload: "base64_encoded_payload" 
+                    },
+                    ...
+                ]
+            }
         event_handler (callable):
             `create_function` assumes the function signature is in the format: <event_handler>(payload, headers) -> processed_payload, processed_headers. 
             This function will modify the payload and headers and return them in the modified format.
@@ -30,7 +39,26 @@ def create_function(
 
     Returns:
         handler (callable):
-            The Memphis function handler
+            The Memphis function handler which is responsible for iterating over the messages in the event and passing them to the user provided event handler.
+        Returns:
+            The Memphis function handler returns a JSON string which represents the successful and failed messages. This is in the format:
+            {
+                messages: [
+                    {
+                        headers: {},
+                        payload: "base64_encoded_payload" 
+                    },
+                    ...
+                ],
+                failed_messages[
+                    {
+                        headers: {},
+                        payload: "base64_encoded_payload" 
+                    },
+                    ...
+                ]
+            } 
+            All failed_messages will be sent to the dead letter station, and the messages will be sent to the station.
     """
     class EncodeBase64(json.JSONEncoder):
         def default(self, o):
@@ -54,10 +82,12 @@ def create_function(
                     })
                 elif processed_message is None and processed_headers is None: # filter out empty messages
                     continue
+                elif processed_message is None or processed_headers is None:
+                    err_msg = f"processed_messages is of type {type(processed_message)} and processed_headers is {type(processed_headers)}. Either both of these should be None or neither"
+                    raise Exception(err_msg)
                 else:
                     err_msg = "The returned processed_message or processed_headers were not in the right format. processed_message must be bytes and processed_headers, dict"
                     raise Exception(err_msg)
-
             except Exception as e:
                 processed_events["failed_messages"].append({
                     "headers": message["headers"],
