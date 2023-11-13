@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 
-from memphis.exceptions import MemphisConnectError, MemphisError
+from memphis.exceptions import MemphisConnectError, MemphisError, MemphisSchemaError
+from memphis.station import Station
 
 class Message:
     def __init__(self, message, connection, cg_name, internal_station_name):
@@ -10,6 +11,7 @@ class Message:
         self.connection = connection
         self.cg_name = cg_name
         self.internal_station_name = internal_station_name
+        self.station = Station(connection, internal_station_name)
 
     async def ack(self):
         """Ack a message is done processing."""
@@ -42,13 +44,17 @@ class Message:
         except Exception:
             return
 
-    def get_data_deserialized(self):
+    async def get_data_deserialized(self):
         """Receive the message."""
         try:
             if self.connection.schema_updates_data and self.connection.schema_updates_data[self.internal_station_name] != {}:
                 schema_type = self.connection.schema_updates_data[
                     self.internal_station_name
                 ]["type"]
+                try:
+                    await self.station.validate_msg(bytearray(self.message.data))
+                except Exception as e:
+                    raise MemphisSchemaError("Deserialization has been failed since the message format does not align with the currently attached schema: " + str(e))
                 if schema_type == "protobuf":
                     proto_msg = self.connection.proto_msgs[self.internal_station_name]
                     proto_msg.ParseFromString(self.message.data)
@@ -58,7 +64,7 @@ class Message:
                 if schema_type == "json":
                     return json.loads(bytearray(self.message.data))
                 if schema_type == "graphql":
-                    message = self.message.data
+                    message = bytearray(self.message.data)
                     decoded_str = message.decode("utf-8")
                     return decoded_str
             else:

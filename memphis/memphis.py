@@ -48,6 +48,10 @@ class Memphis:
         self.schema_updates_data = {}
         self.partition_producers_updates_data = {}
         self.partition_consumers_updates_data = {}
+        self.functions_updates_data = {}
+        self.functions_updates_subs = {}
+        self.functions_tasks = {}
+        self.functions_clients_per_station = {}
         self.schema_updates_subs = {}
         self.clients_per_station = {}
         self.schema_tasks = {}
@@ -468,6 +472,10 @@ class Memphis:
 
             self.update_schema_data(station_name)
 
+            if "station_version" in create_res:
+                if create_res["station_version"] >= 2:
+                    await self.start_listen_for_functions_updates(internal_station_name, create_res["station_partitions_first_functions"])
+
             producer = Producer(self, producer_name, station_name, real_name)
             map_key = internal_station_name + "_" + real_name
             self.producers_map[map_key] = producer
@@ -545,6 +553,39 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
+    async def start_listen_for_functions_updates(self, station_name, first_functions):
+        #first_functions should contain the dict of the first function of each partition key: partition number, value: first function id
+
+        if station_name in self.functions_updates_subs:
+            self.functions_clients_per_station[station_name] += 1
+            return
+        else:
+            self.functions_clients_per_station[station_name] = 1
+
+        functions_updates_subject = "$memphis_functions_updates_" + station_name
+
+        if len(first_functions) == 0:
+            self.functions_updates_data[station_name] = {}
+        else:
+            self.functions_updates_data[station_name] = first_functions
+
+        sub = await self.broker_manager.subscribe(functions_updates_subject)
+        self.functions_updates_subs[station_name] = sub
+
+        loop = asyncio.get_event_loop()
+        task = loop.create_task(
+            self.get_msg_functions_updates(
+                station_name, self.functions_updates_subs[station_name].messages
+            )
+        )
+        self.functions_tasks[station_name] = task
+
+    async def get_msg_functions_updates(self, station_name, iterable):
+        async for msg in iterable:
+            message = msg.data.decode("utf-8")
+            message = json.loads(message)
+            self.functions_updates_data[station_name] = message["functions"]
+
     async def start_listen_for_schema_updates(self, station_name, schema_update_data):
         schema_updates_subject = "$memphis_schema_updates_" + station_name
 
@@ -580,7 +621,7 @@ class Memphis:
         batch_size: int = 10,
         batch_max_time_to_wait_ms: int = 5000,
         max_ack_time_ms: int = 30000,
-        max_msg_deliveries: int = 10,
+        max_msg_deliveries: int = 2,
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
@@ -594,7 +635,7 @@ class Memphis:
             batch_size (int, optional): pull batch size. Defaults to 10.
             batch_max_time_to_wait_ms (int, optional): max time in milliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in milliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
-            max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
+            max_msg_deliveries (int, optional): max number of message deliveries, by default is 2.
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
@@ -768,7 +809,7 @@ class Memphis:
         batch_size: int = 10,
         batch_max_time_to_wait_ms: int = 5000,
         max_ack_time_ms: int = 30000,
-        max_msg_deliveries: int = 10,
+        max_msg_deliveries: int = 2,
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
@@ -784,7 +825,7 @@ class Memphis:
             batch_size (int, optional): pull batch size. Defaults to 10.
             batch_max_time_to_wait_ms (int, optional): max time in miliseconds to wait between pulls. Defaults to 5000.
             max_ack_time_ms (int, optional): max time for ack a message in miliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
-            max_msg_deliveries (int, optional): max number of message deliveries, by default is 10.
+            max_msg_deliveries (int, optional): max number of message deliveries, by default is 2.
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
             start_consume_from_sequence(int, optional): start consuming from a specific sequence. defaults to 1.
             last_messages: consume the last N messages, defaults to -1 (all messages in the station).
@@ -904,4 +945,3 @@ class Memphis:
                     del self.consumers_map[key]
         except Exception as e:
             raise e
-        
