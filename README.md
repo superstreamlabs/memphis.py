@@ -923,7 +923,7 @@ memphis.is_connected()
 ### Creating a Memphis function
 Memphis provides a create_function utility for more easily creatin Memphis Functions.
 
-The user created `event_handler` will be called for every message in the given batch of events. The user's `event_handler` will take in a `msg_payload` as bytes and `msg_headers` as a dict, and should return a modified version of the payload and headers in the same data types.
+The user created `event_handler` will be called for every message in the given batch of events. The user's `event_handler` will take in a `msg_payload` as bytes, `msg_headers` as a dict and `inputs` as a dict, and should return a modified version of the payload and headers in the same data types.
 
 The user function should raise an exception if the message processing has failed. If any exception is raised (deliberately or by a failed operation) the message will be sent to the dead letter station.
 
@@ -939,9 +939,9 @@ import base64
 from memphis.functions import create_function
 
 def handler(event, context): # The name of this function should match the handler field in the memphis.yaml file
-    return create_function(event, user_func = event_handler)
+    return create_function(event, event_handler = event_handler)
 
-def event_handler(msg_payload, msg_headers):
+def event_handler(msg_payload, msg_headers, inputs):
     payload =  str(msg_payload, 'utf-8')
     as_json = json.loads(payload)
     as_json['modified'] = True
@@ -957,9 +957,9 @@ import base64
 from memphis.functions import create_function
 
 def handler(event, context): # The name of this function should match the handler field in the memphis.yaml file
-    return create_function(event, user_func = event_handler)
+    return create_function(event, event_handler = event_handler)
 
-def event_handler(msg_payload, msg_headers):
+def event_handler(msg_payload, msg_headers, inputs):
     payload =  str(msg_payload, 'utf-8')
     as_json = json.loads(payload)
     if as_json['check'] == False:
@@ -976,9 +976,9 @@ import base64
 from memphis.functions import create_function
 
 def handler(event, context): # The name of this function should match the handler field in the memphis.yaml file
-    return create_function(event, user_func = event_handler)
+    return create_function(event, event_handler = event_handler)
 
-def event_handler(msg_payload, msg_headers):
+def event_handler(msg_payload, msg_headers, inputs):
     payload =  str(msg_payload, 'utf-8')
     as_json = json.loads(payload)
     if as_json['check'] == False:
@@ -1006,9 +1006,9 @@ from memphis.functions import create_function
 import message_pb2
 
 def handler(event, context): # The name of this function should match the handler field in the memphis.yaml file
-    return create_function(event, user_func = event_handler)
+    return create_function(event, event_handler = event_handler)
 
-def event_handler(msg_payload, msg_headers):
+def event_handler(msg_payload, msg_headers, inputs):
     message = message_pb2.Message()
     message.ParseFromString(base64.b64decode(encoded_str))
 

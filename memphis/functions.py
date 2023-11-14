@@ -18,18 +18,23 @@ def create_function(
                         payload: "base64_encoded_payload" 
                     },
                     ...
-                ]
+                ],
+                inputs: {
+                    "input_name": "input_value",
+                    ...
+                }
             }
         event_handler (callable):
-            `create_function` assumes the function signature is in the format: <event_handler>(payload, headers) -> processed_payload, processed_headers. 
+            `create_function` assumes the function signature is in the format: <event_handler>(payload, headers, inputs) -> processed_payload, processed_headers. 
             This function will modify the payload and headers and return them in the modified format.
 
             Args:
                 payload (bytes): The payload of the message. It will be encoded as bytes, and the user can assume UTF-8 encoding.
                 headers (dict): The headers associated with the Memphis message.
+                inputs (dict): The inputs associated with the Memphis function.
 
             Returns:
-                modified_message (bytes): The modified message must be encoded into bytes before being returned from the `user_func`.
+                modified_message (bytes): The modified message must be encoded into bytes before being returned from the `event_handler`.
                 modified_headers (dict): The headers will be passed in and returned as a Python dictionary.
 
             Raises:
@@ -73,7 +78,7 @@ def create_function(
         for message in event["messages"]:
             try:
                 payload = base64.b64decode(bytes(message['payload'], encoding='utf-8'))
-                processed_message, processed_headers = event_handler(payload, message['headers'])
+                processed_message, processed_headers = event_handler(payload, message['headers'], event["inputs"])
 
                 if isinstance(processed_message, bytes) and isinstance(processed_headers, dict):
                     processed_events["messages"].append({
