@@ -247,6 +247,7 @@ class Memphis:
         tiered_storage_enabled: bool = False,
         partitions_number: int = 1,
         dls_station: str = "",
+        timeout_retries=5,
     ):
         """Creates a station.
         Args:
@@ -291,8 +292,8 @@ class Memphis:
             create_station_req_bytes = json.dumps(create_station_req, indent=2).encode(
                 "utf-8"
             )
-            err_msg = await self.broker_manager.request(
-                "$memphis_station_creations", create_station_req_bytes, timeout=20
+            err_msg = await self._request(
+                "$memphis_station_creations", create_station_req_bytes, 20, timeout_retries
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -315,7 +316,7 @@ class Memphis:
         """
         await self.enforce_schema(name, station_name)
 
-    async def enforce_schema(self, name, station_name):
+    async def enforce_schema(self, name, station_name, timeout_retries=5):
         """Enforce a schema on an existing station.
         Args:
             name (str): schema name.
@@ -329,8 +330,8 @@ class Memphis:
             msg = {"name": name, "station_name": station_name,
                    "username": self.username}
             msg_to_send = json.dumps(msg).encode("utf-8")
-            err_msg = await self.broker_manager.request(
-                "$memphis_schema_attachments", msg_to_send, timeout=20
+            err_msg = await self._request(
+                "$memphis_schema_attachments", msg_to_send, 20, timeout_retries
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -339,7 +340,7 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    async def detach_schema(self, station_name):
+    async def detach_schema(self, station_name, timeout_retries=5):
         """Detaches a schema from station.
         Args:
             station_name (str): station name.
@@ -351,8 +352,8 @@ class Memphis:
                 raise MemphisError("station name is missing")
             msg = {"station_name": station_name, "username": self.username}
             msg_to_send = json.dumps(msg).encode("utf-8")
-            err_msg = await self.broker_manager.request(
-                "$memphis_schema_detachments", msg_to_send, timeout=20
+            err_msg = await self._request(
+                "$memphis_schema_detachments", msg_to_send, 20, timeout_retries
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -404,11 +405,21 @@ class Memphis:
             return host.split("https://")[1]
         return host
 
+    async def _request(self, subject, payload, timeout, timeout_retries=5):
+        try:
+            res = await self.broker_manager.request(subject, payload, timeout=timeout)
+            return res
+        except Exception as e:
+            if 'timeout' not in str(e).lower() or timeout_retries <= 0:
+                raise MemphisError(str(e)) from e
+            return await self._request(subject, payload, timeout=timeout, timeout_retries=timeout_retries-1)
+
     async def producer(
         self,
         station_name: str,
         producer_name: str,
         generate_random_suffix: bool = False,
+        timeout_retries=5,
     ):
         """Creates a producer.
         Args:
@@ -446,8 +457,8 @@ class Memphis:
             create_producer_req_bytes = json.dumps(create_producer_req, indent=2).encode(
                 "utf-8"
             )
-            create_res = await self.broker_manager.request(
-                "$memphis_producer_creations", create_producer_req_bytes, timeout=20
+            create_res = await self._request(
+                "$memphis_producer_creations", create_producer_req_bytes, 20, timeout_retries
             )
             create_res = create_res.data.decode("utf-8")
             create_res = json.loads(create_res)
@@ -625,6 +636,7 @@ class Memphis:
         generate_random_suffix: bool = False,
         start_consume_from_sequence: int = 1,
         last_messages: int = -1,
+        timeout_retries=5,
     ):
         """Creates a consumer.
         Args:.
@@ -684,8 +696,8 @@ class Memphis:
             create_consumer_req_bytes = json.dumps(create_consumer_req, indent=2).encode(
                 "utf-8"
             )
-            creation_res = await self.broker_manager.request(
-                "$memphis_consumer_creations", create_consumer_req_bytes, timeout=20
+            creation_res = await self._request(
+                "$memphis_consumer_creations", create_consumer_req_bytes, 20, timeout_retries
             )
             creation_res = creation_res.data.decode("utf-8")
             if creation_res != "":
@@ -867,7 +879,7 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    async def create_schema(self, schema_name, schema_type, schema_path):
+    async def create_schema(self, schema_name, schema_type, schema_path, timeout_retries=5):
 
         """Creates a new schema.
         Args:.
@@ -899,8 +911,8 @@ class Memphis:
 
         create_schema_req_bytes = json.dumps(create_schema_req, indent=2).encode("utf-8")
 
-        create_res = await self.broker_manager.request(
-            "$memphis_schema_creations", create_schema_req_bytes, timeout=20)
+        create_res = await self._request(
+            "$memphis_schema_creations", create_schema_req_bytes, 20, timeout_retries)
 
         create_res = create_res.data.decode("utf-8")
         create_res = json.loads(create_res)
