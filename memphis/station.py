@@ -163,13 +163,13 @@ class Station:
         except fastavro.validation.ValidationError as e:
             raise MemphisSchemaError("Schema validation has failed: " + str(e))
 
-    async def destroy(self):
+    async def destroy(self, timeout_retries=5):
         """Destroy the station."""
         try:
             name_req = {"station_name": self.name, "username": self.connection.username}
             station_name = json.dumps(name_req, indent=2).encode("utf-8")
-            res = await self.connection.broker_manager.request(
-                "$memphis_station_destructions", station_name, timeout=5
+            res = await self.connection._request(
+                "$memphis_station_destructions", station_name, 5, timeout_retries
             )
             error = res.data.decode("utf-8")
             if error != "" and not "not exist" in error:

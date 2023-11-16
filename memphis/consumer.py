@@ -289,7 +289,7 @@ class Consumer:
                 if "consumer not found" in str(e) or "stream not found" in str(e):
                     callback(MemphisError(str(e)))
 
-    async def destroy(self):
+    async def destroy(self, timeout_retries=5):
         """Destroy the consumer."""
         if self.t_consume is not None:
             self.t_consume.cancel()
@@ -308,8 +308,8 @@ class Consumer:
             }
             consumer_name = json.dumps(
                 destroy_consumer_req, indent=2).encode("utf-8")
-            res = await self.connection.broker_manager.request(
-                "$memphis_consumer_destructions", consumer_name, timeout=5
+            res = await self.connection._request(
+                "$memphis_consumer_destructions", consumer_name, 5, timeout_retries
             )
             error = res.data.decode("utf-8")
             if error != "" and not "not exist" in error:
