@@ -18,21 +18,93 @@ schemaverse_fail_alert_type = "schema_validation_fail_alert"
 
 class Producer:
     def __init__(
-        self, connection, producer_name: str, station_name: str, real_name: str
+        self, connection, producer_name: str, station_name: Union[str, List[str]] , real_name: str
     ):
         self.connection = connection
         self.producer_name = producer_name.lower()
         self.station_name = station_name
+        self.real_name = real_name
+        self.background_tasks = set()
+        
+        if isinstance(station_name, list):
+            self.is_multi_station_producer = True
+            return
+        else:
+            self.is_multi_station_producer = False
+
         self.station = Station(connection, station_name)
         self.internal_station_name = get_internal_name(self.station_name)
         self.loop = asyncio.get_running_loop()
-        self.real_name = real_name
-        self.background_tasks = set()
         if self.internal_station_name in connection.partition_producers_updates_data:
             self.partition_generator = PartitionGenerator(connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])
 
-    # pylint: disable=R0913
     async def produce(
+        self,
+        message,
+        ack_wait_sec: int = 15,
+        headers: Union[Headers, None] = None,
+        async_produce: Union[bool, None] = None,
+        nonblocking: bool = False,
+        msg_id: Union[str, None] = None,
+        concurrent_task_limit: Union[int, None] = None,
+        producer_partition_key: Union[str, None] = None,
+        producer_partition_number: Union[int, -1] = -1
+    ):
+        """Produces a message into a station.
+        Args:
+            message (bytearray/dict): message to send into the station
+                                      - bytearray/protobuf class
+                                        (schema validated station - protobuf)
+                                      - bytearray/dict (schema validated station - json schema)
+                                      - string/bytearray/graphql.language.ast.DocumentNode
+                                        (schema validated station - graphql schema)
+                                      - bytearray/dict (schema validated station - avro schema)
+            ack_wait_sec (int, optional): max time in seconds to wait for an ack from the broker.
+                                          Defaults to 15 sec.
+            headers (dict, optional): message headers, defaults to {}.
+            async_produce (boolean, optional): produce operation won't block (wait) on message send.
+                                               This argument is deprecated. Please use the
+                                               `nonblocking` arguemnt instead.
+            nonblocking (boolean, optional): produce operation won't block (wait) on message send.
+            msg_id (string, optional): Attach msg-id header to the message in order to
+                                       achieve idempotency.
+            concurrent_task_limit (int, optional): Limit the number of outstanding async produce
+                                                   tasks. Calls with nonblocking=True will block
+                                                   if the limit is hit and will wait until the
+                                                   buffer drains halfway down.
+            producer_partition_key (string, optional): Produce messages to a specific partition using the partition key.
+            producer_partition_number (int, optional): Produce messages to a specific partition using the partition number.
+        Raises:
+            Exception: _description_
+        """
+        if self.is_multi_station_producer:
+            await self._multi_station_produce(
+                message,
+                ack_wait_sec=ack_wait_sec,
+                headers=headers,
+                async_produce=async_produce,
+                nonblocking=nonblocking,
+                msg_id=msg_id,
+                concurrent_task_limit=concurrent_task_limit,
+                producer_partition_key=producer_partition_key,
+                producer_partition_number=producer_partition_number
+            )
+        else:
+            await self._single_station_produce(
+                message,
+                ack_wait_sec=ack_wait_sec,
+                headers=headers,
+                async_produce=async_produce,
+                nonblocking=nonblocking,
+                msg_id=msg_id,
+                concurrent_task_limit=concurrent_task_limit,
+                producer_partition_key=producer_partition_key,
+                producer_partition_number=producer_partition_number
+            )
+
+
+    # pylint: disable=R0913
+    async def _single_station_produce(
         self,
         message,
         ack_wait_sec: int = 15,
@@ -213,7 +285,43 @@ class Producer:
                 )
             raise MemphisError(str(e)) from e
 
+    async def _multi_station_produce(
+        self,
+        message,
+        ack_wait_sec: int = 15,
+        headers: Union[Headers, None] = None,
+        async_produce: Union[bool, None] = None,
+        nonblocking: bool = False,
+        msg_id: Union[str, None] = None,
+        concurrent_task_limit: Union[int, None] = None,
+        producer_partition_key: Union[str, None] = None,
+        producer_partition_number: Union[int, -1] = -1
+    ):
+        tasks = []
+        for sn in self.station_name:
+            tasks.append(
+                self.connection.produce(
+                    sn,
+                    self.producer_name,
+                    message,
+                    ack_wait_sec=ack_wait_sec,
+                    headers=headers,
+                    async_produce=async_produce,
+                    msg_id=msg_id,
+                    producer_partition_key=producer_partition_key,
+                    producer_partition_number=producer_partition_number
+                )
+            )
+        await asyncio.gather(*tasks)
+    
     async def destroy(self, timeout_retries=5):
+        """Destroy the producer."""
+        if self.is_multi_station_producer:
+            await self._destroy_multi_station_producer(timeout_retries=timeout_retries)
+        else:
+            await self._destroy_single_station_producer(timeout_retries=timeout_retries)
+
+    async def _destroy_single_station_producer(self, timeout_retries=5):
         """Destroy the producer."""
         try:
             # drain buffered async messages
@@ -282,6 +390,17 @@ class Producer:
 
         except Exception as e:
             raise Exception(e)
+
+    async def _destroy_multi_station_producer(self, timeout_retries=5):
+        try:
+            internal_station_name_list = [get_internal_name(station_name) for station_name in self.station_name]
+            producer_keys = [f"{internal_station_name}_{self.real_name}" for internal_station_name in internal_station_name_list]
+            producers = [self.connection.producers_map.get(producer_key) for producer_key in producer_keys]
+            producers = [producer for producer in producers if producer is not None]
+            await asyncio.gather(*[producer.destroy() for producer in producers])
+        except Exception as e:
+            raise Exception(e)
+
 
     def get_partition_from_key(self, key):
         try:
