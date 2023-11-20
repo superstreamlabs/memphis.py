@@ -308,9 +308,11 @@ class Consumer:
             }
             consumer_name = json.dumps(
                 destroy_consumer_req, indent=2).encode("utf-8")
+            # pylint: disable=protected-access
             res = await self.connection._request(
                 "$memphis_consumer_destructions", consumer_name, 5, timeout_retries
             )
+            # pylint: enable=protected-access
             error = res.data.decode("utf-8")
             if error != "" and not "not exist" in error:
                 raise MemphisError(error)

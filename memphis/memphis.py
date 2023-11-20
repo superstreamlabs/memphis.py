@@ -17,7 +17,7 @@ import asyncio
 import copy
 import json
 import ssl
-from typing import Iterable, Union
+from typing import Iterable, Union, List
 import uuid
 import base64
 import re
@@ -35,10 +35,9 @@ from memphis.station import Station
 from memphis.types import Retention, Storage
 from memphis.utils import get_internal_name, random_bytes
 from memphis.partition_generator import PartitionGenerator
-from typing import Union, List
 
 app_id = str(uuid.uuid4())
-
+# pylint: disable=too-many-lines
 class Memphis:
     MAX_BATCH_SIZE = 5000
     MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
@@ -433,7 +432,6 @@ class Memphis:
             _type_: _description_
         """
         try:
-            
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
             if not isinstance(station_name, str) and not isinstance(station_name, list):
@@ -442,11 +440,10 @@ class Memphis:
             if generate_random_suffix:
                 warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
                 producer_name = self.__generate_random_suffix(producer_name)
-            
             if isinstance(station_name, str):
                 return await self._single_station_producer(station_name, producer_name, real_name, timeout_retries)
             else:
-                return await self._multi_station_producer(station_name, producer_name, real_name, timeout_retries)
+                return await self._multi_station_producer(station_name, producer_name, real_name)
         except Exception as e:
             raise MemphisError(str(e)) from e
 
@@ -519,12 +516,9 @@ class Memphis:
         self,
         station_names: List[str],
         producer_name: str,
-        real_name: str,
-        timeout_retries: int,
+        real_name: str
     ):
-        return Producer(self, producer_name, station_names, producer_name)
-        
-
+        return Producer(self, producer_name, station_names, real_name)
 
     def update_schema_data(self, station_name):
         internal_station_name = get_internal_name(station_name)

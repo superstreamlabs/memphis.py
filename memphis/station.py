@@ -168,9 +168,11 @@ class Station:
         try:
             name_req = {"station_name": self.name, "username": self.connection.username}
             station_name = json.dumps(name_req, indent=2).encode("utf-8")
+            # pylint: disable=protected-access
             res = await self.connection._request(
                 "$memphis_station_destructions", station_name, 5, timeout_retries
             )
+            # pylint: enable=protected-access
             error = res.data.decode("utf-8")
             if error != "" and not "not exist" in error:
                 raise MemphisError(error)

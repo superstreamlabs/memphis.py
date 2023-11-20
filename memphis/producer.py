@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from typing import Union
+from typing import Union, List
 import warnings
 
 import mmh3
@@ -25,7 +25,6 @@ class Producer:
         self.station_name = station_name
         self.real_name = real_name
         self.background_tasks = set()
-        
         if isinstance(station_name, list):
             self.is_multi_station_producer = True
             return
@@ -38,6 +37,7 @@ class Producer:
         if self.internal_station_name in connection.partition_producers_updates_data:
             self.partition_generator = PartitionGenerator(connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])
 
+    # pylint: disable=too-many-arguments
     async def produce(
         self,
         message,
@@ -83,9 +83,7 @@ class Producer:
                 ack_wait_sec=ack_wait_sec,
                 headers=headers,
                 async_produce=async_produce,
-                nonblocking=nonblocking,
                 msg_id=msg_id,
-                concurrent_task_limit=concurrent_task_limit,
                 producer_partition_key=producer_partition_key,
                 producer_partition_number=producer_partition_number
             )
@@ -102,8 +100,6 @@ class Producer:
                 producer_partition_number=producer_partition_number
             )
 
-
-    # pylint: disable=R0913
     async def _single_station_produce(
         self,
         message,
@@ -291,9 +287,7 @@ class Producer:
         ack_wait_sec: int = 15,
         headers: Union[Headers, None] = None,
         async_produce: Union[bool, None] = None,
-        nonblocking: bool = False,
         msg_id: Union[str, None] = None,
-        concurrent_task_limit: Union[int, None] = None,
         producer_partition_key: Union[str, None] = None,
         producer_partition_number: Union[int, -1] = -1
     ):
@@ -313,7 +307,7 @@ class Producer:
                 )
             )
         await asyncio.gather(*tasks)
-    
+    # pylint: enable=too-many-arguments
     async def destroy(self, timeout_retries=5):
         """Destroy the producer."""
         if self.is_multi_station_producer:
@@ -337,9 +331,11 @@ class Producer:
             }
 
             producer_name = json.dumps(destroy_producer_req).encode("utf-8")
+            # pylint: disable=protected-access
             res = await self.connection._request(
                 "$memphis_producer_destructions", producer_name, 5, timeout_retries
             )
+            # pylint: enable=protected-access
             error = res.data.decode("utf-8")
             if error != "" and not "not exist" in error:
                 raise Exception(error)
