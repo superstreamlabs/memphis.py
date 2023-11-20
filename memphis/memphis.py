@@ -883,7 +883,7 @@ class Memphis:
     ):
         try:
             producer = await self.producer(
-                station_name=station_name,
+                station_name=station_names,
                 producer_name=producer_name,
                 generate_random_suffix=generate_random_suffix,
             )

@@ -397,7 +397,7 @@ class Producer:
             producer_keys = [f"{internal_station_name}_{self.real_name}" for internal_station_name in internal_station_name_list]
             producers = [self.connection.producers_map.get(producer_key) for producer_key in producer_keys]
             producers = [producer for producer in producers if producer is not None]
-            await asyncio.gather(*[producer.destroy() for producer in producers])
+            await asyncio.gather(*[producer.destroy(timeout_retries) for producer in producers])
         except Exception as e:
             raise Exception(e)
 
