@@ -291,22 +291,19 @@ class Producer:
         producer_partition_key: Union[str, None] = None,
         producer_partition_number: Union[int, -1] = -1
     ):
-        tasks = []
         for sn in self.station_name:
-            tasks.append(
-                self.connection.produce(
-                    sn,
-                    self.producer_name,
-                    message,
-                    ack_wait_sec=ack_wait_sec,
-                    headers=headers,
-                    async_produce=async_produce,
-                    msg_id=msg_id,
-                    producer_partition_key=producer_partition_key,
-                    producer_partition_number=producer_partition_number
-                )
+            await self.connection.produce(
+                sn,
+                self.producer_name,
+                message,
+                ack_wait_sec=ack_wait_sec,
+                headers=headers,
+                async_produce=async_produce,
+                msg_id=msg_id,
+                producer_partition_key=producer_partition_key,
+                producer_partition_number=producer_partition_number
             )
-        await asyncio.gather(*tasks)
+
     # pylint: enable=too-many-arguments
     async def destroy(self, timeout_retries=5):
         """Destroy the producer."""
@@ -388,14 +385,12 @@ class Producer:
             raise Exception(e)
 
     async def _destroy_multi_station_producer(self, timeout_retries=5):
-        try:
-            internal_station_name_list = [get_internal_name(station_name) for station_name in self.station_name]
-            producer_keys = [f"{internal_station_name}_{self.real_name}" for internal_station_name in internal_station_name_list]
-            producers = [self.connection.producers_map.get(producer_key) for producer_key in producer_keys]
-            producers = [producer for producer in producers if producer is not None]
-            await asyncio.gather(*[producer.destroy(timeout_retries) for producer in producers])
-        except Exception as e:
-            raise Exception(e)
+        internal_station_name_list = [get_internal_name(station_name) for station_name in self.station_name]
+        producer_keys = [f"{internal_station_name}_{self.real_name}" for internal_station_name in internal_station_name_list]
+        producers = [self.connection.producers_map.get(producer_key) for producer_key in producer_keys]
+        producers = [producer for producer in producers if producer is not None]
+        for producer in producers:
+            await producer.destroy(timeout_retries)
 
 
     def get_partition_from_key(self, key):
