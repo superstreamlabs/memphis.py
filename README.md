@@ -639,16 +639,16 @@ To add message headers to the message, use the headers parameter. Headers can he
 ```python
    memphis = Memphis()
 
-    await memphis.connect(...)
+   await memphis.connect(...)
     
-    await memphis.produce(
-        station_name = "some_station",
-        producer_name = "temp_producer",
-        message = {'some':'message'},
-        headers = {
-            'trace_header': 'track_me_123'
-        }
-    )
+   await memphis.produce(
+       station_name = "some_station",
+       producer_name = "temp_producer",
+       message = {'some':'message'},
+       headers = {
+           'trace_header': 'track_me_123'
+       }
+   )
 ```
 
 ### Producing to a partition
@@ -658,28 +658,28 @@ Lastly, memphis can produce to a specific partition in a station. To do so, use 
 ```python
    memphis = Memphis()
 
-    await memphis.connect(...)
+   await memphis.connect(...)
     
-    await memphis.produce(
-        station_name = "some_station",
-        producer_name = "temp_producer",
-        message = {'some':'message'},
-        producer_partition_key = "2nd_partition"
-    )
+   await memphis.produce(
+       station_name = "some_station",
+       producer_name = "temp_producer",
+       message = {'some':'message'},
+       producer_partition_key = "2nd_partition"
+   )
 ```
 
 Or, alternatively, use the producer_partition_number parameter:
 ```python
    memphis = Memphis()
 
-    await memphis.connect(...)
+   await memphis.connect(...)
     
-    await memphis.produce(
+   await memphis.produce(
         station_name = "some_station",
         producer_name = "temp_producer",
         message = {'some':'message'},
         producer_partition_number = 2
-    )
+   )
 ```
 
 ### Non-blocking Produce with Task Limits
@@ -694,6 +694,39 @@ await producer.produce(
 ```
 
 You may read more about this [here](https://memphis.dev/blog/producing-messages-at-warp-speed-best-practices-for-optimizing-your-producers/) on the memphis.dev blog.
+
+### Produce to multiple stations
+
+Producing to multiple stations can be done by creating a producer with multiple stations and then calling produce on that producer.
+
+```python
+memphis = Memphis()
+
+await memphis.connect(...)
+
+producer = await memphis.producer(
+  station_name = ["station_1", "station_2"],
+  producer_name = "new_producer"
+)
+
+await producer.produce(
+  message = "some message"
+)
+```
+
+Alternatively, it also possible to produce to multiple stations using the connection:
+
+```python
+memphis = Memphis()
+
+await memphis.connect(...)
+
+await memphis.produce(
+  station_name = ["station_1", "station_2"],
+  producer_name = "new_producer",
+  message = "some message"
+)
+```
 
 ### Destroying a Producer
 
