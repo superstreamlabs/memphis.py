@@ -17,7 +17,7 @@ import asyncio
 import copy
 import json
 import ssl
-from typing import Iterable, Union
+from typing import Iterable, Union, List
 import uuid
 import base64
 import re
@@ -37,7 +37,7 @@ from memphis.utils import get_internal_name, random_bytes
 from memphis.partition_generator import PartitionGenerator
 
 app_id = str(uuid.uuid4())
-
+# pylint: disable=too-many-lines
 class Memphis:
     MAX_BATCH_SIZE = 5000
     MEMPHIS_GLOBAL_ACCOUNT_NAME = "$memphis"
@@ -416,14 +416,14 @@ class Memphis:
 
     async def producer(
         self,
-        station_name: str,
+        station_name: Union[str, List[str]],
         producer_name: str,
         generate_random_suffix: bool = False,
         timeout_retries=5,
     ):
         """Creates a producer.
         Args:
-            station_name (str): station name to produce messages into.
+            station_name (Union[str, List[str]]): station name to produce messages into.
             producer_name (str): name for the producer.
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to producer's name
         Raises:
@@ -434,16 +434,32 @@ class Memphis:
         try:
             if not self.is_connection_active:
                 raise MemphisError("Connection is dead")
+            if not isinstance(station_name, str) and not isinstance(station_name, list):
+                raise MemphisError("station_name should be either string or list of strings")
             real_name = producer_name.lower()
-            internal_station_name = get_internal_name(station_name)
             if generate_random_suffix:
                 warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
                 producer_name = self.__generate_random_suffix(producer_name)
+            if isinstance(station_name, str):
+                return await self._single_station_producer(station_name, producer_name, real_name, timeout_retries)
             else:
-                map_key = internal_station_name + "_" + producer_name.lower()
-                producer = None
-                if map_key in self.producers_map:
-                    return self.producers_map[map_key]
+                return await self._multi_station_producer(station_name, producer_name, real_name)
+        except Exception as e:
+            raise MemphisError(str(e)) from e
+
+    async def _single_station_producer(
+        self,
+        station_name: str,
+        producer_name: str,
+        real_name: str,
+        timeout_retries: int,
+    ):
+        try:
+            internal_station_name = get_internal_name(station_name)
+            map_key = internal_station_name + "_" + producer_name.lower()
+            producer = None
+            if map_key in self.producers_map:
+                return self.producers_map[map_key]
 
             create_producer_req = {
                 "name": producer_name,
@@ -494,6 +510,15 @@ class Memphis:
 
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+
+    async def _multi_station_producer(
+        self,
+        station_names: List[str],
+        producer_name: str,
+        real_name: str
+    ):
+        return Producer(self, producer_name, station_names, real_name)
 
     def update_schema_data(self, station_name):
         internal_station_name = get_internal_name(station_name)
@@ -763,7 +788,7 @@ class Memphis:
 
     async def produce(
         self,
-        station_name: str,
+        station_name: Union[str, List[str]],
         producer_name: str,
         message,
         generate_random_suffix: bool = False,
@@ -790,6 +815,30 @@ class Memphis:
             Exception: _description_
         """
         try:
+            if not isinstance(station_name, str) and not isinstance(station_name, list):
+                raise MemphisError("station_name should be either string or list of strings")
+            if isinstance(station_name, str):
+                await self._single_station_produce(station_name, producer_name, message, generate_random_suffix, ack_wait_sec, headers, async_produce, msg_id, producer_partition_key, producer_partition_number)
+            else:
+                await self._multi_station_produce(station_name, producer_name, message, generate_random_suffix, ack_wait_sec, headers, async_produce, msg_id, producer_partition_key, producer_partition_number)
+        except Exception as e:
+            raise MemphisError(str(e)) from e
+
+
+    async def _single_station_produce(
+        self,
+        station_name: str,
+        producer_name: str,
+        message,
+        generate_random_suffix: bool = False,
+        ack_wait_sec: int = 15,
+        headers: Union[Headers, None] = None,
+        async_produce: bool = False,
+        msg_id: Union[str, None] = None,
+        producer_partition_key: Union[str, None] = None,
+        producer_partition_number: Union[int, -1] = -1
+    ):
+        try:
             internal_station_name = get_internal_name(station_name)
             map_key = internal_station_name + "_" + producer_name.lower()
             producer = None
@@ -812,6 +861,38 @@ class Memphis:
             )
         except Exception as e:
             raise MemphisError(str(e)) from e
+
+    async def _multi_station_produce(
+        self,
+        station_names: List[str],
+        producer_name: str,
+        message,
+        generate_random_suffix: bool = False,
+        ack_wait_sec: int = 15,
+        headers: Union[Headers, None] = None,
+        async_produce: bool = False,
+        msg_id: Union[str, None] = None,
+        producer_partition_key: Union[str, None] = None,
+        producer_partition_number: Union[int, -1] = -1
+    ):
+        try:
+            producer = await self.producer(
+                station_name=station_names,
+                producer_name=producer_name,
+                generate_random_suffix=generate_random_suffix,
+            )
+            await producer.produce(
+                message=message,
+                ack_wait_sec=ack_wait_sec,
+                headers=headers,
+                async_produce=async_produce,
+                msg_id=msg_id,
+                producer_partition_key=producer_partition_key,
+                producer_partition_number=producer_partition_number
+            )
+        except Exception as e:
+            raise MemphisError(str(e)) from e
+
 
     async def fetch_messages(
         self,
