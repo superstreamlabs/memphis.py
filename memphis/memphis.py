@@ -962,7 +962,7 @@ class Memphis:
 
     async def create_schema(self, schema_name, schema_type, schema_path, timeout_retries=5):
 
-        """Creates a new schema.
+        """Creates a new schema. In case schema is already exist a new version will be created
         Args:.
             schema_name (str): the name of the schema.
             schema_type (str): the type of the schema json / graphql / protobuf / avro.

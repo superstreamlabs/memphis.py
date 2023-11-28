@@ -473,7 +473,7 @@ station.destroy()
 ```
 
 ### Creating a New Schema 
-
+In case schema is already exist a new version will be created
 ```python
 await memphis.create_schema("<schema-name>", "<schema-type>", "<schema-file-path>")
 ```
