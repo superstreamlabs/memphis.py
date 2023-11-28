@@ -231,7 +231,7 @@ _If the station trying to be created exists when this function is called, nothin
         self,
         name: str,
         retention_type: Retention = Retention.MAX_MESSAGE_AGE_SECONDS, # MAX_MESSAGE_AGE_SECONDS/MESSAGES/BYTES/ACK_BASED(cloud only). Defaults to MAX_MESSAGE_AGE_SECONDS
-        retention_value: int = 604800, # defaults to 604800
+        retention_value: int = 3600, # defaults to 3600
         storage_type: Storage = Storage.DISK, # Storage.DISK/Storage.MEMORY. Defaults to DISK
         replicas: int = 1,
         idempotency_window_ms: int = 120000, # defaults to 2 minutes
