@@ -237,7 +237,7 @@ class Memphis:
         self,
         name: str,
         retention_type: Retention = Retention.MAX_MESSAGE_AGE_SECONDS,
-        retention_value: int = 604800,
+        retention_value: int = 3600,
         storage_type: Storage = Storage.DISK,
         replicas: int = 1,
         idempotency_window_ms: int = 120000,
