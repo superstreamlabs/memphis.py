@@ -146,7 +146,7 @@ class Memphis:
         password: str = "",
         port: int = 6666,
         reconnect: bool = True,
-        max_reconnect: int = 10,
+        max_reconnect: int = -1,
         reconnect_interval_ms: int = 1500,
         timeout_ms: int = 2000,
         cert_file: str = "",
@@ -162,7 +162,7 @@ class Memphis:
             password (str): depends on how Memphis deployed - default is connection token-based authentication.
             port (int, optional): port. Defaults to 6666.
             reconnect (bool, optional): whether to do reconnect while connection is lost. Defaults to True.
-            max_reconnect (int, optional): The reconnect attempt. Defaults to 10.
+            max_reconnect (int, optional): The reconnect attempt.
             reconnect_interval_ms (int, optional): Interval in milliseconds between reconnect attempts. Defaults to 1500.
             timeout_ms (int, optional): connection timeout in milliseconds. Defaults to 15000.
             key_file (string): path to tls key file.

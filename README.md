@@ -57,7 +57,7 @@ async def main():
       password="<string>", # depends on how Memphis deployed - default is connection token-based authentication
       port=<port>, # defaults to 6666
       reconnect=True, # defaults to True
-      max_reconnect=10, # defaults to 10
+      max_reconnect=10, # defaults to -1
       reconnect_interval_ms=1500, # defaults to 1500
       timeout_ms=1500, # defaults to 1500
       # for TLS connection:
