@@ -997,7 +997,7 @@ class Memphis:
 
         create_res = create_res.data.decode("utf-8")
         create_res = json.loads(create_res)
-        if create_res["error"] != "" and not "already exist" in create_res["error"] :
+        if create_res["error"] != "" and not "already exists" in create_res["error"] :
             raise MemphisError(create_res["error"])
 
 
