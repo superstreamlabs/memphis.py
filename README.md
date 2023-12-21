@@ -41,6 +41,62 @@ from memphis.types import Retention, Storage
 import asyncio
 ```
 
+### Quickstart - Producing and Consuming
+
+The most basic functionaly of memphis is the ability to produce messages to a station and to consume those messages. 
+
+First, a connection to Memphis must be made:
+
+```python
+    from memphis import Memphis
+
+    # Connecting to the broker
+    memphis = Memphis()
+
+    await memphis.connect(
+        host = "aws-us-east-1.cloud.memphis.dev",
+        username = "test_user",
+        password = os.environ.get("memphis_pass"),
+        account_id = os.environ.get("memphis_account_id") # For cloud users on, at the top of the overview page
+    )   
+```
+
+Then, to produce a message, simple create a producer and call `produce`:
+
+```python
+    # Creating a producer and producing a message. You can also use the memphis.producer function
+    producer = await memphis.producer(
+        station_name = "test_station", # Matches the station name in memphis cloud
+        producer_name = "producer"
+    )
+
+    await producer.produce(message={
+            "id": i,
+            "chocolates_to_eat": 3
+    })
+```
+
+Lastly, to consume this message, create a consumer and call `fetch`:
+
+```python
+    # Creating a consumer and consuming the message we just produced
+    consumer = await memphis.consumer(
+        station_name="test_station",
+        consumer_name="consumer",
+    )
+
+    messages: list[Message] = await consumer.fetch() # Type-hint the return here for LSP integration
+    for consumed_message in messages:
+        msg_as_dict = json.loads(consumed_message.get_data())
+        
+        # Do something here with the msg_as_dict
+        if msg_as_dict["chocolates_to_eat"] > 2:
+            print("That's a lot of chocolate!")
+        
+        # Ack the message to tell the broker we're done with it
+        await consumed_message.ack()
+```
+
 ### Connecting to Memphis
 
 First, we need to create Memphis `object` and then connect with Memphis by using `memphis.connect`.
