@@ -57,7 +57,7 @@ First, a connection to Memphis must be made:
         host = "aws-us-east-1.cloud.memphis.dev",
         username = "test_user",
         password = os.environ.get("memphis_pass"),
-        account_id = os.environ.get("memphis_account_id") # For cloud users on, at the top of the overview page
+        account_id = os.environ.get("memphis_account_id") # For cloud users, at the top of the overview page
     )   
 ```
 
