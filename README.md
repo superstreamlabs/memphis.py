@@ -48,7 +48,7 @@ The most basic functionaly of memphis is the ability to produce messages to a st
 > The Memphis.py SDK uses asyncio for many functions. Make sure to call the following code in an async function:
 
 ```python 
-async def main:
+async def main():
     ...
 
 if __name__ == '__main__':
