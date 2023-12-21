@@ -79,6 +79,8 @@ Then, to produce a message, simple create a producer and call `produce`:
 Lastly, to consume this message, create a consumer and call `fetch`:
 
 ```python
+    from memphis.message import Message
+
     # Creating a consumer and consuming the message we just produced
     consumer = await memphis.consumer(
         station_name="test_station",
