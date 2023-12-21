@@ -45,6 +45,16 @@ import asyncio
 
 The most basic functionaly of memphis is the ability to produce messages to a station and to consume those messages. 
 
+> The Memphis.py SDK uses asyncio for many functions. Make sure to call the following code in an async function:
+
+```python 
+async def main:
+    ...
+
+if __name__ == '__main__':
+  asyncio.run(main()) 
+```
+
 First, a connection to Memphis must be made:
 
 ```python
