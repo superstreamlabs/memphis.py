@@ -71,41 +71,33 @@ await memphis.connect(
 )   
 ```
 
-Then, to produce a message, simple create a producer and call `produce`:
+Then, to produce a message, call the `memphis.produce` function or create a producer and call its `producer.produce` function:
 
 ```python
-# Creating a producer and producing a message. You can also use the memphis.producer function
-producer = await memphis.producer(
-    station_name = "test_station", # Matches the station name in memphis cloud
-    producer_name = "producer"
-)
-
-await producer.produce(message={
+await memphis.produce(
+    station_name="test_station",
+    producer_name="producer",
+    message={
         "id": i,
         "chocolates_to_eat": 3
-})
+    }
+)
 ```
 
-Lastly, to consume this message, create a consumer and call `fetch`:
+Lastly, to consume this message, call the `memphis.fetch_messages` function or create a consumer and call its `consumer.fetch` function:
 
 ```python
 from memphis.message import Message
 
-# Creating a consumer and consuming the message we just produced
-consumer = await memphis.consumer(
+messages: list[Message] = await memphis.fetch_messages(
     station_name="test_station",
     consumer_name="consumer",
-)
+) # Type-hint the return here for LSP integration
 
-messages: list[Message] = await consumer.fetch() # Type-hint the return here for LSP integration
 for consumed_message in messages:
-    msg_as_dict = json.loads(consumed_message.get_data())
-    
-    # Do something here with the msg_as_dict
-    if msg_as_dict["chocolates_to_eat"] > 2:
-        print("That's a lot of chocolate!")
-    
-    # Ack the message to tell the broker we're done with it
+    msg_data = json.loads(consumed_message.get_data())
+    print(f"Ate {msg_data['chocolates_to_eat']} chocolates... Yum")
+
     await consumed_message.ack()
 ```
 
