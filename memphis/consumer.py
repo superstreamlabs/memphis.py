@@ -37,7 +37,7 @@ class Consumer:
         self.consumer_group = consumer_group.lower()
         self.pull_interval_ms = pull_interval_ms
         self.batch_size = batch_size
-        self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms
+        self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 1000 else 1000
         self.max_ack_time_ms = max_ack_time_ms
         self.max_msg_deliveries = max_msg_deliveries
         self.ping_consumer_interval_ms = 30000
@@ -238,9 +238,9 @@ class Consumer:
 
         if self.connection.is_connection_active:
             try:
-                if batch_size > self.MAX_BATCH_SIZE:
+                if batch_size > self.MAX_BATCH_SIZE or batch_size < 1:
                     raise MemphisError(
-                        f"Batch size can not be greater than {self.MAX_BATCH_SIZE}")
+                        f"Batch size can not be greater than {self.MAX_BATCH_SIZE} or less than 1")
                 self.batch_size = batch_size
                 if len(self.dls_messages) > 0:
                     if len(self.dls_messages) <= batch_size:
