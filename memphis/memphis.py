@@ -469,7 +469,7 @@ class Memphis:
                 "req_version": 4,
                 "username": self.username,
                 "app_id": app_id,
-                "sdk_lang": "python3"
+                "sdk_lang": "python"
             }
             create_producer_req_bytes = json.dumps(create_producer_req, indent=2).encode(
                 "utf-8"
@@ -717,7 +717,7 @@ class Memphis:
                 "req_version": 4,
                 "username": self.username,
                 "app_id": app_id,
-                "sdk_lang":"python3"
+                "sdk_lang":"python"
             }
 
             create_consumer_req_bytes = json.dumps(create_consumer_req, indent=2).encode(
