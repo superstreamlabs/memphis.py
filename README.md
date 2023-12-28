@@ -101,6 +101,8 @@ for consumed_message in messages:
     await consumed_message.ack()
 ```
 
+> Remember to call `memphis.close()` to close the connection.
+
 ### Connecting to Memphis
 
 First, we need to create Memphis `object` and then connect with Memphis by using `memphis.connect`.
