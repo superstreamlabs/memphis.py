@@ -6,7 +6,7 @@ from jsonschema import validate
 import google.protobuf.json_format as protobuf_json_format
 import fastavro
 
-from memphis.exceptions import MemphisError, MemphisSchemaError
+from memphis.exceptions import MemphisError, MemphisSchemaError, MemphisErrors
 from memphis.utils import get_internal_name
 
 
@@ -48,7 +48,7 @@ class Station:
             msg_to_send = message.SerializeToString()
             return msg_to_send
         elif not isinstance(message, bytearray) and not isinstance(message, dict):
-            raise MemphisSchemaError("Unsupported message type")
+            raise MemphisErrors.UnsupportedMsgType
         else:
             if isinstance(message, dict):
                 message = bytearray(json.dumps(message).encode("utf-8"))
@@ -89,10 +89,10 @@ class Station:
                 except Exception as e:
                     raise MemphisSchemaError(str(e))
             else:
-                raise MemphisSchemaError("Unsupported message type")
+                raise MemphisErrors.UnsupportedMsgType
 
         except Exception as e:
-            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+            raise MemphisErrors.schema_validation_failed(e)
 
     def validate_json_schema(self, message):
         try:
@@ -100,12 +100,12 @@ class Station:
                 try:
                     message_obj = json.loads(message)
                 except Exception as e:
-                    raise Exception("Expecting Json format: " + str(e))
+                    raise MemphisErrors.expecting_format(e, "JSON")
             elif isinstance(message, dict):
                 message_obj = message
                 message = bytearray(json.dumps(message_obj).encode("utf-8"))
             else:
-                raise Exception("Unsupported message type")
+                raise MemphisErrors.UnsupportedMsgType
 
             validate(
                 instance=message_obj,
@@ -113,7 +113,7 @@ class Station:
             )
             return message
         except Exception as e:
-            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+            raise MemphisErrors.schema_validation_failed(e)
 
     def validate_graphql(self, message):
         try:
@@ -128,19 +128,18 @@ class Station:
                 message = str(msg.loc.source.body)
                 message = message.encode("utf-8")
             else:
-                raise Exception("Unsupported message type")
+                raise MemphisErrors.UnsupportedMsgType
             validate_res = validate_graphql(
                 schema=self.connection.graphql_schemas[self.internal_station_name],
                 document_ast=msg,
             )
             if len(validate_res) > 0:
-                raise Exception(
-                    "Schema validation has failed: " + str(validate_res))
+                raise MemphisErrors.schema_validation_failed(validate_res)
             return message
         except Exception as e:
             if "Syntax Error" in str(e):
                 e = "Invalid message format, expected GraphQL"
-            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+            raise MemphisErrors.schema_validation_failed(e)
 
     def validate_avro_schema(self, message):
         try:
@@ -148,12 +147,12 @@ class Station:
                 try:
                     message_obj = json.loads(message)
                 except Exception as e:
-                    raise Exception("Expecting Avro format: " + str(e))
+                    raise MemphisErrors.expecting_format(e, "Avro")
             elif isinstance(message, dict):
                 message_obj = message
                 message = bytearray(json.dumps(message_obj).encode("utf-8"))
             else:
-                raise Exception("Unsupported message type")
+                raise MemphisErrors.UnsupportedMsgType
 
             fastavro.validate(
                 message_obj,
@@ -161,7 +160,7 @@ class Station:
             )
             return message
         except fastavro.validation.ValidationError as e:
-            raise MemphisSchemaError("Schema validation has failed: " + str(e))
+            raise MemphisErrors.schema_validation_failed(e)
 
     async def destroy(self, timeout_retries=5):
         """Destroy the station."""

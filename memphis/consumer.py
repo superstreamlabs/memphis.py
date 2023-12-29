@@ -8,7 +8,7 @@ from memphis.exceptions import MemphisError
 from memphis.utils import default_error_handler, get_internal_name
 from memphis.message import Message
 from memphis.partition_generator import PartitionGenerator
-
+from memphis.exceptions import MemphisErrors
 
 class Consumer:
     MAX_BATCH_SIZE = 5000
@@ -106,7 +106,7 @@ class Consumer:
     async def __consume(self, callback, partition_key: str = None, consumer_partition_number: int = -1):
         partition_number = 1
         if consumer_partition_number > 0 and partition_key is not None:
-            raise MemphisError('Can not use both partition number and partition key')
+            raise MemphisErrors.PartitionNumberKeyError
         elif partition_key is not None:
             partition_number = self.get_partition_from_key(partition_key)
         elif consumer_partition_number > 0:
@@ -132,7 +132,7 @@ class Consumer:
 
                 except asyncio.TimeoutError:
                     await callback(
-                        [], MemphisError("Memphis: TimeoutError"), self.context
+                        [], MemphisErrors.TimeoutError, self.context
                     )
                     continue
                 except Exception as e:
@@ -214,7 +214,7 @@ class Consumer:
         partition_number = 1
         if len(self.subscriptions) > 1:
             if consumer_partition_number > 0 and consumer_partition_key is not None:
-                raise MemphisError('Can not use both partition number and partition key')
+                raise MemphisErrors.PartitionNumberKeyError
             elif consumer_partition_key is not None:
                 partition_number = self.get_partition_from_key(consumer_partition_key)
             elif consumer_partition_number > 0:
@@ -239,8 +239,7 @@ class Consumer:
         if self.connection.is_connection_active:
             try:
                 if batch_size > self.MAX_BATCH_SIZE or batch_size < 1:
-                    raise MemphisError(
-                        f"Batch size can not be greater than {self.MAX_BATCH_SIZE} or less than 1")
+                    raise MemphisErrors.InvalidBatchSize
                 self.batch_size = batch_size
                 if len(self.dls_messages) > 0:
                     if len(self.dls_messages) <= batch_size:
@@ -358,11 +357,11 @@ class Consumer:
         partitions_list = self.connection.partition_consumers_updates_data[station_name]["partitions_list"]
         if partitions_list is not None:
             if partition_number < 1 or partition_number > len(partitions_list):
-                raise MemphisError("Partition number is out of range")
+                raise MemphisErrors.PartitionOutOfRange
             elif partition_number not in partitions_list:
-                raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
+                raise MemphisErrors.partition_not_in_station(partition_number, station_name)
         else:
-            raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
+            raise MemphisErrors.partition_not_in_station(partition_number, station_name)
 
     def load_messages_to_cache(self, batch_size, partition_number):
         if not self.loading_thread or not self.loading_thread.is_alive():

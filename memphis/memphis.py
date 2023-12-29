@@ -28,7 +28,7 @@ from google.protobuf import descriptor_pb2, descriptor_pool
 from google.protobuf.message_factory import MessageFactory
 from graphql import build_schema as build_graphql_schema
 from memphis.consumer import Consumer
-from memphis.exceptions import MemphisConnectError, MemphisError
+from memphis.exceptions import MemphisConnectError, MemphisError, MemphisErrors
 from memphis.headers import Headers
 from memphis.producer import Producer
 from memphis.station import Station
@@ -182,11 +182,10 @@ class Memphis:
         self.connection_id = str(uuid.uuid4())
         try:
             if self.connection_token != "" and self.password != "":
-                raise MemphisConnectError(
-                    "You have to connect with one of the following methods: connection token / password")
+                raise MemphisErrors.InvalidConnectionType
             if self.connection_token == "" and self.password == "":
-                raise MemphisConnectError(
-                    "You have to connect with one of the following methods: connection token / password")
+                raise MemphisErrors.InvalidConnectionType
+            
             self.broker_manager = None
             async def closed_callback():
                 if self.broker_manager is not None and self.broker_manager.last_error is not None:
@@ -203,11 +202,11 @@ class Memphis:
             }
             if cert_file != "" or key_file != "" or ca_file != "":
                 if cert_file == "":
-                    raise MemphisConnectError("Must provide a TLS cert file")
+                    raise MemphisErrors.MissingTLSCert
                 if key_file == "":
-                    raise MemphisConnectError("Must provide a TLS key file")
+                    raise MemphisErrors.MissingTLSKey
                 if ca_file == "":
-                    raise MemphisConnectError("Must provide a TLS ca file")
+                    raise MemphisErrors.MissingTLSCa
                 ssl_ctx = ssl.create_default_context(
                     purpose=ssl.Purpose.SERVER_AUTH)
                 ssl_ctx.load_verify_locations(ca_file)
@@ -268,7 +267,7 @@ class Memphis:
         """
         try:
             if not self.is_connection_active:
-                raise MemphisError("Connection is dead")
+                raise MemphisErrors.DeadConnection
             if partitions_number == 0:
                 partitions_number = 1
 
@@ -326,7 +325,7 @@ class Memphis:
         """
         try:
             if name == "" or station_name == "":
-                raise MemphisError("name and station name can not be empty")
+                raise MemphisErrors.MissingNameOrStationName
             msg = {"name": name, "station_name": station_name,
                    "username": self.username}
             msg_to_send = json.dumps(msg).encode("utf-8")
@@ -349,7 +348,7 @@ class Memphis:
         """
         try:
             if station_name == "":
-                raise MemphisError("station name is missing")
+                raise MemphisErrors.MissingStationName
             msg = {"station_name": station_name, "username": self.username}
             msg_to_send = json.dumps(msg).encode("utf-8")
             err_msg = await self._request(
@@ -433,9 +432,9 @@ class Memphis:
         """
         try:
             if not self.is_connection_active:
-                raise MemphisError("Connection is dead")
+                raise MemphisErrors.DeadConnection
             if not isinstance(station_name, str) and not isinstance(station_name, list):
-                raise MemphisError("station_name should be either string or list of strings")
+                raise MemphisErrors.InvalidStationNameTpye
             real_name = producer_name.lower()
             if generate_random_suffix:
                 warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
@@ -681,10 +680,9 @@ class Memphis:
         """
         try:
             if not self.is_connection_active:
-                raise MemphisError("Connection is dead")
+                raise MemphisErrors.DeadConnection
             if batch_size > self.MAX_BATCH_SIZE or batch_size < 1:
-                raise MemphisError(
-                    f"Batch size can not be greater than {self.MAX_BATCH_SIZE} or less than 1")
+                raise MemphisErrors.InvalidBatchSize
             real_name = consumer_name.lower()
             if generate_random_suffix:
                 warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
@@ -692,17 +690,13 @@ class Memphis:
             cg = consumer_name if not consumer_group else consumer_group
 
             if start_consume_from_sequence <= 0:
-                raise MemphisError(
-                    "start_consume_from_sequence has to be a positive number"
-                )
+                raise MemphisErrors.NonPositiveStartConsumeFromSeq
 
             if last_messages < -1:
-                raise MemphisError("min value for last_messages is -1")
+                raise MemphisErrors.InvalidMinLasMessagesVal
 
             if start_consume_from_sequence > 1 and last_messages > -1:
-                raise MemphisError(
-                    "Consumer creation options can't contain both start_consume_from_sequence and last_messages"
-                )
+                raise MemphisErrors.ContainsStartConsumeAndLastMessages
             create_consumer_req = {
                 "name": consumer_name,
                 "station_name": station_name,
@@ -816,7 +810,7 @@ class Memphis:
         """
         try:
             if not isinstance(station_name, str) and not isinstance(station_name, list):
-                raise MemphisError("station_name should be either string or list of strings")
+                raise MemphisErrors.InvalidStationNameTpye
             if isinstance(station_name, str):
                 await self._single_station_produce(station_name, producer_name, message, generate_random_suffix, ack_wait_sec, headers, async_produce, msg_id, producer_partition_key, producer_partition_number)
             else:
@@ -970,7 +964,7 @@ class Memphis:
         """
 
         if schema_type not in {'json', 'graphql', 'protobuf', 'avro'}:
-            raise MemphisError("schema type not supported" + type)
+            raise MemphisErrors.invalid_schema_type(schema_type)
 
         try:
             await self.schema_name_validation(schema_name)
@@ -1003,16 +997,16 @@ class Memphis:
 
     async def schema_name_validation(self, schema_name):
         if len(schema_name) == 0:
-            raise MemphisError("Schema name cannot be empty")
+            raise MemphisErrors.MissingSchemaName
 
         if len(schema_name) > 128:
-            raise MemphisError("Schema name should be under 128 characters")
+            raise MemphisErrors.SchemaNameTooLong
 
         if re.fullmatch(r'^[a-z0-9_.-]*$', schema_name) is None:
-            raise MemphisError("Only alphanumeric and the '_', '-', '.' characters are allowed in the schema name")
+            raise MemphisErrors.InvalidSchemaChars
 
         if not schema_name[0].isalnum() or not schema_name[-1].isalnum():
-            raise MemphisError("Schema name cannot start or end with a non-alphanumeric character")
+            raise MemphisErrors.InvalidSchemaStartChar
 
     def is_connected(self):
         return self.broker_manager.is_connected

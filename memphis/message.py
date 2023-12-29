@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from memphis.exceptions import MemphisConnectError, MemphisError, MemphisSchemaError
+from memphis.exceptions import MemphisConnectError, MemphisError, MemphisSchemaError, MemphisErrors
 from memphis.station import Station
 
 class Message:
@@ -54,7 +54,7 @@ class Message:
                 try:
                     await self.station.validate_msg(bytearray(self.message.data))
                 except Exception as e:
-                    raise MemphisSchemaError("Deserialization has been failed since the message format does not align with the currently attached schema: " + str(e))
+                    raise MemphisErrors.schema_msg_mismatch(e)
                 if schema_type == "protobuf":
                     proto_msg = self.connection.proto_msgs[self.internal_station_name]
                     proto_msg.ParseFromString(self.message.data)
@@ -92,7 +92,7 @@ class Message:
             "$memphis_pm_id" in self.message.headers
             and "$memphis_pm_cg_name" in self.message.headers
         ):
-            raise MemphisError("cannot delay DLS message")
+            raise MemphisErrors.DLSCannotBeDelayed
         try:
             await self.message.nak(delay=delay)
         except Exception as e:

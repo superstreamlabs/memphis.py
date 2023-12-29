@@ -7,7 +7,7 @@ from typing import Union, List
 import warnings
 
 import mmh3
-from memphis.exceptions import MemphisError, MemphisSchemaError
+from memphis.exceptions import MemphisError, MemphisSchemaError, MemphisErrors
 from memphis.headers import Headers
 from memphis.utils import get_internal_name
 from memphis.partition_generator import PartitionGenerator
@@ -404,8 +404,8 @@ class Producer:
         partitions_list = self.connection.partition_producers_updates_data[station_name]["partitions_list"]
         if partitions_list is not None:
             if partition_number < 1 or partition_number > len(partitions_list):
-                raise MemphisError("Partition number is out of range")
+                raise MemphisErrors.PartitionOutOfRange
             elif partition_number not in partitions_list:
-                raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
+                raise MemphisErrors.partition_not_in_station(partition_number, station_name)
         else:
-            raise MemphisError(f"Partition {str(partition_number)} does not exist in station {station_name}")
+            raise MemphisErrors.partition_not_in_station(partition_number, station_name)
