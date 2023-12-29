@@ -1,48 +1,38 @@
-from __future__ import annotations
-
+from memphis import Memphis
+from memphis.message import Message
 import asyncio
-
-from memphis import (
-    Headers,
-    Memphis,
-    MemphisConnectError,
-    MemphisError,
-    MemphisHeaderError,
-    MemphisSchemaError,
-)
-
+import os
 
 async def main():
     try:
+        # Connecting to the broker
         memphis = Memphis()
+    
         await memphis.connect(
-            host="<memphis-host>",
-            username="<application type username>",
-            connection_token="<broker-token>",
-        )
+          host = "aws-us-east-1.cloud.memphis.dev",
+          username = "test_user",
+          password = os.environ.get("memphis_pass"),
+          account_id = os.environ.get("memphis_account_id") # For cloud users on, at the top of the overview page
+        )  
 
+        # Creating a producer and producing a message. You can also use the memphis.producer function
         producer = await memphis.producer(
-            station_name="<station-name>", producer_name="<producer-name>"
+            station_name = "test_station", # Matches the station name in memphis cloud
+            producer_name = "producer"
         )
-        headers = Headers()
-        headers.add("key", "value")
-        for i in range(5):
+
+        for i in range(10):
             await producer.produce(
-                bytearray("Message #" + str(i) + ": Hello world", "utf-8"),
-                headers=headers,
-            )  # you can send the message parameter as dict as well
+                message={
+                    "id": i,
+                    "chocolates_to_eat": 3
+                }
+            )
 
-    except (
-        MemphisError,
-        MemphisConnectError,
-        MemphisHeaderError,
-        MemphisSchemaError,
-    ) as e:
+    except Exception as e:
         print(e)
-
     finally:
         await memphis.close()
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
+if __name__ == '__main__':
+  asyncio.run(main()) 

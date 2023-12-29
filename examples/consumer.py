@@ -1,47 +1,39 @@
-from __future__ import annotations
-
+from memphis import Memphis
+from memphis.message import Message
 import asyncio
-
-from memphis import Memphis, MemphisConnectError, MemphisError, MemphisHeaderError
-
+import os
+import json
 
 async def main():
-    async def msg_handler(msgs, error, _):
-        try:
-            for msg in msgs:
-                print("message: ", msg.get_data())
-                await msg.ack()
-            if error:
-                print(error)
-        except (MemphisError, MemphisConnectError, MemphisHeaderError) as e:
-            print(e)
-            return
-
     try:
+        # Connecting to the broker
         memphis = Memphis()
+    
         await memphis.connect(
-            host="<memphis-host>",
-            username="<application type username>",
-            connection_token="<broker-token>",
-        )
+          host = "aws-us-east-1.cloud.memphis.dev",
+          username = "test_user",
+          password = os.environ.get("memphis_pass"),
+          account_id = os.environ.get("memphis_account_id") # For cloud users on, at the top of the overview page
+        )  
 
         consumer = await memphis.consumer(
-            station_name="<station-name>",
-            consumer_name="<consumer-name>",
-            consumer_group="",
+            station_name="test_station",
+            consumer_name="consumer",
         )
 
-        consumer.set_context({"key": "value"})
-        consumer.consume(msg_handler)
-        # Keep your main thread alive so the consumer will keep receiving data
-        await asyncio.Event().wait()
+        messages: list[Message] = await consumer.fetch() # Type-hint the return here for LSP integration
+        
+        for consumed_message in messages:
+            msg_data = json.loads(consumed_message.get_data())
 
-    except (MemphisError, MemphisConnectError) as e:
+            # Do something with the message data
+
+            await consumed_message.ack()
+
+    except Exception as e:
         print(e)
-
     finally:
         await memphis.close()
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
+if __name__ == '__main__':
+  asyncio.run(main()) 
