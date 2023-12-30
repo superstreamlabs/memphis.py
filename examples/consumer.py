@@ -1,11 +1,18 @@
+"""
+An example consumer for the Memphis.dev python SDK.
+"""
+
 import asyncio
 import os
 import json
-from memphis import Memphis
+from memphis import Memphis, MemphisConnectError, MemphisError
 from memphis.message import Message
 
 
 async def main():
+    """
+    Async main function used for the asyncio runtime.
+    """
     try:
         # Connecting to the broker
         memphis = Memphis()
@@ -35,7 +42,7 @@ async def main():
 
             await consumed_message.ack()
 
-    except Exception as e:
+    except (MemphisError, MemphisConnectError) as e:
         print(e)
     finally:
         await memphis.close()
