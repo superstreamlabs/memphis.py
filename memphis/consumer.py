@@ -146,7 +146,7 @@ class Consumer:
         subject = get_internal_name(self.station_name)
         consumer_group = get_internal_name(self.consumer_group)
         try:
-            subscription_name = "$memphis_dls_" + subject + "_" + consumer_group
+            subscription_name = "$memphis_dls_" + subject + "." + consumer_group
             self.consumer_dls = await self.connection.broker_manager.subscribe(
                 subscription_name, subscription_name
             )
