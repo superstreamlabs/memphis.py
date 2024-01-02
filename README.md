@@ -64,10 +64,10 @@ from memphis import Memphis
 memphis = Memphis()
 
 await memphis.connect(
-    host = "aws-us-east-1.cloud.memphis.dev",
-    username = "test_user",
-    password = os.environ.get("memphis_pass"),
-    account_id = os.environ.get("memphis_account_id") # For cloud users, at the top of the overview page
+    host = "<memphis-host>",
+    username = "<memphis-username>",
+    password = "<memphis-password>",
+    account_id = <mmephis-account-id> # For cloud users, at the top of the overview page
 )   
 ```
 
@@ -75,8 +75,8 @@ Then, to produce a message, call the `memphis.produce` function or create a prod
 
 ```python
 await memphis.produce(
-    station_name="test_station",
-    producer_name="producer",
+    station_name="<station-name>",
+    producer_name="<producer-name>",
     message={
         "id": i,
         "chocolates_to_eat": 3
@@ -90,8 +90,8 @@ Lastly, to consume this message, call the `memphis.fetch_messages` function or c
 from memphis.message import Message
 
 messages: list[Message] = await memphis.fetch_messages(
-    station_name="test_station",
-    consumer_name="consumer",
+    station_name="<station-name>",
+    consumer_name="<consumer-name>",
 ) # Type-hint the return here for LSP integration
 
 for consumed_message in messages:
