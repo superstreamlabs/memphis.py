@@ -50,13 +50,13 @@ class Consumer:
         self.dls_messages = []
         self.dls_current_index = 0
         self.dls_callback_func = None
-        self.t_dls = asyncio.create_task(self.__consume_dls())
         self.t_consume = None
         self.inner_station_name = get_internal_name(self.station_name)
         self.subscriptions = subscriptions
         self.partition_generator = partition_generator
         self.cached_messages = []
         self.loading_thread = None
+        self.t_dls = asyncio.create_task(self.__consume_dls())
 
 
     def set_context(self, context):
