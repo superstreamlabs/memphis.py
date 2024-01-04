@@ -2,7 +2,7 @@ def gitBranch = env.BRANCH_NAME
 def gitURL = "git@github.com:Memphisdev/memphis.py.git"
 def repoUrlPrefix = "memphisos"
 
-node ("small-ec2-fleet") {
+node ("memphis-jenkins-small-fleet-agent") {
   git credentialsId: 'main-github', url: gitURL, branch: gitBranch
 	
   if (env.BRANCH_NAME ==~ /(master)/) { 
@@ -33,7 +33,7 @@ node ("small-ec2-fleet") {
 				python3 setup.py sdist
 			"""
 			withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
-        sh '/home/ec2-user/.local/bin/twine upload -u $USR -p $PSW dist/*'
+        sh '~/.local/bin/twine upload -u $USR -p $PSW dist/*'
       }
 		}
 	  
