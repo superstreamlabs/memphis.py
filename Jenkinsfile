@@ -33,7 +33,7 @@ node ("memphis-jenkins-small-fleet-agent") {
 				python3 setup.py sdist
 			"""
 			withCredentials([usernamePassword(credentialsId: 'python_sdk', usernameVariable: 'USR', passwordVariable: 'PSW')]) {
-        sh '/home/ec2-user/.local/bin/twine upload -u $USR -p $PSW dist/*'
+        sh '~/.local/bin/twine upload -u $USR -p $PSW dist/*'
       }
 		}
 	  
