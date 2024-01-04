@@ -5,7 +5,7 @@ def repoUrlPrefix = "memphisos"
 node ("memphis-jenkins-small-fleet-agent") {
   git credentialsId: 'main-github', url: gitURL, branch: gitBranch
 	
-  if (env.BRANCH_NAME ==~ /(change-jenkins-agent)/) { 
+  if (env.BRANCH_NAME ==~ /(master)/) { 
     versionTag = readFile "./version-beta.conf"
   }
   else {
@@ -22,7 +22,7 @@ node ("memphis-jenkins-small-fleet-agent") {
     }
     
     stage('Deploy to pypi') {
-			if (env.BRANCH_NAME ==~ /(change-jenkins-agent)/) {
+			if (env.BRANCH_NAME ==~ /(master)/) {
 				sh """
 				  sed -i -r "s/memphis-py/memphis-py-beta/g" setup.py
 			  """
