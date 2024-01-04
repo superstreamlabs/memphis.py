@@ -16,19 +16,17 @@ async def main():
         memphis = Memphis()
 
         await memphis.connect(
-            host="aws-us-east-1.cloud.memphis.dev",
-            username="test_user",
-            password=os.environ.get("memphis_pass"),
-            account_id=os.environ.get(
-                "memphis_account_id"
-            ),  # For cloud users on, at the top of the overview page
+            host="<memphis-host>",
+            username="<memphis-username>",
+            password="<memphis-password>",
+            account_id= <memphis-accountId>,  # For cloud users on, at the top of the overview page
         )
 
         # Creating a producer and producing a message.
         # You can also use the memphis.producer function
         producer = await memphis.producer(
-            station_name="test_station",  # Matches the station name in memphis cloud
-            producer_name="producer",
+            station_name="<station-name>",  # Matches the station name in memphis cloud
+            producer_name="<producer-name>",
         )
 
         for i in range(10):

@@ -18,17 +18,15 @@ async def main():
         memphis = Memphis()
 
         await memphis.connect(
-            host="aws-us-east-1.cloud.memphis.dev",
-            username="test_user",
-            password=os.environ.get("memphis_pass"),
-            account_id=os.environ.get(
-                "memphis_account_id"
-            ),  # For cloud users on, at the top of the overview page
+            host="<memphis-host>",
+            username="<memphis-username>",
+            password="<memphis-password>",
+            account_id= <memphis-accountId>,  # For cloud users on, at the top of the overview page
         )
 
         consumer = await memphis.consumer(
-            station_name="test_station",
-            consumer_name="consumer",
+            station_name="<station-name>",
+            consumer_name="<consumer-name>",
         )
 
         messages: list[
