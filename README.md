@@ -945,7 +945,7 @@ sequence_number = msg.get_sequence_number()
 
 Get message time sent
 
-```go
+```python
 time_sent = msg.get_timesent()
 ```
 
