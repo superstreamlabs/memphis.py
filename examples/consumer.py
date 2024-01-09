@@ -21,7 +21,7 @@ async def main():
             host="<memphis-host>",
             username="<memphis-username>",
             password="<memphis-password>",
-            account_id= <memphis-accountId>,  # For cloud users on, at the top of the overview page
+            account_id=<memphis-accountId>,  # For cloud users on, at the top of the overview page
         )
 
         consumer = await memphis.consumer(
@@ -29,21 +29,26 @@ async def main():
             consumer_name="<consumer-name>",
         )
 
-        messages: list[
-            Message
-        ] = await consumer.fetch()  # Type-hint the return here for LSP integration
+        while True:
+            messages: list[
+                Message
+            ] = await consumer.fetch()  # Type-hint the return here for LSP integration
 
-        for consumed_message in messages:
-            _msg_data = json.loads(consumed_message.get_data())
+            if len(messages) == 0:
+                continue
 
-            # Do something with the message data
+            for consumed_message in messages:
+                msg_data = json.loads(consumed_message.get_data())
 
-            await consumed_message.ack()
+                # Do something with the message data
+                print(msg_data)
+                await consumed_message.ack()
 
-    except (MemphisError, MemphisConnectError) as e:
+    except Exception as e:
         print(e)
     finally:
-        await memphis.close()
+        if memphis != None:
+            await memphis.close()
 
 
 if __name__ == "__main__":
