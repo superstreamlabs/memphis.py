@@ -1,4 +1,4 @@
-<a href="![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)">![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)</a>
+<a href="![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)">[![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)](https://memphis.dev)</a>
 <p align="center">
 <a href="https://memphis.dev/discord"><img src="https://img.shields.io/discord/963333392844328961?color=6557ff&label=discord" alt="Discord"></a>
 <a href="https://github.com/memphisdev/memphis/issues?q=is%3Aissue+is%3Aclosed"><img src="https://img.shields.io/github/issues-closed/memphisdev/memphis?color=6557ff"></a> 
@@ -988,6 +988,7 @@ await message.delay(delay_in_seconds)
 ```
 
 ### Get headers 
+
 Get headers per message
 
 ```python
@@ -995,10 +996,19 @@ headers = message.get_headers()
 ```
 
 ### Get message sequence number
+
 Get message sequence number
 
 ```python
 sequence_number = msg.get_sequence_number()
+```
+
+### Get message time sent
+
+Get message time sent
+
+```python
+time_sent = msg.get_timesent()
 ```
 
 ### Destroying a Consumer
