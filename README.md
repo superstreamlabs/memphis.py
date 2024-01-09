@@ -926,6 +926,7 @@ await message.delay(delay_in_seconds)
 ```
 
 ### Get headers 
+
 Get headers per message
 
 ```python
@@ -933,10 +934,19 @@ headers = message.get_headers()
 ```
 
 ### Get message sequence number
+
 Get message sequence number
 
 ```python
 sequence_number = msg.get_sequence_number()
+```
+
+### Get message time sent
+
+Get message time sent
+
+```python
+time_sent = msg.get_timesent()
 ```
 
 ### Destroying a Consumer

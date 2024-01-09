@@ -86,6 +86,14 @@ class Message:
         except Exception:
             return
 
+    def get_timesent(self):
+        """Get timestamp when the message was sent."""
+        try:
+            md = self.message.metadata()
+            return md.timestamp
+        except Exception:
+            return
+
     async def delay(self, delay):
         """Delay and resend the message after delay seconds"""
         if (
