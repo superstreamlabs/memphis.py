@@ -37,7 +37,7 @@ class Consumer:
         self.consumer_group = consumer_group.lower()
         self.pull_interval_ms = pull_interval_ms
         self.batch_size = batch_size
-        self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 1000 else 1000
+        self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 100 else 100
         self.max_ack_time_ms = max_ack_time_ms
         self.max_msg_deliveries = max_msg_deliveries
         self.ping_consumer_interval_ms = 30000

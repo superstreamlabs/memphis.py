@@ -741,7 +741,7 @@ consumer = await memphis.consumer(
   consumer_group="<group-name>", # defaults to the consumer name
   pull_interval_ms=1000, # defaults to 1000
   batch_size=10, # defaults to 10
-  batch_max_time_to_wait_ms=5000, # defaults to 5000
+  batch_max_time_to_wait_ms=100, # defaults to 100
   max_ack_time_ms=30000, # defaults to 30000
   max_msg_deliveries=2, # defaults to 2
   start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
@@ -804,7 +804,7 @@ Here is an example of a consumer that will try to poll 100 messages every 10 sec
         consumer_name = "new_consumer",
         pull_interval_ms = 10000,
         batch_size = 100,
-        batch_max_time_to_wait_ms = 15000
+        batch_max_time_to_wait_ms = 100
     )
 ```
 
@@ -820,7 +820,7 @@ The max_msg_deliveries parameter allows the user how many messages the consumer 
         consumer_name = "new_consumer",
         pull_interval_ms = 10000,
         batch_size = 100,
-        batch_max_time_to_wait_ms = 15000,
+        batch_max_time_to_wait_ms = 100,
         max_msg_deliveries = 2
     )
 ```
@@ -888,7 +888,7 @@ msgs = await memphis.fetch_messages(
   consumer_name="<consumer-name>",
   consumer_group="<group-name>", # defaults to the consumer name
   batch_size=10, # defaults to 10
-  batch_max_time_to_wait_ms=5000, # defaults to 5000
+  batch_max_time_to_wait_ms=100, # defaults to 100
   max_ack_time_ms=30000, # defaults to 30000
   max_msg_deliveries=2, # defaults to 2
   start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
