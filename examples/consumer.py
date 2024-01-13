@@ -3,9 +3,8 @@ An example consumer for the Memphis.dev python SDK.
 """
 
 import asyncio
-import os
 import json
-from memphis import Memphis, MemphisConnectError, MemphisError
+from memphis import Memphis
 from memphis.message import Message
 
 

@@ -3,7 +3,6 @@ An example producer for the Memphis.dev python SDK.
 """
 
 import asyncio
-import os
 from memphis import Memphis, MemphisConnectError, MemphisError
 
 
