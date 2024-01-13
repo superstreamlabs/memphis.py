@@ -125,7 +125,7 @@ class Consumer:
 
                     for msg in msgs:
                         memphis_messages.append(
-                            Message(msg, self.connection, self.consumer_group, self.internal_station_name)
+                            Message(msg, self.connection, self.consumer_group, self.internal_station_name, partition=partition_number)
                         )
                     await callback(memphis_messages, None, self.context)
                     await asyncio.sleep(self.pull_interval_ms / 1000)
@@ -255,7 +255,7 @@ class Consumer:
                 msgs = await self.subscriptions[partition_number].fetch(batch_size)
                 for msg in msgs:
                     messages.append(
-                        Message(msg, self.connection, self.consumer_group, self.internal_station_name))
+                        Message(msg,self.connection,self.consumer_group,self.internal_station_name,partition=partition_number))
                 if prefetch:
                     number_of_messages_to_prefetch = batch_size * 2
                     self.load_messages_to_cache(number_of_messages_to_prefetch, partition_number)
