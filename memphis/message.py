@@ -42,6 +42,8 @@ class Message:
         """
         nack - not ack for a message, meaning that the message will be redelivered again to the same consumers group without waiting to its ack wait time.
         """
+        if not hasattr(self.message, 'nak'):
+            return
         await self.message.nak()
 
     async def dead_letter(self, reason: str):
@@ -50,6 +52,8 @@ class Message:
         The message will still be available to other consumer groups
         """
         try:
+            if not hasattr(self.message, 'term'):
+                return
             await self.message.term()
             md = self.message.metadata()
             stream_seq = md.sequence.stream
