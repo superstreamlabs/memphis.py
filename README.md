@@ -899,12 +899,13 @@ msgs = await memphis.fetch_messages(
 ```
 
 ### Fetch a single batch of messages after creating a consumer
+
 ```python
 msgs = await consumer.fetch(batch_size=10) # defaults to 10
 ```
 
-### Fetch a single batch of messages after creating a consumer
 `prefetch = true` will prefetch next batch of messages and save it in memory for future fetch() request<br>
+
 ```python
 msgs = await consumer.fetch(batch_size=10, prefetch=True) # defaults to False
 ```
@@ -917,6 +918,23 @@ Acknowledge a message indicates the Memphis server to not re-send the same messa
 await message.ack()
 ```
 
+### Nacking a Message
+
+Mark the message as not acknowledged - the broker will resend the message immediately to the same consumers group, instead of waiting to the max ack time configured.
+
+```python
+await message.nack();
+```
+
+### Sending a message to the dead-letter
+
+Sending the message to the dead-letter station (DLS) - the broker won't resend the message again to the same consumers group and will place the message inside the dead-letter station (DLS) with the given reason.
+The message will still be available to other consumer groups
+
+```python
+await message.dead_letter("reason");
+```
+
 ### Delay the message after a given duration
 
 Delay the message and tell Memphis server to re-send the same message again to the same consumer group. The message will be redelivered only in case `consumer.max_msg_deliveries` is not reached yet.
@@ -925,7 +943,7 @@ Delay the message and tell Memphis server to re-send the same message again to t
 await message.delay(delay_in_seconds)
 ```
 
-### Get headers 
+### Get headers
 
 Get headers per message
 
