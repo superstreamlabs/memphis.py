@@ -465,9 +465,10 @@ class Memphis:
                 "station_name": station_name,
                 "connection_id": self.connection_id,
                 "producer_type": "application",
-                "req_version": 3,
+                "req_version": 4,
                 "username": self.username,
                 "app_id": app_id,
+                "sdk_lang": "python"
             }
             create_producer_req_bytes = json.dumps(create_producer_req, indent=2).encode(
                 "utf-8"
@@ -654,7 +655,7 @@ class Memphis:
         consumer_group: str = "",
         pull_interval_ms: int = 1000,
         batch_size: int = 10,
-        batch_max_time_to_wait_ms: int = 5000,
+        batch_max_time_to_wait_ms: int = 100,
         max_ack_time_ms: int = 30000,
         max_msg_deliveries: int = 2,
         generate_random_suffix: bool = False,
@@ -669,7 +670,7 @@ class Memphis:
             consumer_group (str, optional): consumer group name. Defaults to the consumer name.
             pull_interval_ms (int, optional): interval in milliseconds between pulls. Defaults to 1000.
             batch_size (int, optional): pull batch size. Defaults to 10.
-            batch_max_time_to_wait_ms (int, optional): max time in milliseconds to wait between pulls. Defaults to 5000. The lowest value is 1000(1 second), and if the value is lower than 1000, it will be set to 1000.
+            batch_max_time_to_wait_ms (int, optional): max time in milliseconds to wait between pulls. Defaults to 100. The lowest value is 100, and if the value is lower than 100, it will be set to 100.
             max_ack_time_ms (int, optional): max time for ack a message in milliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 2.
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
@@ -707,9 +708,10 @@ class Memphis:
                 "max_msg_deliveries": max_msg_deliveries,
                 "start_consume_from_sequence": start_consume_from_sequence,
                 "last_messages": last_messages,
-                "req_version": 3,
+                "req_version": 4,
                 "username": self.username,
                 "app_id": app_id,
+                "sdk_lang":"python"
             }
 
             create_consumer_req_bytes = json.dumps(create_consumer_req, indent=2).encode(
@@ -767,7 +769,7 @@ class Memphis:
                 cg,
                 pull_interval_ms,
                 batch_size,
-                batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 1000 else 1000,
+                batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 100 else 100,
                 max_ack_time_ms,
                 max_msg_deliveries,
                 start_consume_from_sequence=start_consume_from_sequence,
@@ -894,7 +896,7 @@ class Memphis:
         consumer_name: str,
         consumer_group: str = "",
         batch_size: int = 10,
-        batch_max_time_to_wait_ms: int = 5000,
+        batch_max_time_to_wait_ms: int = 100,
         max_ack_time_ms: int = 30000,
         max_msg_deliveries: int = 2,
         generate_random_suffix: bool = False,
@@ -910,7 +912,7 @@ class Memphis:
             consumer_name (str): name for the consumer.
             consumer_group (str, optional): consumer group name. Defaults to the consumer name.
             batch_size (int, optional): pull batch size. Defaults to 10.
-            batch_max_time_to_wait_ms (int, optional): max time in milliseconds to wait between pulls. Defaults to 5000. The lowest value is 1000(1 second), and if the value is lower than 1000, it will be set to 1000.
+            batch_max_time_to_wait_ms (int, optional): max time in milliseconds to wait between pulls. Defaults to 100. The lowest value is 100, and if the value is lower than 100, it will be set to 100.
             max_ack_time_ms (int, optional): max time for ack a message in milliseconds, in case a message not acked in this time period the Memphis broker will resend it. Defaults to 30000.
             max_msg_deliveries (int, optional): max number of message deliveries, by default is 2.
             generate_random_suffix (bool): Deprecated: will be stopped to be supported after November 1'st, 2023. false by default, if true concatenate a random suffix to consumer's name
@@ -940,7 +942,7 @@ class Memphis:
                     consumer_name=consumer_name,
                     consumer_group=consumer_group,
                     batch_size=batch_size,
-                    batch_max_time_to_wait_ms=batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 1000 else 1000,
+                    batch_max_time_to_wait_ms=batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 100 else 100,
                     max_ack_time_ms=max_ack_time_ms,
                     max_msg_deliveries=max_msg_deliveries,
                     generate_random_suffix=generate_random_suffix,

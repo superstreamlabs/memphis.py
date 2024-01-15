@@ -37,7 +37,7 @@ class Consumer:
         self.consumer_group = consumer_group.lower()
         self.pull_interval_ms = pull_interval_ms
         self.batch_size = batch_size
-        self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 1000 else 1000
+        self.batch_max_time_to_wait_ms = batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 100 else 100
         self.max_ack_time_ms = max_ack_time_ms
         self.max_msg_deliveries = max_msg_deliveries
         self.ping_consumer_interval_ms = 30000
@@ -50,13 +50,13 @@ class Consumer:
         self.dls_messages = []
         self.dls_current_index = 0
         self.dls_callback_func = None
-        self.t_dls = asyncio.create_task(self.__consume_dls())
         self.t_consume = None
         self.inner_station_name = get_internal_name(self.station_name)
         self.subscriptions = subscriptions
         self.partition_generator = partition_generator
         self.cached_messages = []
         self.loading_thread = None
+        self.t_dls = asyncio.create_task(self.__consume_dls())
 
 
     def set_context(self, context):
@@ -125,7 +125,7 @@ class Consumer:
 
                     for msg in msgs:
                         memphis_messages.append(
-                            Message(msg, self.connection, self.consumer_group, self.internal_station_name)
+                            Message(msg, self.connection, self.consumer_group, self.internal_station_name, partition=partition_number)
                         )
                     await callback(memphis_messages, None, self.context)
                     await asyncio.sleep(self.pull_interval_ms / 1000)
@@ -146,7 +146,7 @@ class Consumer:
         subject = get_internal_name(self.station_name)
         consumer_group = get_internal_name(self.consumer_group)
         try:
-            subscription_name = "$memphis_dls_" + subject + "_" + consumer_group
+            subscription_name = "$memphis_dls_" + subject + "." + consumer_group
             self.consumer_dls = await self.connection.broker_manager.subscribe(
                 subscription_name, subscription_name
             )
@@ -254,7 +254,7 @@ class Consumer:
                 msgs = await self.subscriptions[partition_number].fetch(batch_size)
                 for msg in msgs:
                     messages.append(
-                        Message(msg, self.connection, self.consumer_group, self.internal_station_name))
+                        Message(msg,self.connection,self.consumer_group,self.internal_station_name,partition=partition_number))
                 if prefetch:
                     number_of_messages_to_prefetch = batch_size * 2
                     self.load_messages_to_cache(number_of_messages_to_prefetch, partition_number)
