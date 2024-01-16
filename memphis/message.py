@@ -5,7 +5,6 @@ import json
 from memphis.exceptions import (
     MemphisConnectError,
     MemphisError,
-    MemphisSchemaError,
     MemphisErrors,
 )
 from memphis.station import Station
