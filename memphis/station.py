@@ -192,13 +192,14 @@ class Station:
             if sub is not None:
                 await sub.unsubscribe()
 
-
             if internal_station_name in self.connection.functions_clients_per_station:
                 del self.connection.functions_clients_per_station[internal_station_name]
             if internal_station_name in self.connection.functions_updates_data:
                 del self.connection.functions_updates_data[internal_station_name]
             if internal_station_name in self.connection.functions_updates_subs:
-                function_sub = self.connection.functions_updates_subs.get(internal_station_name)
+                function_sub = self.connection.functions_updates_subs.get(
+                    internal_station_name
+                )
                 if function_sub is not None:
                     await function_sub.unsubscribe()
                 del self.connection.functions_updates_subs[internal_station_name]

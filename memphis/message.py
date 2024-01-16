@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import json
 
-from memphis.exceptions import MemphisConnectError, MemphisError, MemphisSchemaError, MemphisErrors
+from memphis.exceptions import (
+    MemphisConnectError,
+    MemphisError,
+    MemphisSchemaError,
+    MemphisErrors,
+)
 from memphis.station import Station
 
+
 class Message:
-    def __init__(self, message, connection, cg_name, internal_station_name, partition = 0):
+    def __init__(
+        self, message, connection, cg_name, internal_station_name, partition=0
+    ):
         self.message = message
         self.connection = connection
         self.cg_name = cg_name
@@ -42,7 +50,7 @@ class Message:
         """
         nack - not ack for a message, meaning that the message will be redelivered again to the same consumers group without waiting to its ack wait time.
         """
-        if not hasattr(self.message, 'nak'):
+        if not hasattr(self.message, "nak"):
             return
         await self.message.nak()
 
@@ -52,7 +60,7 @@ class Message:
         The message will still be available to other consumer groups
         """
         try:
-            if not hasattr(self.message, 'term'):
+            if not hasattr(self.message, "term"):
                 return
             await self.message.term()
             md = self.message.metadata()
@@ -80,7 +88,11 @@ class Message:
     async def get_data_deserialized(self):
         """Receive the message."""
         try:
-            if self.connection.schema_updates_data and self.connection.schema_updates_data[self.internal_station_name] != {}:
+            if (
+                self.connection.schema_updates_data
+                and self.connection.schema_updates_data[self.internal_station_name]
+                != {}
+            ):
                 schema_type = self.connection.schema_updates_data[
                     self.internal_station_name
                 ]["type"]

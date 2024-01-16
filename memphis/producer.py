@@ -18,7 +18,11 @@ schemaverse_fail_alert_type = "schema_validation_fail_alert"
 
 class Producer:
     def __init__(
-        self, connection, producer_name: str, station_name: Union[str, List[str]] , real_name: str
+        self,
+        connection,
+        producer_name: str,
+        station_name: Union[str, List[str]],
+        real_name: str,
     ):
         self.connection = connection
         self.producer_name = producer_name.lower()
@@ -35,7 +39,11 @@ class Producer:
         self.internal_station_name = get_internal_name(self.station_name)
         self.loop = asyncio.get_running_loop()
         if self.internal_station_name in connection.partition_producers_updates_data:
-            self.partition_generator = PartitionGenerator(connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])
+            self.partition_generator = PartitionGenerator(
+                connection.partition_producers_updates_data[self.internal_station_name][
+                    "partitions_list"
+                ]
+            )
 
     # pylint: disable=too-many-arguments
     async def produce(
@@ -48,7 +56,7 @@ class Producer:
         msg_id: Union[str, None] = None,
         concurrent_task_limit: Union[int, None] = None,
         producer_partition_key: Union[str, None] = None,
-        producer_partition_number: Union[int, -1] = -1
+        producer_partition_number: Union[int, -1] = -1,
     ):
         """Produces a message into a station.
         Args:
@@ -85,7 +93,7 @@ class Producer:
                 async_produce=async_produce,
                 msg_id=msg_id,
                 producer_partition_key=producer_partition_key,
-                producer_partition_number=producer_partition_number
+                producer_partition_number=producer_partition_number,
             )
         else:
             await self._single_station_produce(
@@ -97,7 +105,7 @@ class Producer:
                 msg_id=msg_id,
                 concurrent_task_limit=concurrent_task_limit,
                 producer_partition_key=producer_partition_key,
-                producer_partition_number=producer_partition_number
+                producer_partition_number=producer_partition_number,
             )
 
     async def _single_station_produce(
@@ -110,7 +118,7 @@ class Producer:
         msg_id: Union[str, None] = None,
         concurrent_task_limit: Union[int, None] = None,
         producer_partition_key: Union[str, None] = None,
-        producer_partition_number: Union[int, -1] = -1
+        producer_partition_number: Union[int, -1] = -1,
     ):
         """Produces a message into a station.
         Args:
@@ -156,24 +164,45 @@ class Producer:
             else:
                 headers = memphis_headers
 
-            if self.internal_station_name not in self.connection.partition_producers_updates_data:
+            if (
+                self.internal_station_name
+                not in self.connection.partition_producers_updates_data
+            ):
                 partition_name = self.internal_station_name
-            elif len(self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list']) == 1:
+            elif (
+                len(
+                    self.connection.partition_producers_updates_data[
+                        self.internal_station_name
+                    ]["partitions_list"]
+                )
+                == 1
+            ):
                 partition_name = f"{self.internal_station_name}${self.connection.partition_producers_updates_data[self.internal_station_name]['partitions_list'][0]}"
             elif producer_partition_number > 0 and producer_partition_key is not None:
-                raise MemphisError('Can not use both partition number and partition key')
+                raise MemphisError(
+                    "Can not use both partition number and partition key"
+                )
             elif producer_partition_key is not None:
                 partition_number = self.get_partition_from_key(producer_partition_key)
                 partition_name = f"{self.internal_station_name}${str(partition_number)}"
             elif producer_partition_number > 0:
-                self.validate_partition_number(producer_partition_number, self.internal_station_name)
-                partition_name = f"{self.internal_station_name}${str(producer_partition_number)}"
+                self.validate_partition_number(
+                    producer_partition_number, self.internal_station_name
+                )
+                partition_name = (
+                    f"{self.internal_station_name}${str(producer_partition_number)}"
+                )
             else:
                 partition_name = f"{self.internal_station_name}${str(next(self.partition_generator))}"
 
             if self.internal_station_name in self.connection.functions_updates_data:
                 partition_number = partition_name.split("$")[1]
-                if partition_number in self.connection.functions_updates_data[self.internal_station_name]:
+                if (
+                    partition_number
+                    in self.connection.functions_updates_data[
+                        self.internal_station_name
+                    ]
+                ):
                     full_subject_name = f"{partition_name}.functions.{self.connection.functions_updates_data[self.internal_station_name][partition_number]}"
                 else:
                     full_subject_name = f"{partition_name}.final"
@@ -182,25 +211,29 @@ class Producer:
 
             if async_produce:
                 nonblocking = True
-                warnings.warn("The argument async_produce is deprecated. " + \
-                              "Please use the argument nonblocking instead.")
+                warnings.warn(
+                    "The argument async_produce is deprecated. "
+                    + "Please use the argument nonblocking instead."
+                )
 
             if nonblocking:
                 try:
                     task = self.loop.create_task(
-                               self.connection.broker_connection.publish(
-                                 full_subject_name,
-                                 message,
-                                 timeout=ack_wait_sec,
-                                 headers=headers,
-                               )
-                           )
+                        self.connection.broker_connection.publish(
+                            full_subject_name,
+                            message,
+                            timeout=ack_wait_sec,
+                            headers=headers,
+                        )
+                    )
                     self.background_tasks.add(task)
                     task.add_done_callback(self.background_tasks.discard)
 
                     # block until the number of outstanding async tasks is reduced
-                    if concurrent_task_limit is not None and \
-                        len(self.background_tasks) >= concurrent_task_limit:
+                    if (
+                        concurrent_task_limit is not None
+                        and len(self.background_tasks) >= concurrent_task_limit
+                    ):
                         desired_size = concurrent_task_limit / 2
                         while len(self.background_tasks) > desired_size:
                             await asyncio.sleep(0.1)
@@ -254,14 +287,14 @@ class Producer:
                             "data": msg_hex,
                             "headers": headers,
                         },
-                        "validation_error": str(e)
+                        "validation_error": str(e),
                     }
                     buf = json.dumps(buf).encode("utf-8")
-                    await self.connection.broker_manager.publish("$memphis_schemaverse_dls", buf)
+                    await self.connection.broker_manager.publish(
+                        "$memphis_schemaverse_dls", buf
+                    )
 
-                if self.connection.cluster_configurations.get(
-                    "send_notification"
-                ):
+                if self.connection.cluster_configurations.get("send_notification"):
                     await self.connection.send_notification(
                         "Schema validation has failed",
                         "Station: "
@@ -274,7 +307,7 @@ class Producer:
                         schemaverse_fail_alert_type,
                     )
             raise e
-        except Exception as e: # pylint: disable-next=no-member
+        except Exception as e:  # pylint: disable-next=no-member
             if hasattr(e, "status_code") and e.status_code == "503":
                 raise MemphisError(
                     "Produce operation has failed, please check whether Station/Producer still exist"
@@ -289,7 +322,7 @@ class Producer:
         async_produce: Union[bool, None] = None,
         msg_id: Union[str, None] = None,
         producer_partition_key: Union[str, None] = None,
-        producer_partition_number: Union[int, -1] = -1
+        producer_partition_number: Union[int, -1] = -1,
     ):
         for sn in self.station_name:
             await self.connection.produce(
@@ -301,7 +334,7 @@ class Producer:
                 async_produce=async_produce,
                 msg_id=msg_id,
                 producer_partition_key=producer_partition_key,
-                producer_partition_number=producer_partition_number
+                producer_partition_number=producer_partition_number,
             )
 
     # pylint: enable=too-many-arguments
@@ -339,16 +372,12 @@ class Producer:
 
             internal_station_name = get_internal_name(self.station_name)
             clients_number = (
-                self.connection.clients_per_station.get(
-                    internal_station_name) - 1
+                self.connection.clients_per_station.get(internal_station_name) - 1
             )
-            self.connection.clients_per_station[
-                internal_station_name
-            ] = clients_number
+            self.connection.clients_per_station[internal_station_name] = clients_number
 
             if clients_number == 0:
-                sub = self.connection.schema_updates_subs.get(
-                    internal_station_name)
+                sub = self.connection.schema_updates_subs.get(internal_station_name)
                 task = self.connection.schema_tasks.get(internal_station_name)
                 if internal_station_name in self.connection.schema_updates_data:
                     del self.connection.schema_updates_data[internal_station_name]
@@ -361,13 +390,17 @@ class Producer:
                 if sub is not None:
                     await sub.unsubscribe()
 
-
             self.connection.functions_clients_per_station[internal_station_name] -= 1
-            if self.connection.functions_clients_per_station[internal_station_name] == 0:
+            if (
+                self.connection.functions_clients_per_station[internal_station_name]
+                == 0
+            ):
                 if internal_station_name in self.connection.functions_updates_data:
                     del self.connection.functions_updates_data[internal_station_name]
                 if internal_station_name in self.connection.functions_updates_subs:
-                    sub = self.connection.functions_updates_subs.get(internal_station_name)
+                    sub = self.connection.functions_updates_subs.get(
+                        internal_station_name
+                    )
                     if sub is not None:
                         await sub.unsubscribe()
                     del self.connection.functions_updates_subs[internal_station_name]
@@ -377,7 +410,6 @@ class Producer:
                         task.cancel()
                     del self.connection.functions_tasks[internal_station_name]
 
-
             map_key = internal_station_name + "_" + self.real_name
             del self.connection.producers_map[map_key]
 
@@ -385,27 +417,44 @@ class Producer:
             raise Exception(e)
 
     async def _destroy_multi_station_producer(self, timeout_retries=5):
-        internal_station_name_list = [get_internal_name(station_name) for station_name in self.station_name]
-        producer_keys = [f"{internal_station_name}_{self.real_name}" for internal_station_name in internal_station_name_list]
-        producers = [self.connection.producers_map.get(producer_key) for producer_key in producer_keys]
+        internal_station_name_list = [
+            get_internal_name(station_name) for station_name in self.station_name
+        ]
+        producer_keys = [
+            f"{internal_station_name}_{self.real_name}"
+            for internal_station_name in internal_station_name_list
+        ]
+        producers = [
+            self.connection.producers_map.get(producer_key)
+            for producer_key in producer_keys
+        ]
         producers = [producer for producer in producers if producer is not None]
         for producer in producers:
             await producer.destroy(timeout_retries)
 
-
     def get_partition_from_key(self, key):
         try:
-            index = mmh3.hash(key, self.connection.SEED, signed=False) % len(self.connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"])
-            return self.connection.partition_producers_updates_data[self.internal_station_name]["partitions_list"][index]
+            index = mmh3.hash(key, self.connection.SEED, signed=False) % len(
+                self.connection.partition_producers_updates_data[
+                    self.internal_station_name
+                ]["partitions_list"]
+            )
+            return self.connection.partition_producers_updates_data[
+                self.internal_station_name
+            ]["partitions_list"][index]
         except Exception as e:
             raise e
 
     def validate_partition_number(self, partition_number, station_name):
-        partitions_list = self.connection.partition_producers_updates_data[station_name]["partitions_list"]
+        partitions_list = self.connection.partition_producers_updates_data[
+            station_name
+        ]["partitions_list"]
         if partitions_list is not None:
             if partition_number < 1 or partition_number > len(partitions_list):
                 raise MemphisErrors.PartitionOutOfRange
             elif partition_number not in partitions_list:
-                raise MemphisErrors.partition_not_in_station(partition_number, station_name)
+                raise MemphisErrors.partition_not_in_station(
+                    partition_number, station_name
+                )
         else:
             raise MemphisErrors.partition_not_in_station(partition_number, station_name)
