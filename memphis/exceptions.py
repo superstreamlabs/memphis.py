@@ -88,26 +88,28 @@ class MemphisErrors:
         "Unsupported message type"
     )
 
-    def expecting_format(self, error: Exception, format: str):
+    @staticmethod
+    def expecting_format(error: Exception, format: str):
         return MemphisError(f"Expecting {format} format: " + str(error))
 
-    def expecting_json(self, error: Exception):
-        pass
-
-    def schema_validation_failed(self, error):
+    @staticmethod
+    def schema_validation_failed(error):
         return MemphisSchemaError("Schema validation has failed: " + str(error))
 
-    def schema_msg_mismatch(self, error: Exception):
+    @staticmethod
+    def schema_msg_mismatch(error: Exception):
         return MemphisSchemaError(
             f"Deserialization has been failed since the message format does not align with the currently attached schema: {str(error)}"
         )
 
-    def partition_not_in_station(self, partition_number, station_name):
+    @staticmethod
+    def partition_not_in_station(partition_number, station_name):
         return MemphisError(
             f"Partition {str(partition_number)} does not exist in station {station_name}"
         )
 
-    def invalid_schema_type(self, schema_type):
+    @staticmethod
+    def invalid_schema_type(schema_type):
         return MemphisError(
             "schema type not supported"
             + schema_type
