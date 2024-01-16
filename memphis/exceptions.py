@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from memphis.consumer import Consumer
+
+MAX_BATCH_SIZE = 5000
 
 class MemphisError(Exception):
     def __init__(self, message):
@@ -16,10 +17,8 @@ class MemphisError(Exception):
 class MemphisConnectError(MemphisError):
     pass
 
-
 class MemphisSchemaError(MemphisError):
     pass
-
 
 class MemphisHeaderError(MemphisError):
     pass
@@ -29,7 +28,7 @@ class MemphisErrors:
     TimeoutError: MemphisError = MemphisError("Memphis: TimeoutError")
     PartitionNumberKeyError: MemphisError = MemphisError('Can not use both partition number and partition key')
     PartitionOutOfRange: MemphisError = MemphisError("Partition number is out of range")
-    InvalidBatchSize: MemphisError = MemphisError(f"Batch size can not be greater than {Consumer.MAX_BATCH_SIZE} or less than 1")
+    InvalidBatchSize: MemphisError = MemphisError(f"Batch size can not be greater than {MAX_BATCH_SIZE} or less than 1")
     DeadConnection: MemphisError = MemphisError("Connection is dead")
     MissingNameOrStationName: MemphisError = MemphisError("name and station name can not be empty")
     MissingStationName : MemphisError = MemphisError("station name is missing")
