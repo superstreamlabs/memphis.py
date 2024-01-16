@@ -78,10 +78,10 @@ class MemphisErrors:
         "Must provide a TLS cert file"
     )
     MissingTLSKey: MemphisConnectError = MemphisConnectError(
-        "Must provide a TLS cert file"
+        "Must provide a TLS key file"
     )
     MissingTLSCa: MemphisConnectError = MemphisConnectError(
-        "Must provide a TLS cert file"
+        "Must provide a TLS ca file"
     )
 
     UnsupportedMsgType: MemphisSchemaError = MemphisSchemaError(
