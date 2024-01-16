@@ -89,8 +89,8 @@ class MemphisErrors:
     )
 
     @staticmethod
-    def expecting_format(error: Exception, format: str):
-        return MemphisError(f"Expecting {format} format: " + str(error))
+    def expecting_format(error: Exception, expected_format: str):
+        return MemphisError(f"Expecting {expected_format} format: " + str(error))
 
     @staticmethod
     def schema_validation_failed(error):

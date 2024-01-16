@@ -1,5 +1,4 @@
 from memphis.exceptions import MemphisHeaderError
-from memphis.exceptions import MemphisErrors
 
 
 class Headers:

@@ -28,11 +28,11 @@ from google.protobuf import descriptor_pb2, descriptor_pool
 from google.protobuf.message_factory import MessageFactory
 from graphql import build_schema as build_graphql_schema
 from memphis.consumer import Consumer
-from memphis.exceptions import MemphisConnectError, MemphisError, MemphisErrors
+from memphis.exceptions import MemphisError, MemphisErrors
 from memphis.headers import Headers
 from memphis.producer import Producer
 from memphis.station import Station
-from memphis.memphis_types import Retention, Storage
+from memphis.types import Retention, Storage
 from memphis.utils import get_internal_name, random_bytes
 from memphis.partition_generator import PartitionGenerator
 
