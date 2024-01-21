@@ -1,4 +1,4 @@
-<a href="![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)">![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)</a>
+<a href="![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)">[![Github (4)](https://github.com/memphisdev/memphis-terraform/assets/107035359/a5fe5d0f-22e1-4445-957d-5ce4464e61b1)](https://memphis.dev)</a>
 <p align="center">
 <a href="https://memphis.dev/discord"><img src="https://img.shields.io/discord/963333392844328961?color=6557ff&label=discord" alt="Discord"></a>
 <a href="https://github.com/memphisdev/memphis/issues?q=is%3Aissue+is%3Aclosed"><img src="https://img.shields.io/github/issues-closed/memphisdev/memphis?color=6557ff"></a> 
@@ -741,7 +741,7 @@ consumer = await memphis.consumer(
   consumer_group="<group-name>", # defaults to the consumer name
   pull_interval_ms=1000, # defaults to 1000
   batch_size=10, # defaults to 10
-  batch_max_time_to_wait_ms=5000, # defaults to 5000
+  batch_max_time_to_wait_ms=100, # defaults to 100
   max_ack_time_ms=30000, # defaults to 30000
   max_msg_deliveries=2, # defaults to 2
   start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
@@ -804,7 +804,7 @@ Here is an example of a consumer that will try to poll 100 messages every 10 sec
         consumer_name = "new_consumer",
         pull_interval_ms = 10000,
         batch_size = 100,
-        batch_max_time_to_wait_ms = 15000
+        batch_max_time_to_wait_ms = 100
     )
 ```
 
@@ -820,7 +820,7 @@ The max_msg_deliveries parameter allows the user how many messages the consumer 
         consumer_name = "new_consumer",
         pull_interval_ms = 10000,
         batch_size = 100,
-        batch_max_time_to_wait_ms = 15000,
+        batch_max_time_to_wait_ms = 100,
         max_msg_deliveries = 2
     )
 ```
@@ -888,7 +888,7 @@ msgs = await memphis.fetch_messages(
   consumer_name="<consumer-name>",
   consumer_group="<group-name>", # defaults to the consumer name
   batch_size=10, # defaults to 10
-  batch_max_time_to_wait_ms=5000, # defaults to 5000
+  batch_max_time_to_wait_ms=100, # defaults to 100
   max_ack_time_ms=30000, # defaults to 30000
   max_msg_deliveries=2, # defaults to 2
   start_consume_from_sequence=1, # start consuming from a specific sequence. defaults to 1
@@ -899,12 +899,13 @@ msgs = await memphis.fetch_messages(
 ```
 
 ### Fetch a single batch of messages after creating a consumer
+
 ```python
 msgs = await consumer.fetch(batch_size=10) # defaults to 10
 ```
 
-### Fetch a single batch of messages after creating a consumer
 `prefetch = true` will prefetch next batch of messages and save it in memory for future fetch() request<br>
+
 ```python
 msgs = await consumer.fetch(batch_size=10, prefetch=True) # defaults to False
 ```
@@ -917,6 +918,23 @@ Acknowledge a message indicates the Memphis server to not re-send the same messa
 await message.ack()
 ```
 
+### Nacking a Message
+
+Mark the message as not acknowledged - the broker will resend the message immediately to the same consumers group, instead of waiting to the max ack time configured.
+
+```python
+await message.nack();
+```
+
+### Sending a message to the dead-letter
+
+Sending the message to the dead-letter station (DLS) - the broker won't resend the message again to the same consumers group and will place the message inside the dead-letter station (DLS) with the given reason.
+The message will still be available to other consumer groups
+
+```python
+await message.dead_letter("reason");
+```
+
 ### Delay the message after a given duration
 
 Delay the message and tell Memphis server to re-send the same message again to the same consumer group. The message will be redelivered only in case `consumer.max_msg_deliveries` is not reached yet.
@@ -925,7 +943,8 @@ Delay the message and tell Memphis server to re-send the same message again to t
 await message.delay(delay_in_seconds)
 ```
 
-### Get headers 
+### Get headers
+
 Get headers per message
 
 ```python
@@ -933,10 +952,19 @@ headers = message.get_headers()
 ```
 
 ### Get message sequence number
+
 Get message sequence number
 
 ```python
 sequence_number = msg.get_sequence_number()
+```
+
+### Get message time sent
+
+Get message time sent
+
+```python
+time_sent = msg.get_timesent()
 ```
 
 ### Destroying a Consumer

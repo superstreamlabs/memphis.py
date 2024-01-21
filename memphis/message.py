@@ -6,11 +6,12 @@ from memphis.exceptions import MemphisConnectError, MemphisError, MemphisSchemaE
 from memphis.station import Station
 
 class Message:
-    def __init__(self, message, connection, cg_name, internal_station_name):
+    def __init__(self, message, connection, cg_name, internal_station_name, partition = 0):
         self.message = message
         self.connection = connection
         self.cg_name = cg_name
         self.internal_station_name = internal_station_name
+        self.partition = partition
         self.station = Station(connection, internal_station_name)
 
     async def ack(self):
@@ -36,6 +37,38 @@ class Message:
             else:
                 raise MemphisConnectError(str(e)) from e
             return
+
+    async def nack(self):
+        """
+        nack - not ack for a message, meaning that the message will be redelivered again to the same consumers group without waiting to its ack wait time.
+        """
+        if not hasattr(self.message, 'nak'):
+            return
+        await self.message.nak()
+
+    async def dead_letter(self, reason: str):
+        """
+        dead_letter - Sending the message to the dead-letter station (DLS). the broker won't resend the message again to the same consumers group and will place the message inside the dead-letter station (DLS) with the given reason.
+        The message will still be available to other consumer groups
+        """
+        try:
+            if not hasattr(self.message, 'term'):
+                return
+            await self.message.term()
+            md = self.message.metadata()
+            stream_seq = md.sequence.stream
+            request = {
+                "station_name": self.internal_station_name,
+                "error": reason,
+                "partition": self.partition,
+                "cg_name": self.cg_name,
+                "seq": stream_seq,
+            }
+            await self.connection.broker_manager.publish(
+                "$memphis_nacked_dls", json.dumps(request).encode("utf-8")
+            )
+        except Exception as e:
+            raise MemphisConnectError(str(e)) from e
 
     def get_data(self):
         """Receive the message."""
@@ -83,6 +116,14 @@ class Message:
         """Get message sequence number."""
         try:
             return self.message.metadata.sequence.stream
+        except Exception:
+            return
+
+    def get_timesent(self):
+        """Get timestamp when the message was sent."""
+        try:
+            md = self.message.metadata()
+            return md.timestamp
         except Exception:
             return
 
