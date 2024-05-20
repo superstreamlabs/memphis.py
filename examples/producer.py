@@ -1,45 +1,38 @@
-from __future__ import annotations
+"""
+An example producer for the Memphis.dev python SDK.
+"""
 
 import asyncio
-
-from memphis import (
-    Headers,
-    Memphis,
-    MemphisConnectError,
-    MemphisError,
-    MemphisHeaderError,
-    MemphisSchemaError,
-)
+from memphis import Memphis, MemphisConnectError, MemphisError
 
 
 async def main():
+    """
+    Async main function used for the asyncio runtime.
+    """
     try:
+        # Connecting to the broker
         memphis = Memphis()
+
         await memphis.connect(
             host="<memphis-host>",
-            username="<application type username>",
-            connection_token="<broker-token>",
+            username="<memphis-username>",
+            password="<memphis-password>",
+            # account_id= <memphis-accountId>,  # For cloud users on, at the top of the overview page
         )
 
+        # Creating a producer and producing a message.
+        # You can also use the memphis.producer function
         producer = await memphis.producer(
-            station_name="<station-name>", producer_name="<producer-name>"
+            station_name="<station-name>",  # Matches the station name in memphis cloud
+            producer_name="<producer-name>",
         )
-        headers = Headers()
-        headers.add("key", "value")
-        for i in range(5):
-            await producer.produce(
-                bytearray("Message #" + str(i) + ": Hello world", "utf-8"),
-                headers=headers,
-            )  # you can send the message parameter as dict as well
 
-    except (
-        MemphisError,
-        MemphisConnectError,
-        MemphisHeaderError,
-        MemphisSchemaError,
-    ) as e:
+        for i in range(10):
+            await producer.produce(message={"id": i, "chocolates_to_eat": 3})
+
+    except (MemphisError, MemphisConnectError) as e:
         print(e)
-
     finally:
         await memphis.close()
 
