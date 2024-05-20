@@ -28,7 +28,7 @@ from google.protobuf import descriptor_pb2, descriptor_pool
 from google.protobuf.message_factory import MessageFactory
 from graphql import build_schema as build_graphql_schema
 from memphis.consumer import Consumer
-from memphis.exceptions import MemphisConnectError, MemphisError
+from memphis.exceptions import MemphisError, MemphisErrors
 from memphis.headers import Headers
 from memphis.producer import Producer
 from memphis.station import Station
@@ -37,6 +37,8 @@ from memphis.utils import get_internal_name, random_bytes
 from memphis.partition_generator import PartitionGenerator
 
 app_id = str(uuid.uuid4())
+
+
 # pylint: disable=too-many-lines
 class Memphis:
     MAX_BATCH_SIZE = 5000
@@ -78,16 +80,14 @@ class Memphis:
                         "update"
                     ]
                 elif data["type"] == "remove_station":
-                    self.unset_cached_producer_station(data['station_name'])
-                    self.unset_cached_consumer_station(data['station_name'])
+                    self.unset_cached_producer_station(data["station_name"])
+                    self.unset_cached_consumer_station(data["station_name"])
         except Exception as err:
             raise MemphisError(err)
 
     async def sdk_client_updates_listener(self):
         try:
-            sub = await self.broker_manager.subscribe(
-                "$memphis_sdk_clients_updates"
-            )
+            sub = await self.broker_manager.subscribe("$memphis_sdk_clients_updates")
             self.update_configurations_sub = sub
             loop = asyncio.get_event_loop()
             task = loop.create_task(
@@ -101,11 +101,14 @@ class Memphis:
 
     async def get_broker_manager_connection(self, connection_opts):
         if "user" in connection_opts:
+
             async def ping_error_cb(e):
                 if "authorization violation" not in (str(e)).lower():
                     print(MemphisError(str(e)))
+
             async def error_cb(e):
                 return
+
             ping_connection_opts = copy.deepcopy(connection_opts)
             ping_connection_opts["allow_reconnect"] = False
             ping_connection_opts["error_cb"] = ping_error_cb
@@ -121,7 +124,9 @@ class Memphis:
             except Exception as e:
                 if "authorization violation" in str(e).lower():
                     try:
-                        if "localhost" in connection_opts['servers']: # for handling bad quality networks like port fwd
+                        if (
+                            "localhost" in connection_opts["servers"]
+                        ):  # for handling bad quality networks like port fwd
                             await asyncio.sleep(1)
                         ping_connection_opts["user"] = self.username
                         ping_connection_opts["error_cb"] = error_cb
@@ -133,8 +138,8 @@ class Memphis:
                 else:
                     raise e
 
-        if "localhost" in connection_opts['servers']:
-            await asyncio.sleep(1) # for handling bad quality networks like port fwd
+        if "localhost" in connection_opts["servers"]:
+            await asyncio.sleep(1)  # for handling bad quality networks like port fwd
         return await broker.connect(**connection_opts)
 
     async def connect(
@@ -182,14 +187,17 @@ class Memphis:
         self.connection_id = str(uuid.uuid4())
         try:
             if self.connection_token != "" and self.password != "":
-                raise MemphisConnectError(
-                    "You have to connect with one of the following methods: connection token / password")
+                raise MemphisErrors.InvalidConnectionType
             if self.connection_token == "" and self.password == "":
-                raise MemphisConnectError(
-                    "You have to connect with one of the following methods: connection token / password")
+                raise MemphisErrors.InvalidConnectionType
+
             self.broker_manager = None
+
             async def closed_callback():
-                if self.broker_manager is not None and self.broker_manager.last_error is not None:
+                if (
+                    self.broker_manager is not None
+                    and self.broker_manager.last_error is not None
+                ):
                     print(MemphisError(str(self.broker_manager.last_error)))
 
             connection_opts = {
@@ -203,13 +211,12 @@ class Memphis:
             }
             if cert_file != "" or key_file != "" or ca_file != "":
                 if cert_file == "":
-                    raise MemphisConnectError("Must provide a TLS cert file")
+                    raise MemphisErrors.MissingTLSCert
                 if key_file == "":
-                    raise MemphisConnectError("Must provide a TLS key file")
+                    raise MemphisErrors.MissingTLSKey
                 if ca_file == "":
-                    raise MemphisConnectError("Must provide a TLS ca file")
-                ssl_ctx = ssl.create_default_context(
-                    purpose=ssl.Purpose.SERVER_AUTH)
+                    raise MemphisErrors.MissingTLSCa
+                ssl_ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
                 ssl_ctx.load_verify_locations(ca_file)
                 ssl_ctx.load_cert_chain(certfile=cert_file, keyfile=key_file)
                 connection_opts["tls"] = ssl_ctx
@@ -217,11 +224,12 @@ class Memphis:
             if self.connection_token != "":
                 connection_opts["token"] = self.connection_token
             else:
-                connection_opts["user"] = self.username + \
-                    "$" + str(self.account_id)
+                connection_opts["user"] = self.username + "$" + str(self.account_id)
                 connection_opts["password"] = self.password
 
-            self.broker_manager = await self.get_broker_manager_connection(connection_opts)
+            self.broker_manager = await self.get_broker_manager_connection(
+                connection_opts
+            )
             await self.sdk_client_updates_listener()
             self.broker_connection = self.broker_manager.jetstream()
             self.is_connection_active = True
@@ -268,7 +276,7 @@ class Memphis:
         """
         try:
             if not self.is_connection_active:
-                raise MemphisError("Connection is dead")
+                raise MemphisErrors.DeadConnection
             if partitions_number == 0:
                 partitions_number = 1
 
@@ -286,14 +294,17 @@ class Memphis:
                 },
                 "username": self.username,
                 "tiered_storage_enabled": tiered_storage_enabled,
-                "partitions_number" : partitions_number,
-                "dls_station": dls_station
+                "partitions_number": partitions_number,
+                "dls_station": dls_station,
             }
             create_station_req_bytes = json.dumps(create_station_req, indent=2).encode(
                 "utf-8"
             )
             err_msg = await self._request(
-                "$memphis_station_creations", create_station_req_bytes, 20, timeout_retries
+                "$memphis_station_creations",
+                create_station_req_bytes,
+                20,
+                timeout_retries,
             )
             err_msg = err_msg.data.decode("utf-8")
 
@@ -326,9 +337,12 @@ class Memphis:
         """
         try:
             if name == "" or station_name == "":
-                raise MemphisError("name and station name can not be empty")
-            msg = {"name": name, "station_name": station_name,
-                   "username": self.username}
+                raise MemphisErrors.MissingNameOrStationName
+            msg = {
+                "name": name,
+                "station_name": station_name,
+                "username": self.username,
+            }
             msg_to_send = json.dumps(msg).encode("utf-8")
             err_msg = await self._request(
                 "$memphis_schema_attachments", msg_to_send, 20, timeout_retries
@@ -349,7 +363,7 @@ class Memphis:
         """
         try:
             if station_name == "":
-                raise MemphisError("station name is missing")
+                raise MemphisErrors.MissingStationName
             msg = {"station_name": station_name, "username": self.username}
             msg_to_send = json.dumps(msg).encode("utf-8")
             err_msg = await self._request(
@@ -410,9 +424,11 @@ class Memphis:
             res = await self.broker_manager.request(subject, payload, timeout=timeout)
             return res
         except Exception as e:
-            if 'timeout' not in str(e).lower() or timeout_retries <= 0:
+            if "timeout" not in str(e).lower() or timeout_retries <= 0:
                 raise MemphisError(str(e)) from e
-            return await self._request(subject, payload, timeout=timeout, timeout_retries=timeout_retries-1)
+            return await self._request(
+                subject, payload, timeout=timeout, timeout_retries=timeout_retries - 1
+            )
 
     async def producer(
         self,
@@ -433,17 +449,23 @@ class Memphis:
         """
         try:
             if not self.is_connection_active:
-                raise MemphisError("Connection is dead")
+                raise MemphisErrors.DeadConnection
             if not isinstance(station_name, str) and not isinstance(station_name, list):
-                raise MemphisError("station_name should be either string or list of strings")
+                raise MemphisErrors.InvalidStationNameTpye
             real_name = producer_name.lower()
             if generate_random_suffix:
-                warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
+                warnings.warn(
+                    "Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023."
+                )
                 producer_name = self.__generate_random_suffix(producer_name)
             if isinstance(station_name, str):
-                return await self._single_station_producer(station_name, producer_name, real_name, timeout_retries)
+                return await self._single_station_producer(
+                    station_name, producer_name, real_name, timeout_retries
+                )
             else:
-                return await self._multi_station_producer(station_name, producer_name, real_name)
+                return await self._multi_station_producer(
+                    station_name, producer_name, real_name
+                )
         except Exception as e:
             raise MemphisError(str(e)) from e
 
@@ -469,13 +491,16 @@ class Memphis:
                 "req_version": 4,
                 "username": self.username,
                 "app_id": app_id,
-                "sdk_lang": "python"
+                "sdk_lang": "python",
             }
-            create_producer_req_bytes = json.dumps(create_producer_req, indent=2).encode(
-                "utf-8"
-            )
+            create_producer_req_bytes = json.dumps(
+                create_producer_req, indent=2
+            ).encode("utf-8")
             create_res = await self._request(
-                "$memphis_producer_creations", create_producer_req_bytes, 20, timeout_retries
+                "$memphis_producer_creations",
+                create_producer_req_bytes,
+                20,
+                timeout_retries,
             )
             create_res = create_res.data.decode("utf-8")
             create_res = json.loads(create_res)
@@ -484,9 +509,9 @@ class Memphis:
 
             if "partitions_update" in create_res:
                 if create_res["partitions_update"]["partitions_list"] is not None:
-                    self.partition_producers_updates_data[internal_station_name] = create_res[
-                        "partitions_update"
-                    ]
+                    self.partition_producers_updates_data[
+                        internal_station_name
+                    ] = create_res["partitions_update"]
 
             self.station_schemaverse_to_dls[internal_station_name] = create_res[
                 "schemaverse_to_dls"
@@ -502,7 +527,10 @@ class Memphis:
 
             if "station_version" in create_res:
                 if create_res["station_version"] >= 2:
-                    await self.start_listen_for_functions_updates(internal_station_name, create_res["station_partitions_first_functions"])
+                    await self.start_listen_for_functions_updates(
+                        internal_station_name,
+                        create_res["station_partitions_first_functions"],
+                    )
 
             producer = Producer(self, producer_name, station_name, real_name)
             map_key = internal_station_name + "_" + real_name
@@ -512,45 +540,32 @@ class Memphis:
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-
     async def _multi_station_producer(
-        self,
-        station_names: List[str],
-        producer_name: str,
-        real_name: str
+        self, station_names: List[str], producer_name: str, real_name: str
     ):
         return Producer(self, producer_name, station_names, real_name)
 
     def update_schema_data(self, station_name):
         internal_station_name = get_internal_name(station_name)
         if self.schema_updates_data[internal_station_name] != {}:
-            if (
-                self.schema_updates_data[internal_station_name]["type"]
-                == "protobuf"
-            ):
+            if self.schema_updates_data[internal_station_name]["type"] == "protobuf":
                 self.parse_descriptor(internal_station_name)
             if self.schema_updates_data[internal_station_name]["type"] == "json":
                 schema = self.schema_updates_data[internal_station_name][
                     "active_version"
                 ]["schema_content"]
-                self.json_schemas[internal_station_name] = json.loads(
-                    schema)
-            elif (
-                self.schema_updates_data[internal_station_name]["type"] == "graphql"
-            ):
+                self.json_schemas[internal_station_name] = json.loads(schema)
+            elif self.schema_updates_data[internal_station_name]["type"] == "graphql":
                 self.graphql_schemas[internal_station_name] = build_graphql_schema(
-                    self.schema_updates_data[internal_station_name][
-                        "active_version"
-                    ]["schema_content"]
+                    self.schema_updates_data[internal_station_name]["active_version"][
+                        "schema_content"
+                    ]
                 )
-            elif (
-                self.schema_updates_data[internal_station_name]["type"] == "avro"
-            ):
+            elif self.schema_updates_data[internal_station_name]["type"] == "avro":
                 schema = self.schema_updates_data[internal_station_name][
                     "active_version"
                 ]["schema_content"]
-                self.avro_schemas[internal_station_name] = json.loads(
-                    schema)
+                self.avro_schemas[internal_station_name] = json.loads(schema)
 
     async def get_msg_schema_updates(self, internal_station_name, iterable):
         async for msg in iterable:
@@ -591,7 +606,7 @@ class Memphis:
             raise MemphisError(str(e)) from e
 
     async def start_listen_for_functions_updates(self, station_name, first_functions):
-        #first_functions should contain the dict of the first function of each partition key: partition number, value: first function id
+        # first_functions should contain the dict of the first function of each partition key: partition number, value: first function id
 
         if station_name in self.functions_updates_subs:
             self.functions_clients_per_station[station_name] += 1
@@ -682,28 +697,25 @@ class Memphis:
         """
         try:
             if not self.is_connection_active:
-                raise MemphisError("Connection is dead")
+                raise MemphisErrors.DeadConnection
             if batch_size > self.MAX_BATCH_SIZE or batch_size < 1:
-                raise MemphisError(
-                    f"Batch size can not be greater than {self.MAX_BATCH_SIZE} or less than 1")
+                raise MemphisErrors.InvalidBatchSize
             real_name = consumer_name.lower()
             if generate_random_suffix:
-                warnings.warn("Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023.")
+                warnings.warn(
+                    "Deprecation warning: generate_random_suffix will be stopped to be supported after November 1'st, 2023."
+                )
                 consumer_name = self.__generate_random_suffix(consumer_name)
             cg = consumer_name if not consumer_group else consumer_group
 
             if start_consume_from_sequence <= 0:
-                raise MemphisError(
-                    "start_consume_from_sequence has to be a positive number"
-                )
+                raise MemphisErrors.NonPositiveStartConsumeFromSeq
 
             if last_messages < -1:
-                raise MemphisError("min value for last_messages is -1")
+                raise MemphisErrors.InvalidMinLasMessagesVal
 
             if start_consume_from_sequence > 1 and last_messages > -1:
-                raise MemphisError(
-                    "Consumer creation options can't contain both start_consume_from_sequence and last_messages"
-                )
+                raise MemphisErrors.ContainsStartConsumeAndLastMessages
             create_consumer_req = {
                 "name": consumer_name,
                 "station_name": station_name,
@@ -717,14 +729,17 @@ class Memphis:
                 "req_version": 4,
                 "username": self.username,
                 "app_id": app_id,
-                "sdk_lang":"python"
+                "sdk_lang": "python",
             }
 
-            create_consumer_req_bytes = json.dumps(create_consumer_req, indent=2).encode(
-                "utf-8"
-            )
+            create_consumer_req_bytes = json.dumps(
+                create_consumer_req, indent=2
+            ).encode("utf-8")
             creation_res = await self._request(
-                "$memphis_consumer_creations", create_consumer_req_bytes, 20, timeout_retries
+                "$memphis_consumer_creations",
+                create_consumer_req_bytes,
+                20,
+                timeout_retries,
             )
             creation_res = creation_res.data.decode("utf-8")
             if creation_res != "":
@@ -736,7 +751,9 @@ class Memphis:
                     internal_station_name = get_internal_name(station_name)
 
                     if creation_res["partitions_update"]["partitions_list"] is not None:
-                        self.partition_consumers_updates_data[internal_station_name] = creation_res["partitions_update"]
+                        self.partition_consumers_updates_data[
+                            internal_station_name
+                        ] = creation_res["partitions_update"]
                 except:
                     raise MemphisError(creation_res)
 
@@ -745,21 +762,30 @@ class Memphis:
             partition_generator = None
 
             if inner_station_name in self.partition_consumers_updates_data:
-                partition_generator = PartitionGenerator(self.partition_consumers_updates_data[inner_station_name]["partitions_list"])
+                partition_generator = PartitionGenerator(
+                    self.partition_consumers_updates_data[inner_station_name][
+                        "partitions_list"
+                    ]
+                )
 
             consumer_group = get_internal_name(cg.lower())
             subscriptions = {}
 
             if inner_station_name not in self.partition_consumers_updates_data:
                 subject = inner_station_name + ".final"
-                psub = await self.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                psub = await self.broker_connection.pull_subscribe(
+                    subject, durable=consumer_group
+                )
                 subscriptions[1] = psub
             else:
-                for p in self.partition_consumers_updates_data[inner_station_name]["partitions_list"]:
+                for p in self.partition_consumers_updates_data[inner_station_name][
+                    "partitions_list"
+                ]:
                     subject = f"{inner_station_name}${str(p)}.final"
-                    psub = await self.broker_connection.pull_subscribe(subject, durable=consumer_group)
+                    psub = await self.broker_connection.pull_subscribe(
+                        subject, durable=consumer_group
+                    )
                     subscriptions[p] = psub
-
 
             internal_station_name = get_internal_name(station_name)
             map_key = internal_station_name + "_" + real_name
@@ -799,7 +825,7 @@ class Memphis:
         async_produce: bool = False,
         msg_id: Union[str, None] = None,
         producer_partition_key: Union[str, None] = None,
-        producer_partition_number: Union[int, -1] = -1
+        producer_partition_number: Union[int, -1] = -1,
     ):
         """Produces a message into a station without the need to create a producer.
         Args:
@@ -818,14 +844,35 @@ class Memphis:
         """
         try:
             if not isinstance(station_name, str) and not isinstance(station_name, list):
-                raise MemphisError("station_name should be either string or list of strings")
+                raise MemphisErrors.InvalidStationNameTpye
             if isinstance(station_name, str):
-                await self._single_station_produce(station_name, producer_name, message, generate_random_suffix, ack_wait_sec, headers, async_produce, msg_id, producer_partition_key, producer_partition_number)
+                await self._single_station_produce(
+                    station_name,
+                    producer_name,
+                    message,
+                    generate_random_suffix,
+                    ack_wait_sec,
+                    headers,
+                    async_produce,
+                    msg_id,
+                    producer_partition_key,
+                    producer_partition_number,
+                )
             else:
-                await self._multi_station_produce(station_name, producer_name, message, generate_random_suffix, ack_wait_sec, headers, async_produce, msg_id, producer_partition_key, producer_partition_number)
+                await self._multi_station_produce(
+                    station_name,
+                    producer_name,
+                    message,
+                    generate_random_suffix,
+                    ack_wait_sec,
+                    headers,
+                    async_produce,
+                    msg_id,
+                    producer_partition_key,
+                    producer_partition_number,
+                )
         except Exception as e:
             raise MemphisError(str(e)) from e
-
 
     async def _single_station_produce(
         self,
@@ -838,7 +885,7 @@ class Memphis:
         async_produce: bool = False,
         msg_id: Union[str, None] = None,
         producer_partition_key: Union[str, None] = None,
-        producer_partition_number: Union[int, -1] = -1
+        producer_partition_number: Union[int, -1] = -1,
     ):
         try:
             internal_station_name = get_internal_name(station_name)
@@ -859,7 +906,7 @@ class Memphis:
                 async_produce=async_produce,
                 msg_id=msg_id,
                 producer_partition_key=producer_partition_key,
-                producer_partition_number=producer_partition_number
+                producer_partition_number=producer_partition_number,
             )
         except Exception as e:
             raise MemphisError(str(e)) from e
@@ -875,7 +922,7 @@ class Memphis:
         async_produce: bool = False,
         msg_id: Union[str, None] = None,
         producer_partition_key: Union[str, None] = None,
-        producer_partition_number: Union[int, -1] = -1
+        producer_partition_number: Union[int, -1] = -1,
     ):
         try:
             producer = await self.producer(
@@ -890,11 +937,10 @@ class Memphis:
                 async_produce=async_produce,
                 msg_id=msg_id,
                 producer_partition_key=producer_partition_key,
-                producer_partition_number=producer_partition_number
+                producer_partition_number=producer_partition_number,
             )
         except Exception as e:
             raise MemphisError(str(e)) from e
-
 
     async def fetch_messages(
         self,
@@ -933,11 +979,11 @@ class Memphis:
         try:
             consumer = None
             if not self.is_connection_active:
-                raise MemphisError(
-                    "Cant fetch messages without being connected!")
+                raise MemphisError("Cant fetch messages without being connected!")
             if batch_size > self.MAX_BATCH_SIZE or batch_size < 1:
                 raise MemphisError(
-                    f"Batch size can not be greater than {self.MAX_BATCH_SIZE} or less than 1")
+                    f"Batch size can not be greater than {self.MAX_BATCH_SIZE} or less than 1"
+                )
             internal_station_name = get_internal_name(station_name)
             consumer_map_key = internal_station_name + "_" + consumer_name.lower()
             if consumer_map_key in self.consumers_map:
@@ -948,22 +994,30 @@ class Memphis:
                     consumer_name=consumer_name,
                     consumer_group=consumer_group,
                     batch_size=batch_size,
-                    batch_max_time_to_wait_ms=batch_max_time_to_wait_ms if batch_max_time_to_wait_ms >= 100 else 100,
+                    batch_max_time_to_wait_ms=batch_max_time_to_wait_ms
+                    if batch_max_time_to_wait_ms >= 100
+                    else 100,
                     max_ack_time_ms=max_ack_time_ms,
                     max_msg_deliveries=max_msg_deliveries,
                     generate_random_suffix=generate_random_suffix,
                     start_consume_from_sequence=start_consume_from_sequence,
                     last_messages=last_messages,
                 )
-            messages = await consumer.fetch(batch_size, consumer_partition_key=consumer_partition_key, consumer_partition_number=consumer_partition_number, prefetch=prefetch)
+            messages = await consumer.fetch(
+                batch_size,
+                consumer_partition_key=consumer_partition_key,
+                consumer_partition_number=consumer_partition_number,
+                prefetch=prefetch,
+            )
             if messages == None:
                 messages = []
             return messages
         except Exception as e:
             raise MemphisError(str(e)) from e
 
-    async def create_schema(self, schema_name, schema_type, schema_path, timeout_retries=5):
-
+    async def create_schema(
+        self, schema_name, schema_type, schema_path, timeout_retries=5
+    ):
         """Creates a new schema. In case schema is already exist a new version will be created
         Args:.
             schema_name (str): the name of the schema.
@@ -971,14 +1025,13 @@ class Memphis:
             schema_path (str): the path for the schema file
         """
 
-        if schema_type not in {'json', 'graphql', 'protobuf', 'avro'}:
-            raise MemphisError("schema type not supported" + type)
+        if schema_type not in {"json", "graphql", "protobuf", "avro"}:
+            raise MemphisErrors.invalid_schema_type(schema_type)
 
         try:
             await self.schema_name_validation(schema_name)
         except Exception as e:
             raise e
-
 
         schema_content = ""
         with open(schema_path, "rt", encoding="utf-8") as f:
@@ -989,32 +1042,34 @@ class Memphis:
             "type": schema_type,
             "created_by_username": self.username,
             "schema_content": schema_content,
-            "message_struct_name": ""
+            "message_struct_name": "",
         }
 
-        create_schema_req_bytes = json.dumps(create_schema_req, indent=2).encode("utf-8")
+        create_schema_req_bytes = json.dumps(create_schema_req, indent=2).encode(
+            "utf-8"
+        )
 
         create_res = await self._request(
-            "$memphis_schema_creations", create_schema_req_bytes, 20, timeout_retries)
+            "$memphis_schema_creations", create_schema_req_bytes, 20, timeout_retries
+        )
 
         create_res = create_res.data.decode("utf-8")
         create_res = json.loads(create_res)
-        if create_res["error"] != "" and not "already exists" in create_res["error"] :
+        if create_res["error"] != "" and not "already exists" in create_res["error"]:
             raise MemphisError(create_res["error"])
-
 
     async def schema_name_validation(self, schema_name):
         if len(schema_name) == 0:
-            raise MemphisError("Schema name cannot be empty")
+            raise MemphisErrors.MissingSchemaName
 
         if len(schema_name) > 128:
-            raise MemphisError("Schema name should be under 128 characters")
+            raise MemphisErrors.SchemaNameTooLong
 
-        if re.fullmatch(r'^[a-z0-9_.-]*$', schema_name) is None:
-            raise MemphisError("Only alphanumeric and the '_', '-', '.' characters are allowed in the schema name")
+        if re.fullmatch(r"^[a-z0-9_.-]*$", schema_name) is None:
+            raise MemphisErrors.InvalidSchemaChars
 
         if not schema_name[0].isalnum() or not schema_name[-1].isalnum():
-            raise MemphisError("Schema name cannot start or end with a non-alphanumeric character")
+            raise MemphisErrors.InvalidSchemaStartChar
 
     def is_connected(self):
         return self.broker_manager.is_connected
@@ -1035,7 +1090,8 @@ class Memphis:
             for key in list(self.consumers_map):
                 consumer = self.consumers_map[key]
                 consumer_station_name_internal = get_internal_name(
-                    consumer.station_name)
+                    consumer.station_name
+                )
                 if consumer_station_name_internal == internal_station_name:
                     del self.consumers_map[key]
         except Exception as e:

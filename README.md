@@ -42,6 +42,68 @@ from memphis.types import Retention, Storage
 import asyncio
 ```
 
+### Quickstart - Producing and Consuming
+
+The most basic functionaly of memphis is the ability to produce messages to a station and to consume those messages. 
+
+> The Memphis.py SDK uses asyncio for many functions. Make sure to call the following code in an async function:
+
+```python 
+async def main():
+    ...
+
+if __name__ == '__main__':
+  asyncio.run(main()) 
+```
+
+First, a connection to Memphis must be made:
+
+```python
+from memphis import Memphis
+
+# Connecting to the broker
+memphis = Memphis()
+
+await memphis.connect(
+    host = "<memphis-host>",
+    username = "<memphis-username>",
+    password = "<memphis-password>",
+    account_id = <mmephis-account-id> # For cloud users, at the top of the overview page
+)   
+```
+
+Then, to produce a message, call the `memphis.produce` function or create a producer and call its `producer.produce` function:
+
+```python
+await memphis.produce(
+    station_name="<station-name>",
+    producer_name="<producer-name>",
+    message={
+        "id": i,
+        "chocolates_to_eat": 3
+    }
+)
+```
+
+Lastly, to consume this message, call the `memphis.fetch_messages` function or create a consumer and call its `consumer.fetch` function:
+
+```python
+from memphis.message import Message
+
+messages: list[Message] = await memphis.fetch_messages(
+    station_name="<station-name>",
+    consumer_name="<consumer-name>",
+) # Type-hint the return here for LSP integration
+
+for consumed_message in messages:
+    msg_data = json.loads(consumed_message.get_data())
+    print(f"Ate {msg_data['chocolates_to_eat']} chocolates... Yum")
+
+    await consumed_message.ack()
+```
+
+> Remember to call `memphis.close()` to close the connection.
+
 ### Connecting to Memphis
 
 First, we need to create Memphis `object` and then connect with Memphis by using `memphis.connect`.

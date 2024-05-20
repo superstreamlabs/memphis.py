@@ -1,46 +1,53 @@
-from __future__ import annotations
+"""
+An example consumer for the Memphis.dev python SDK.
+"""
 
 import asyncio
-
-from memphis import Memphis, MemphisConnectError, MemphisError, MemphisHeaderError
+import json
+from memphis import Memphis
+from memphis.message import Message
 
 
 async def main():
-    async def msg_handler(msgs, error, _):
-        try:
-            for msg in msgs:
-                print("message: ", msg.get_data())
-                await msg.ack()
-            if error:
-                print(error)
-        except (MemphisError, MemphisConnectError, MemphisHeaderError) as e:
-            print(e)
-            return
-
+    """
+    Async main function used for the asyncio runtime.
+    """
     try:
+        # Connecting to the broker
         memphis = Memphis()
+
         await memphis.connect(
             host="<memphis-host>",
-            username="<application type username>",
-            connection_token="<broker-token>",
+            username="<memphis-username>",
+            password="<memphis-password>",
+            # account_id=<memphis-account-id>,  # For cloud users on, at the top of the overview page
         )
 
         consumer = await memphis.consumer(
             station_name="<station-name>",
             consumer_name="<consumer-name>",
-            consumer_group="",
         )
 
-        consumer.set_context({"key": "value"})
-        consumer.consume(msg_handler)
-        # Keep your main thread alive so the consumer will keep receiving data
-        await asyncio.Event().wait()
+        while True:
+            messages: list[
+                Message
+            ] = await consumer.fetch()  # Type-hint the return here for LSP integration
 
-    except (MemphisError, MemphisConnectError) as e:
+            if len(messages) == 0:
+                continue
+
+            for consumed_message in messages:
+                msg_data = json.loads(consumed_message.get_data())
+
+                # Do something with the message data
+                print(msg_data)
+                await consumed_message.ack()
+
+    except Exception as e:
         print(e)
-
     finally:
-        await memphis.close()
+        if memphis != None:
+            await memphis.close()
 
 
 if __name__ == "__main__":

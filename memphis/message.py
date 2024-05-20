@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import json
 
-from memphis.exceptions import MemphisConnectError, MemphisError, MemphisSchemaError
+from memphis.exceptions import (
+    MemphisConnectError,
+    MemphisError,
+    MemphisErrors,
+)
 from memphis.station import Station
 
+
 class Message:
-    def __init__(self, message, connection, cg_name, internal_station_name, partition = 0):
+    def __init__(
+        self, message, connection, cg_name, internal_station_name, partition=0
+    ):
         self.message = message
         self.connection = connection
         self.cg_name = cg_name
@@ -42,7 +49,7 @@ class Message:
         """
         nack - not ack for a message, meaning that the message will be redelivered again to the same consumers group without waiting to its ack wait time.
         """
-        if not hasattr(self.message, 'nak'):
+        if not hasattr(self.message, "nak"):
             return
         await self.message.nak()
 
@@ -52,7 +59,7 @@ class Message:
         The message will still be available to other consumer groups
         """
         try:
-            if not hasattr(self.message, 'term'):
+            if not hasattr(self.message, "term"):
                 return
             await self.message.term()
             md = self.message.metadata()
@@ -80,14 +87,18 @@ class Message:
     async def get_data_deserialized(self):
         """Receive the message."""
         try:
-            if self.connection.schema_updates_data and self.connection.schema_updates_data[self.internal_station_name] != {}:
+            if (
+                self.connection.schema_updates_data
+                and self.connection.schema_updates_data[self.internal_station_name]
+                != {}
+            ):
                 schema_type = self.connection.schema_updates_data[
                     self.internal_station_name
                 ]["type"]
                 try:
                     await self.station.validate_msg(bytearray(self.message.data))
                 except Exception as e:
-                    raise MemphisSchemaError("Deserialization has been failed since the message format does not align with the currently attached schema: " + str(e))
+                    raise MemphisErrors.schema_msg_mismatch(e)
                 if schema_type == "protobuf":
                     proto_msg = self.connection.proto_msgs[self.internal_station_name]
                     proto_msg.ParseFromString(self.message.data)
@@ -133,7 +144,7 @@ class Message:
             "$memphis_pm_id" in self.message.headers
             and "$memphis_pm_cg_name" in self.message.headers
         ):
-            raise MemphisError("cannot delay DLS message")
+            raise MemphisErrors.DLSCannotBeDelayed
         try:
             await self.message.nak(delay=delay)
         except Exception as e:
